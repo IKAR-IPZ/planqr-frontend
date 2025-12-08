@@ -1,0 +1,18 @@
+body {
+    height: 100%;
+    margin: 0;
+    background: linear-gradient(135deg, #00c344 0%, rgb(33,138,174) 69%, rgb(32,167,172) 89%); /* Фон */
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+.plan-details-main {
+    margin-top: 5%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; 
+    min-height: 90%; 
+    text-align: center;
+    width: 100%;
+    padding: 1rem;
+}

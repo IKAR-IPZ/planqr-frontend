@@ -1,0 +1,1 @@
+export const allowedLogins = ["bi55857"];
