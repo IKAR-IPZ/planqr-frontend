@@ -70,7 +70,23 @@
     VITE_SITE_URL=http://localhost:9099
     ```
 
-4.  **Uruchom aplikację**:
+4.  **Generowanie Certyfikatów (SSL)**:
+    Do poprawnego działania aplikacji wymagane są certyfikaty SSL. Wygeneruj je prosto używając narzędzia `mkcert`.
+
+    W głównym katalogu projektu wykonaj:
+    ```bash
+    # 1. Zainstaluj mkcert (jeśli nie masz) i lokalne CA
+    mkcert -install
+
+    # 2. Utwórz katalog i wygeneruj certyfikaty
+    mkdir -p certs
+    mkcert -key-file certs/cert.key -cert-file certs/cert.pem localhost 127.0.0.1 ::1
+
+    # 3. Konwersja do .pfx (dla backendu) - przy pytaniu o hasło wciśnij Enter (puste)
+    openssl pkcs12 -export -out certs/cert.pfx -inkey certs/cert.key -in certs/cert.pem
+    ```
+
+5.  **Uruchom aplikację**:
     ```bash
     npm run dev
     ```
