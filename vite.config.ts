@@ -29,6 +29,11 @@ export default defineConfig(({ mode }) => {
           secure: false,
           rewrite: (path) => path.replace(/^\/schedule_student.php/, '/schedule_student.php'),
         },
+        '/schedule.php': {
+          target: 'https://plan.zut.edu.pl',
+          changeOrigin: true,
+          secure: false,
+        },
         '/api': {
           target: siteUrl,
           changeOrigin: true,

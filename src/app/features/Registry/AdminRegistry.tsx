@@ -22,10 +22,50 @@ const AdminRegistry = () => {
     const [registerModalOpen, setRegisterModalOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
     const [formClassroom, setFormClassroom] = useState('');
+    const [roomError, setRoomError] = useState('');
 
     // Delete Confirm
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+
+    // Autocomplete State
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (formClassroom.length >= 1 && showSuggestions) {
+                searchRooms(formClassroom);
+            } else if (formClassroom.length === 0) {
+                setSuggestions([]);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [formClassroom, showSuggestions]);
+
+    const searchRooms = async (query: string) => {
+        setIsSearching(true);
+        try {
+            // Using a CORS proxy if needed, but trying direct first as requested or assuming dev proxy
+            // The user provided URL: https://plan.zut.edu.pl/schedule.php?kind=room&query=
+            // Using relative path to use Vite proxy
+            const response = await fetch(`/schedule.php?kind=room&query=${encodeURIComponent(query)}`);
+            if (response.ok) {
+                const data = await response.json();
+                // API returns [ {item: "name"}, false, false... ] or similar mixed types
+                const rooms = data
+                    .filter((item: any) => item && item.item)
+                    .map((item: any) => item.item);
+                setSuggestions(rooms);
+            }
+        } catch (error) {
+            console.error("Error searching rooms:", error);
+        } finally {
+            setIsSearching(false);
+        }
+    };
 
     const fetchDevices = async () => {
         try {
@@ -51,11 +91,32 @@ const AdminRegistry = () => {
     const openRegisterModal = (device: Device) => {
         setSelectedDevice(device);
         setFormClassroom(device.deviceClassroom || '');
+        setRoomError('');
+        setSuggestions([]);
         setRegisterModalOpen(true);
     }
 
+    const validateRoom = async (roomName: string): Promise<boolean> => {
+        try {
+            const response = await fetch(`/schedule.php?kind=room&query=${encodeURIComponent(roomName)}`);
+            if (!response.ok) return false;
+            const data = await response.json();
+            return data.some((d: any) => d && d.item === roomName);
+        } catch {
+            return false;
+        }
+    };
+
     const handleRegister = async () => {
         if (!selectedDevice || !formClassroom) return;
+
+        // Validate room existence
+        const isValid = await validateRoom(formClassroom);
+        if (!isValid) {
+            setRoomError('Wybrana sala nie została znaleziona w systemie planu.');
+            return;
+        }
+
         try {
             const response = await fetch(`${siteUrl}/api/devices/${selectedDevice.id}`, {
                 method: 'PUT',
@@ -283,14 +344,44 @@ const AdminRegistry = () => {
                         </div>
                         <div className="modal-content">
                             <label className="modal-label">Identyfikator Sali</label>
-                            <input
-                                className="modal-input"
-                                placeholder='np. WI WI1- 308'
-                                value={formClassroom}
-                                onChange={(e) => setFormClassroom(e.target.value)}
-                                autoFocus
-                            />
-                            <p className="modal-input-help">To będzie nazwa wyświetlana na tablecie.</p>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    className="modal-input"
+                                    placeholder='np. WI WI1- 308'
+                                    value={formClassroom}
+                                    onChange={(e) => {
+                                        setFormClassroom(e.target.value);
+                                        setRoomError('');
+                                        setShowSuggestions(true);
+                                    }}
+                                    autoFocus
+                                    style={roomError ? { borderColor: '#ef4444' } : {}}
+                                />
+                                {isSearching && (
+                                    <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>
+                                        <i className="fas fa-spinner fa-spin"></i>
+                                    </div>
+                                )}
+                                {showSuggestions && suggestions.length > 0 && (
+                                    <div className="suggestions-list">
+                                        {suggestions.map((room, index) => (
+                                            <div
+                                                key={index}
+                                                className="suggestion-item"
+                                                onClick={() => {
+                                                    setFormClassroom(room);
+                                                    setRoomError('');
+                                                    setShowSuggestions(false);
+                                                }}
+                                            >
+                                                {room}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {roomError && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem' }}>{roomError}</p>}
+                            <p className="modal-input-help">To będzie nazwa wyświetlana na tablecie. Wybierz z listy.</p>
                         </div>
                         <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
                             {/* Delete button only for Active devices (or pending if needed, but UI shows reject there) */}
