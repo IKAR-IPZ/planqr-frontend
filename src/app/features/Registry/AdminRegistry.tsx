@@ -10,6 +10,10 @@ interface Device {
     deviceURL: string | null;
     deviceId: string;
     status: 'PENDING' | 'ACTIVE';
+    ipAddress?: string;
+    deviceModel?: string;
+    userAgent?: string;
+    macAddress?: string;
 }
 
 const AdminRegistry = () => {
@@ -21,6 +25,7 @@ const AdminRegistry = () => {
     // Modal State
     const [registerModalOpen, setRegisterModalOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+    const [viewDevice, setViewDevice] = useState<Device | null>(null);
     const [formClassroom, setFormClassroom] = useState('');
     const [roomError, setRoomError] = useState('');
 
@@ -233,7 +238,19 @@ const AdminRegistry = () => {
                                         <div className="status-badge pending">
                                             <div className="status-dot"></div> Oczekuje na akceptację
                                         </div>
-                                        <i className="fas fa-tablet-alt" style={{ opacity: 0.5, fontSize: '1.5em' }} />
+                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <button
+                                                className="btn-info-icon"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setViewDevice(device);
+                                                }}
+                                                title="Szczegóły"
+                                            >
+                                                <i className="fas fa-info-circle"></i>
+                                            </button>
+                                            <i className="fas fa-tablet-alt" style={{ opacity: 0.5, fontSize: '1.5em' }} />
+                                        </div>
                                     </div>
                                     <h3 style={{ margin: '0 0 0.5rem 0' }}>{device.deviceId}</h3>
                                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
@@ -279,6 +296,16 @@ const AdminRegistry = () => {
                                         <div className="status-badge online">
                                             <div className="status-dot"></div> Aktywny
                                         </div>
+                                        <button
+                                            className="btn-info-icon"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setViewDevice(device);
+                                            }}
+                                            title="Szczegóły"
+                                        >
+                                            <i className="fas fa-info-circle"></i>
+                                        </button>
                                     </div>
 
                                     <div className="card-actions">
@@ -437,6 +464,88 @@ const AdminRegistry = () => {
                                     Zapisz
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* VIEW DETAILS MODAL */}
+            {viewDevice && (
+                <div className="custom-modal-overlay" onClick={() => setViewDevice(null)}>
+                    <div className="custom-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+                            <i className="fas fa-info-circle" style={{ marginRight: '10px', color: '#60a5fa' }}></i>
+                            Szczegóły Urządzenia
+                        </div>
+                        <div className="modal-content" style={{ textAlign: 'left' }}>
+
+                            <div className="detail-row">
+                                <span className="detail-label">ID Bazy Danych</span>
+                                <span className="detail-value">{viewDevice.id}</span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Nazwa Urządzenia</span>
+                                <span className="detail-value">{viewDevice.deviceName || '-'}</span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Sala (Classroom)</span>
+                                <span className="detail-value">{viewDevice.deviceClassroom || '-'}</span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Device ID (UUID)</span>
+                                <span className="detail-value code-font">{viewDevice.deviceId}</span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Model</span>
+                                <span className="detail-value">{viewDevice.deviceModel || '-'}</span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Adres IP</span>
+                                <span className="detail-value">{viewDevice.ipAddress || '-'}</span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">MAC</span>
+                                <span className="detail-value code-font">{viewDevice.macAddress || '-'}</span>
+                            </div>
+
+                            <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                <span className="detail-label">User Agent</span>
+                                <span className="detail-value" style={{ maxWidth: '100%', fontSize: '0.8rem', textAlign: 'left', color: '#64748b' }}>
+                                    {viewDevice.userAgent || '-'}
+                                </span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Status</span>
+                                <span className={`detail-value ${viewDevice.status === 'ACTIVE' ? 'text-green' : 'text-yellow'}`}>
+                                    {viewDevice.status}
+                                </span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">URL</span>
+                                <div className="detail-value" style={{ wordBreak: 'break-all', fontSize: '0.85rem' }}>
+                                    {viewDevice.deviceURL ? (
+                                        <a href={viewDevice.deviceURL} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>
+                                            {viewDevice.deviceURL}
+                                        </a>
+                                    ) : '-'}
+                                </div>
+                            </div>
+
+                        </div>
+                        <div className="modal-actions" style={{ justifyContent: 'center' }}>
+                            <button
+                                className="btn btn-primary"
+                                onClick={() => setViewDevice(null)}
+                            >
+                                Zamknij
+                            </button>
                         </div>
                     </div>
                 </div>
