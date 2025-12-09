@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
 import LogoWI from '../../assets/WI.jpg';
@@ -23,6 +23,7 @@ interface ScheduleEvent {
 
 export default function Tablet() {
   const siteUrl = window.location.origin;
+  const navigate = useNavigate();
   const { secretUrl } = useParams<{ secretUrl: string }>(); // Pobierz parametr z URL
 
   const timeGridRef = useRef<HTMLDivElement>(null);
@@ -79,8 +80,44 @@ export default function Tablet() {
     }
   }, [roomInfo.room, secretUrl]);
 
+  useEffect(() => {
+    const checkConfig = async () => {
+      const storedUuid = localStorage.getItem('tablet_uuid');
+      if (!storedUuid) return;
+
+      try {
+        const response = await fetch(`/api/registry/status/${storedUuid}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status !== 'ACTIVE') {
+            navigate('/registry');
+            return;
+          }
+
+          if (data.config && data.config.room && data.config.room !== roomInfo.room) {
+            const building = roomInfo.building || 'WI';
+            navigate(`/tablet/${building}/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
+          }
+        } else {
+          // If 404 meaning device not found
+          if (response.status === 404) {
+            navigate('/registry');
+          }
+        }
+      } catch (err) {
+        console.error("Config check failed", err);
+      }
+    };
+
+    const interval = setInterval(checkConfig, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [navigate, roomInfo]);
+
+
+
   if (isValid === false) {
-    throw new Error('Nie znaleziono urządzenia z podanym room i secretUrl.');
+    navigate('/registry');
+    return null;
   }
 
   const showSpecialDateForAll = false;

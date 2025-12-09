@@ -50,7 +50,7 @@ const AdminRegistry = () => {
 
     const openRegisterModal = (device: Device) => {
         setSelectedDevice(device);
-        setFormClassroom('');
+        setFormClassroom(device.deviceClassroom || '');
         setRegisterModalOpen(true);
     }
 
@@ -69,6 +69,7 @@ const AdminRegistry = () => {
             if (response.ok) {
                 setRegisterModalOpen(false);
                 fetchDevices();
+                setDeleteId(null); // Clear delete ID if it was set
             }
         } catch (error) {
             console.error("Error registering device", error);
@@ -84,6 +85,7 @@ const AdminRegistry = () => {
             console.error('Error deleting device:', error);
         } finally {
             setConfirmOpen(false);
+            setRegisterModalOpen(false); // Also close the modal if deleted from there
             setDeleteId(null);
         }
     };
@@ -229,10 +231,11 @@ const AdminRegistry = () => {
                                         </a>
                                         <button
                                             className="btn action-delete"
-                                            onClick={() => { setDeleteId(device.id); setConfirmOpen(true); }}
-                                            title="Usuń"
+                                            onClick={() => openRegisterModal(device)}
+                                            style={{ color: '#fbbf24', borderColor: 'rgba(251, 191, 36, 0.4)', background: 'rgba(251, 191, 36, 0.1)' }}
+                                            title="Edytuj"
                                         >
-                                            <i className="fas fa-trash-alt" style={{ margin: 0 }} />
+                                            <i className="fas fa-pen" style={{ margin: 0 }} />
                                         </button>
                                     </div>
                                 </div>
@@ -271,11 +274,13 @@ const AdminRegistry = () => {
                 </div>
             )}
 
-            {/* REGISTER MODAL */}
+            {/* REGISTER / EDIT MODAL */}
             {registerModalOpen && (
                 <div className="custom-modal-overlay">
                     <div className="custom-modal">
-                        <div className="modal-header">Parowanie Urządzenia</div>
+                        <div className="modal-header">
+                            {selectedDevice?.status === 'ACTIVE' ? 'Edycja Urządzenia' : 'Parowanie Urządzenia'}
+                        </div>
                         <div className="modal-content">
                             <label className="modal-label">Identyfikator Sali</label>
                             <input
@@ -287,21 +292,60 @@ const AdminRegistry = () => {
                             />
                             <p className="modal-input-help">To będzie nazwa wyświetlana na tablecie.</p>
                         </div>
-                        <div className="modal-actions">
-                            <button
-                                className="btn btn-ghost"
-                                onClick={() => setRegisterModalOpen(false)}
-                            >
-                                Anuluj
-                            </button>
-                            <button
-                                className="btn btn-success"
-                                onClick={handleRegister}
-                                disabled={!formClassroom.trim()}
-                                style={{ paddingLeft: '2rem', paddingRight: '2rem' }}
-                            >
-                                Zatwierdź
-                            </button>
+                        <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
+                            {/* Delete button only for Active devices (or pending if needed, but UI shows reject there) */}
+                            {selectedDevice?.status === 'ACTIVE' && (
+                                <button
+                                    className="btn btn-danger"
+                                    onClick={() => {
+                                        if (selectedDevice) {
+                                            setDeleteId(selectedDevice.id);
+                                            // Handle delete directly here or open confirm?
+                                            // User requested "Anuluj Zapisz Usuń" in the tile.
+                                            // Let's make this button trigger the delete logic.
+                                            // Since we are in a modal, maybe we don't need *another* confirm for this action if it's explicit?
+                                            // But for safety, reusing handleDelete which uses deleteId seems fine, 
+                                            // but handleDelete currently relies on confirmOpen or just calls API?
+                                            // The existing handleDelete uses deleteId. 
+                                            // Let's call handleDelete directly if we are sure, OR setConfirmOpen(true) on top of this modal?
+                                            // Setting confirmOpen might stack modals. 
+                                            // Let's just call the API directly here but we need to ensure update logic doesn't race.
+                                            // Actually, let's just use the handleDelete logic but without the confirm dialog if the user clicks "Delete" inside the edit modal?
+                                            // Or maybe we can just repurpose handleDelete to be called directly.
+                                            // To be safe, I'll invoke a direct delete.
+                                            if (window.confirm("Czy na pewno chcesz usunąć to urządzenie?")) {
+                                                setDeleteId(selectedDevice.id);
+                                                // We need to wait for state/effect? No, just call fetch.
+                                                // Refactored logic below to be cleaner.
+                                                fetch(`${siteUrl}/api/devices/${selectedDevice.id}`, { method: 'DELETE' })
+                                                    .then(() => {
+                                                        setRegisterModalOpen(false);
+                                                        fetchDevices();
+                                                    });
+                                            }
+                                        }
+                                    }}
+                                >
+                                    Usuń
+                                </button>
+                            )}
+                            {!selectedDevice || selectedDevice.status !== 'ACTIVE' ? <div /> : null}
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button
+                                    className="btn btn-ghost"
+                                    onClick={() => setRegisterModalOpen(false)}
+                                >
+                                    Anuluj
+                                </button>
+                                <button
+                                    className="btn btn-success"
+                                    onClick={handleRegister}
+                                    disabled={!formClassroom.trim()}
+                                >
+                                    Zapisz
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
