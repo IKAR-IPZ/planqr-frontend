@@ -4,7 +4,7 @@ import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
 import LogoWI from '../../assets/WI.jpg';
 import LogoZUT from '../../assets/ZUT_Logo.png';
-import {QRCodeCanvas}  from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { get } from 'http';
 
 interface ScheduleEvent {
@@ -42,12 +42,12 @@ export default function Tablet() {
 
   const params = useParams<{ department?: string; room?: string }>();
   const location = useLocation();
-  
+
   const [roomInfo, setRoomInfo] = useState({
     building: "",
     room: ""
   });
-  
+
   const [isValid, setIsValid] = useState<boolean | null>(null); // Stan do przechowywania wyniku walidacji
 
 
@@ -56,7 +56,7 @@ export default function Tablet() {
       try {
         const response = await fetch(
           `/api/devices/validate?room=${encodeURIComponent(
-            `${roomInfo.building} ${roomInfo.room}`
+            roomInfo.room
           )}&secretUrl=${encodeURIComponent(secretUrl || '')}`
         );
 
@@ -85,13 +85,13 @@ export default function Tablet() {
 
   const showSpecialDateForAll = false;
   const hasSpecialDate = showSpecialDateForAll;
-  
+
   const initialDate = hasSpecialDate
     ? new Date()
-    : new URLSearchParams(location.search).get('date') 
+    : new URLSearchParams(location.search).get('date')
       ? new Date(new URLSearchParams(location.search).get('date') || '')
       : new Date();
-  
+
   const [currentDateTime, setCurrentDateTime] = useState({
     date: initialDate.toLocaleDateString('pl-PL', {
       day: '2-digit',
@@ -117,7 +117,7 @@ export default function Tablet() {
 
   useEffect(() => {
     const updatedScrollableStates: { [key: number]: boolean } = {};
-  
+
     scheduleItems.forEach((_, index) => {
       const marqueeElement = marqueeRefs.current[index];
       if (marqueeElement) {
@@ -126,7 +126,7 @@ export default function Tablet() {
         updatedScrollableStates[index] = isOverflowing;
       }
     });
-  
+
     setScrollableStates(updatedScrollableStates);
   }, [scheduleItems]);
 
@@ -140,16 +140,16 @@ export default function Tablet() {
         });
         return;
       }
-      
+
       const pathParts = location.pathname.split('/');
-      
+
       if (pathParts.length >= 4) {
-        const departmentCode = pathParts[2]; 
+        const departmentCode = pathParts[2];
         const roomPart = decodeURIComponent(pathParts[3]);
-        
+
         const buildingMatch = roomPart.match(/^([^-\d]+)/);
         const roomMatch = roomPart.match(/[-\s]*(\d+)$/);
-        
+
         if (buildingMatch && roomMatch) {
           setRoomInfo({
             building: departmentCode,
@@ -163,10 +163,10 @@ export default function Tablet() {
         }
       }
     };
-    
+
     parseRoomInfo();
   }, [location.pathname, params]);
-  
+
   useEffect(() => {
     const intervalId = setInterval(() => {
       const now = new Date();
@@ -185,7 +185,7 @@ export default function Tablet() {
         dayNumber: now.getDate(),
       });
     }, 1000);
-  
+
     return () => clearInterval(intervalId);
   }, []);
 
@@ -195,13 +195,13 @@ export default function Tablet() {
         console.log("Informacje o sali nie są jeszcze dostępne");
         return;
       }
-  
+
       setIsLoading(true);
-  
+
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const dateParam = urlParams.get('date');
-  
+
         let targetDate;
         if (hasSpecialDate) {
           targetDate = new Date();
@@ -213,33 +213,35 @@ export default function Tablet() {
         } else {
           targetDate = new Date();
         }
-  
+
         const formattedDate = targetDate.toISOString().split('T')[0];
-  
+
         const nextDay = new Date(targetDate);
         nextDay.setDate(nextDay.getDate() + 1);
         const nextDayFormatted = nextDay.toISOString().split('T')[0];
-  
-      const url = `/api/schedule?kind=room&id=${encodeURIComponent(
-        `${roomInfo.building} ${roomInfo.room}`
-      )}&start=${formattedDate}&end=${nextDayFormatted}`;
-  
+
+        const fullId = roomInfo.room.startsWith(roomInfo.building)
+          ? roomInfo.room
+          : `${roomInfo.building} ${roomInfo.room}`;
+
+        const url = `/api/schedule?kind=room&id=${encodeURIComponent(fullId)}&start=${formattedDate}&end=${nextDayFormatted}`;
+
         console.log("Pobieranie planu zajęć z URL:", url);
-  
+
         const response = await fetch(url);
         if (!response.ok) throw new Error('Nie udało się pobrać planu zajęć');
-  
+
         const data = await response.json();
         console.log("Otrzymane dane planu:", data);
-  
+
         const targetDateString = targetDate.toDateString();
         const targetEvents = data.filter((event: any) => {
           const eventDate = new Date(event.start);
           return eventDate.toDateString() === targetDateString;
         });
-  
+
         console.log("Przefiltrowane wydarzenia na dzisiaj:", targetEvents);
-  
+
         const formattedEvents = await Promise.all(
           targetEvents.map(async (event: any) => {
             let messages = [];
@@ -250,17 +252,17 @@ export default function Tablet() {
             } catch (err) {
               console.error('Błąd podczas pobierania wiadomości dla lekcji:', event.id, err);
             }
-  
+
             const startTime = new Date(event.start).toLocaleTimeString('pl-PL', {
               hour: '2-digit',
               minute: '2-digit',
             });
-  
+
             const endTime = new Date(event.end).toLocaleTimeString('pl-PL', {
               hour: '2-digit',
               minute: '2-digit',
             });
-  
+
             return {
               id: event.id,
               startTime,
@@ -276,13 +278,13 @@ export default function Tablet() {
             } as ScheduleEvent;
           })
         );
-  
+
         console.log("Sformatowane wydarzenia:", formattedEvents);
-  
+
         const sortedEvents = formattedEvents.sort((a, b) =>
           a.startTime.localeCompare(b.startTime)
         );
-  
+
         // Ustaw godzinę początkową kalendarza na podstawie pierwszego wydarzenia
         if (sortedEvents.length > 0) {
           const firstEventStartHour = parseInt(
@@ -292,7 +294,7 @@ export default function Tablet() {
         } else {
           setCalendarStartHour(6); // Domyślna godzina początkowa
         }
-  
+
         setScheduleItems(sortedEvents);
         if (sortedEvents.length > 0) {
           setSelectedEvent(sortedEvents[0]);
@@ -306,11 +308,11 @@ export default function Tablet() {
         setIsLoading(false);
       }
     };
-  
+
     fetchSchedule();
-  
+
     const intervalId = setInterval(fetchSchedule, 15 * 60 * 1000);
-  
+
     return () => clearInterval(intervalId);
   }, [roomInfo.building, roomInfo.room, location.search, hasSpecialDate]);
 
@@ -345,7 +347,7 @@ export default function Tablet() {
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
-    
+
     // Znajdź aktualnie trwające zajęcia lub najbliższe przyszłe
     const currentEvent = scheduleItems.find(event => isEventCurrent(event));
     const upcomingEvent = scheduleItems.find(event => {
@@ -357,7 +359,7 @@ export default function Tablet() {
     });
 
     let targetHour = currentHour;
-    
+
     if (currentEvent) {
       // Jeśli są obecnie trwające zajęcia, przewiń do ich początku
       targetHour = parseInt(currentEvent.startTime.split(':')[0]);
@@ -365,11 +367,11 @@ export default function Tablet() {
       // Jeśli nie ma obecnie trwających zajęć, przewiń do najbliższych przyszłych
       targetHour = parseInt(upcomingEvent.startTime.split(':')[0]);
     }
-    
+
     // Oblicz pozycję do przewinięcia
     const slotHeight = 100;
     const scrollPosition = Math.max(0, (targetHour - calendarStartHour) * slotHeight);
-    
+
     timeGridRef.current.scrollTo({
       top: scrollPosition,
       behavior: 'smooth'
@@ -381,38 +383,38 @@ export default function Tablet() {
     if (!isLoading && !error && scheduleItems.length > 0) {
       // Przewiń po załadowaniu danych
       setTimeout(scrollToCurrentTime, 100);
-      
+
       // Ustaw interwał do przewijania co minutę
       const scrollInterval = setInterval(scrollToCurrentTime, 60000);
-      
+
       return () => clearInterval(scrollInterval);
     }
   }, [scheduleItems, calendarStartHour, isLoading, error]);
-  
+
   const getEventTime = (event: ScheduleEvent) => {
     const startHour = parseInt(event.startTime.split(':')[0]);
     const startMinute = parseInt(event.startTime.split(':')[1]);
     const endHour = parseInt(event.endTime.split(':')[0]);
     const endMinute = parseInt(event.endTime.split(':')[1]);
-  
+
     const startTimeValue = startHour + startMinute / 60;
     const endTimeValue = endHour + endMinute / 60;
-  
-    return {startTimeValue, endTimeValue};
+
+    return { startTimeValue, endTimeValue };
   }
 
   const isEventCurrent = (event: ScheduleEvent) => {
     const now = new Date();
     const currentTimeValue = now.getHours() + now.getMinutes() / 60;
-  
+
     const startHour = parseInt(event.startTime.split(':')[0]);
     const startMinute = parseInt(event.startTime.split(':')[1]);
     const endHour = parseInt(event.endTime.split(':')[0]);
     const endMinute = parseInt(event.endTime.split(':')[1]);
-  
+
     const startTimeValue = startHour + startMinute / 60;
     const endTimeValue = endHour + endMinute / 60;
-  
+
     return currentTimeValue >= startTimeValue && currentTimeValue < endTimeValue;
   };
 
@@ -431,7 +433,7 @@ export default function Tablet() {
     const slotHeight = 100;
     const topPosition = (startTime - calendarStartHour) * slotHeight;
     const height = duration * slotHeight;
-  
+
     return {
       top: `${topPosition}px`,
       height: `${height}px`,
@@ -442,12 +444,12 @@ export default function Tablet() {
     const currentTime = new Date().getHours() + new Date().getMinutes() / 60;
     return (currentTime - calendarStartHour) * 100;
   };
-  
+
   const findCurrentEvent = () => {
     const currentEvent = scheduleItems.find(event => isEventCurrent(event));
     return currentEvent;
   };
-  
+
   useEffect(() => {
     if (!isLoading && !error && scheduleItems.length > 0) {
       const currentEvent = findCurrentEvent();
@@ -469,22 +471,22 @@ export default function Tablet() {
                 <img src={LogoZUT} alt="Logo ZUT" className="university-logo" />
               </div>
             </div>
-            
-          <div className="room-info-container">
-          <div className="datetime-placeholder">
+
+            <div className="room-info-container">
+              <div className="datetime-placeholder">
                 <div className="time">
                   {currentDateTime.time}
-                  </div>
+                </div>
               </div>
-          
+
               <div className="room-number">
-                  <span>{roomInfo.room}</span>
+                <span>{roomInfo.room}</span>
               </div>
               <div className='qrcode'>
                 <QRCodeCanvas
-                value={siteUrl + `/${encodeURIComponent(roomInfo.building)}/${encodeURIComponent(roomInfo.room)}`}
-                size={100} 
-                style={{ width: '100%', height: 'auto' }}
+                  value={siteUrl + `/${encodeURIComponent(roomInfo.building)}/${encodeURIComponent(roomInfo.room)}`}
+                  size={100}
+                  style={{ width: '100%', height: 'auto' }}
                 />
               </div>
             </div>
@@ -502,7 +504,7 @@ export default function Tablet() {
                 <div className="day-name">{currentDateTime.dayName}</div>
                 <div className="day-circle">{currentDateTime.dayNumber}</div>
               </div>
-              
+
               <div className="time-grid" ref={timeGridRef}>
                 {timeSlots().map((time, index) => (
                   <div key={index} className="time-slot">
@@ -510,58 +512,58 @@ export default function Tablet() {
                     <div className="time-cell"></div>
                   </div>
                 ))}
-                
+
                 <div className="current-time-indicator" style={{ top: `${getCurrentTimePosition()}px` }}>
                   <div className="time-circle"></div>
                 </div>
-                
+
                 {scheduleItems.map((event, index) => (
-                <div
-                key={index}
-                className={`calendar-event ${isEventCurrent(event) ? 'current' : ''}`}
-                style={{
-                  ...getEventStyle(event),
-                  backgroundColor: event.color,
-                  color: '#fff',
-                }}
-                onClick={() => setSelectedEvent(event)}
-              >
-                <div className="calendar-event-left">
-                  <span>{event.startTime}<br /> - <br />{event.endTime}</span>
-                </div>
-                <div className="calendar-event-right">
-                  <div className="event-description">
-                    <div className="description-block description-block-1">
-                      <span>{event.description} ({event.form})</span>
+                  <div
+                    key={index}
+                    className={`calendar-event ${isEventCurrent(event) ? 'current' : ''}`}
+                    style={{
+                      ...getEventStyle(event),
+                      backgroundColor: event.color,
+                      color: '#fff',
+                    }}
+                    onClick={() => setSelectedEvent(event)}
+                  >
+                    <div className="calendar-event-left">
+                      <span>{event.startTime}<br /> - <br />{event.endTime}</span>
                     </div>
-                    <div className="description-block description-block-2">
-                      <span>{event.instructor}</span>
-                    </div>
-                    <div className="description-block description-block-3">
-                      <span>{event.group_name}</span>
+                    <div className="calendar-event-right">
+                      <div className="event-description">
+                        <div className="description-block description-block-1">
+                          <span>{event.description} ({event.form})</span>
+                        </div>
+                        <div className="description-block description-block-2">
+                          <span>{event.instructor}</span>
+                        </div>
+                        <div className="description-block description-block-3">
+                          <span>{event.group_name}</span>
+                        </div>
+                      </div>
+                      <div className="event-footer">
+                        {event.notifications && event.notifications.length > 0 ? (
+                          <div
+                            ref={(el) => (marqueeRefs.current[index] = el)} // Przypisz referencję dla każdego wydarzenia
+                            className={`notifications-marquee ${!scrollableStates[index] ? 'no-scroll' : ''}`}
+                          >
+                            {event.notifications.map((notification, notifIndex) => (
+                              <div key={notifIndex} className="notification-item">
+                                {notification}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="notifications-marquee no-scroll">
+                            <span>Brak powiadomień</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="event-footer">
-  {event.notifications && event.notifications.length > 0 ? (
-    <div
-      ref={(el) => (marqueeRefs.current[index] = el)} // Przypisz referencję dla każdego wydarzenia
-      className={`notifications-marquee ${!scrollableStates[index] ? 'no-scroll' : ''}`}
-    >
-      {event.notifications.map((notification, notifIndex) => (
-        <div key={notifIndex} className="notification-item">
-          {notification}
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="notifications-marquee no-scroll">
-      <span>Brak powiadomień</span>
-    </div>
-  )}
-</div>
-                </div>
-              </div>
-              ))}
+                ))}
               </div>
             </div>
           )}

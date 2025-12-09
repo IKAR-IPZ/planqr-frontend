@@ -3,8 +3,8 @@ import App from "../../App";
 import LecturerPlan from "../features/LecturerPlan";
 import PlanDetails from "../features/PlanDetails";
 import Tablet from "../layout/Tablet";
-import AdminPanel from "../admin/AdminPanel";
-
+import AdminRegistry from "../features/Registry/AdminRegistry";
+import Registry from "../features/Registry/Registry";
 
 export const routes: RouteObject[] = [
     {
@@ -14,7 +14,8 @@ export const routes: RouteObject[] = [
             { path: 'LecturerPlan/:teacher', element: <LecturerPlan /> },
             { path: ':department/:room', element: <PlanDetails /> },
             { path: 'tablet/:department/:room/:secretUrl', element: <Tablet /> },
-            { path: 'adminpanel', element: <AdminPanel /> }
+            { path: 'admin/registry', element: <AdminRegistry /> },
+            { path: 'registry', element: <Registry /> }
         ]
     }
 ]
