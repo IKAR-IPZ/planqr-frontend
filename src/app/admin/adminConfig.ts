@@ -1,1 +1,1 @@
-export const allowedLogins = ["bi55857"];
+export const allowedLogins = ["bi55857", "gr55764"];

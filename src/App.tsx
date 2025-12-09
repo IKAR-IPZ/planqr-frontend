@@ -4,7 +4,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import LoginPanel from '../src/app/layout/LoginPanel';
 import { useEffect } from 'react';
 
-const siteUrl = import.meta.env.VITE_SITE_URL;
+
 
 function App() {
   const location = useLocation();
@@ -22,7 +22,7 @@ function App() {
 
     const handleLogout = async () => {
       try {
-        const response = await fetch(siteUrl + "/api/auth/logout", {
+        const response = await fetch("/api/auth/logout", {
           method: "POST",
           credentials: "include"
         });

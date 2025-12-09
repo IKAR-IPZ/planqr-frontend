@@ -11,10 +11,10 @@ export const routes: RouteObject[] = [
         path: '/',
         element: <App />,
         children: [
-            {path: 'LecturerPlan/:teacher',element: <LecturerPlan />},
-            {path: ':department/:room',element: <PlanDetails />},
-            {path: 'tablet/:department/:room/:secretUrl',element: <Tablet />},
-            {path: 'AdminPanel',element: <AdminPanel />}
+            { path: 'LecturerPlan/:teacher', element: <LecturerPlan /> },
+            { path: ':department/:room', element: <PlanDetails /> },
+            { path: 'tablet/:department/:room/:secretUrl', element: <Tablet /> },
+            { path: 'adminpanel', element: <AdminPanel /> }
         ]
     }
 ]

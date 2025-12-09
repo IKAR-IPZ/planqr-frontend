@@ -5,8 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { allowedLogins } from './adminConfig.ts';
 
 const AdminPanel = () => {
-  const siteUrl = import.meta.env.VITE_SITE_URL;
-  
+
+
   const [login, setLogin] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Dodano stan ładowania
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ const AdminPanel = () => {
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
-        const response = await fetch(siteUrl + '/api/auth/check-login', {
+        const response = await fetch('/api/auth/check-login', {
           method: 'GET',
           credentials: 'include',
         });
@@ -22,11 +22,11 @@ const AdminPanel = () => {
           const data = await response.json();
           setLogin(data.login); // Zaktualizuj stan loginu
         } else {
-          navigate('/login'); // Przekieruj na stronę logowania, jeśli nie zalogowany
+          navigate('/'); // Przekieruj na stronę logowania, jeśli nie zalogowany
         }
       } catch (error) {
         console.error('Error checking login status:', error);
-        navigate('/login'); // Przekieruj na stronę logowania w przypadku błędu
+        navigate('/'); // Przekieruj na stronę logowania w przypadku błędu
       } finally {
         setIsLoading(false); // Ustaw zakończenie ładowania
       }
@@ -37,7 +37,7 @@ const AdminPanel = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(siteUrl + '/api/auth/logout', {
+      const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -57,8 +57,11 @@ const AdminPanel = () => {
     return <div>Ładowanie...</div>; // Wyświetl komunikat ładowania
   }
 
+  // Jeśli nie jesteśmy zalogowani (a ładowanie się zakończyło),
+  // oznacza to, że nastąpiło przekierowanie w useEffect.
+  // Nie renderujemy nic, aby uniknąć błysku zawartości lub błędów.
   if (!login) {
-    navigate('/');
+    return null;
   }
 
   if (!allowedLogins.includes(login || '')) {
