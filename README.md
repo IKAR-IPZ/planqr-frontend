@@ -110,17 +110,6 @@ Dostęp do sekcji administracyjnej jest ściśle kontrolowany. Aby nadać uprawn
 
 ---
 
-## 🤝 Kontrybucja
-
-Chcesz pomóc w rozwoju projektu? Świetnie!
-1. Zrób **Fork** repozytorium.
-2. Stwórz nową gałąź (`git checkout -b feature/NowaFunkcja`).
-3. Zatwierdź zmiany (`git commit -m 'Dodano nową funkcję'`).
-4. Wyślij zmiany (`git push origin feature/NowaFunkcja`).
-5. Otwórz **Pull Request**.
-
----
-
 <div align="center">
-  Developed with ❤️ by IKAR-IPZ Team
+  Developed with by IKAR-IPZ Team
 </div>
