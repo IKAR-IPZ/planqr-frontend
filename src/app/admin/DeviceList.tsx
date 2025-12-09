@@ -59,9 +59,17 @@ const DeviceList = () => {
                 <td>{device.deviceName}</td>
                 <td>{device.deviceClassroom}</td>
                 <td>
-                  <a href={device.deviceURL} target="_blank" rel="noopener noreferrer">
-                    {device.deviceURL}
-                  </a>
+                  {(() => {
+                    const parts = device.deviceClassroom.split(' ');
+                    const dept = parts[0] || 'Unknown';
+                    const room = parts.slice(1).join(' ') || 'Unknown';
+                    const tabletUrl = `/tablet/${dept}/${room}/${device.deviceURL}`;
+                    return (
+                      <a href={tabletUrl} target="_blank" rel="noopener noreferrer">
+                         Link
+                      </a>
+                    );
+                  })()}
                 </td>
                 <td>
                   <button onClick={() => deleteDevice(device.id)}>Usuń</button>

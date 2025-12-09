@@ -22,7 +22,7 @@ interface ScheduleEvent {
 }
 
 export default function Tablet() {
-  const siteUrl = import.meta.env.VITE_SITE_URL;
+  const siteUrl = window.location.origin;
   const { secretUrl } = useParams<{ secretUrl: string }>(); // Pobierz parametr z URL
 
   const timeGridRef = useRef<HTMLDivElement>(null);
@@ -55,8 +55,8 @@ export default function Tablet() {
     const validateRoomAndSecretUrl = async () => {
       try {
         const response = await fetch(
-          siteUrl + `/api/devices/validate?room=${encodeURIComponent(
-            roomInfo.room
+          `/api/devices/validate?room=${encodeURIComponent(
+            `${roomInfo.building} ${roomInfo.room}`
           )}&secretUrl=${encodeURIComponent(secretUrl || '')}`
         );
 
@@ -220,9 +220,9 @@ export default function Tablet() {
         nextDay.setDate(nextDay.getDate() + 1);
         const nextDayFormatted = nextDay.toISOString().split('T')[0];
   
-        const url = `/schedule_student.php?kind=apiwi&department=${encodeURIComponent(
-          roomInfo.building
-        )}&room=${encodeURIComponent(roomInfo.room)}&start=${formattedDate}&end=${nextDayFormatted}`;
+      const url = `/api/schedule?kind=room&id=${encodeURIComponent(
+        `${roomInfo.building} ${roomInfo.room}`
+      )}&start=${formattedDate}&end=${nextDayFormatted}`;
   
         console.log("Pobieranie planu zajęć z URL:", url);
   
