@@ -92,6 +92,42 @@
     ```
     Frontend będzie dostępny pod adresem: `http://localhost:5173`.
 
+### Uruchomienie z Docker (Produkcja/Full Stack)
+
+Aplikacja jest skonfigurowana do działania w kontenerze.
+
+1.  **Wymagania**: Docker, Docker Compose, mkcert.
+2.  **Certyfikaty SSL**:
+    Wygeneruj certyfikaty w głównym katalogu projektu:
+    ```bash
+    mkdir -p certs
+    mkcert -key-file certs/cert.key -cert-file certs/cert.pem localhost 127.0.0.1 ::1
+    ```
+3.  **Uruchomienie**:
+    W głównym katalogu projektu (jeden poziom wyżej):
+    ```bash
+    docker-compose up -d --build
+    ```
+
+    Frontend będzie dostępny pod adresem: `https://localhost` (HTTPS).
+    Backend API: `http://localhost:9099`.
+
+### Przykładowa konfiguracja (`docker-compose.yml`)
+
+```yaml
+services:
+  frontend:
+    build:
+      context: ./planqr-frontend
+      args:
+        - VITE_SITE_URL=https://localhost
+    network_mode: "host"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+```
+
 ---
 
 ## 🗺️ Nawigacja po Projekcie
@@ -103,7 +139,7 @@ Aplikacja podzielona jest na kilka kluczowych modułów dostępnych pod różnym
 | `/` | **Logowanie**. Punkt startowy dla wykładowców i administratorów. |
 | `/LecturerPlan/:teacher` | **Plan Wykładowcy**. Widok kalendarza dla konkretnego prowadzącego. |
 | `/:department/:room` | **Plan Sali**. Publiczny widok zajęć w danej sali (np. `/WI/WI1-100`). |
-| `/tablet/...` | **Tryb Kioskowy**. Uproszczony interfejs dla tabletów informacyjnych. |
+| `/tablet/:room/:secretUrl` | **Tryb Kioskowy**. Uproszczony interfejs dla tabletów informacyjnych. |
 | `/AdminPanel` | **Administracja**. Panel zarządzania (wymaga uprawnień). |
 
 ---
