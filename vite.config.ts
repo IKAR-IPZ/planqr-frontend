@@ -14,12 +14,16 @@ export default defineConfig(({ mode }) => {
   const siteUrl = env.VITE_SITE_URL // Np. https://planqr.wi.zut.edu.pl
 
 
+  const certKeyPath = path.resolve(__dirname, '../certs/cert.key')
+  const certPemPath = path.resolve(__dirname, '../certs/cert.pem')
+  const hasCerts = fs.existsSync(certKeyPath) && fs.existsSync(certPemPath)
+
   return {
     server: {
-      https: {
-        key: fs.readFileSync(path.resolve(__dirname, '../certs/cert.key')),
-        cert: fs.readFileSync(path.resolve(__dirname, '../certs/cert.pem')),
-      },
+      https: hasCerts ? {
+        key: fs.readFileSync(certKeyPath),
+        cert: fs.readFileSync(certPemPath),
+      } : undefined,
       port: 443,
       host: true,
       proxy: {

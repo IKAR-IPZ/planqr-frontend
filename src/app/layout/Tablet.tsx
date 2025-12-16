@@ -24,7 +24,7 @@ interface ScheduleEvent {
 export default function Tablet() {
   const siteUrl = window.location.origin;
   const navigate = useNavigate();
-  const { secretUrl } = useParams<{ secretUrl: string }>(); // Pobierz parametr z URL
+  const { secretUrl } = useParams<{ secretUrl: string }>();
 
   const timeGridRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +41,7 @@ export default function Tablet() {
     };
   }, []);
 
-  const params = useParams<{ department?: string; room?: string }>();
+  const params = useParams<{ room?: string }>();
   const location = useLocation();
 
   const [roomInfo, setRoomInfo] = useState({
@@ -95,8 +95,7 @@ export default function Tablet() {
           }
 
           if (data.config && data.config.room && data.config.room !== roomInfo.room) {
-            const building = roomInfo.building || 'WI';
-            navigate(`/tablet/${building}/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
+            navigate(`/tablet/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
           }
         } else {
           // If 404 meaning device not found
@@ -170,9 +169,9 @@ export default function Tablet() {
 
   useEffect(() => {
     const parseRoomInfo = () => {
-      if (params.department && params.room) {
+      if (params.room) {
         setRoomInfo({
-          building: decodeURIComponent(params.department),
+          building: "WI", // Default to WI as department is removed from URL but API might expect it or it can be inferred
           room: decodeURIComponent(params.room)
         });
         return;
@@ -180,26 +179,26 @@ export default function Tablet() {
 
       const pathParts = location.pathname.split('/');
 
-      if (pathParts.length >= 4) {
-        const departmentCode = pathParts[2];
-        const roomPart = decodeURIComponent(pathParts[3]);
+      if (pathParts.length >= 3) {
+        // Old structure was /tablet/DEPT/ROOM/SECRET or similar
+        // New structure is /tablet/ROOM/SECRET?
+        // Let's assume params.room covers it mostly via react-router.
+        // If we are parsing manually:
+        // path: /tablet/:room/:secretUrl
+        // pathParts: ["", "tablet", "room", "secret"]
+
+        const roomPart = decodeURIComponent(pathParts[2]);
 
         const buildingMatch = roomPart.match(/^([^-\d]+)/);
         const roomMatch = roomPart.match(/[-\s]*(\d+)$/);
 
-        if (buildingMatch && roomMatch) {
-          setRoomInfo({
-            building: departmentCode,
-            room: roomPart
-          });
-        } else {
-          setRoomInfo({
-            building: departmentCode,
-            room: roomPart
-          });
-        }
+        setRoomInfo({
+          building: "WI",
+          room: roomPart
+        });
       }
     };
+
 
     parseRoomInfo();
   }, [location.pathname, params]);
@@ -521,7 +520,7 @@ export default function Tablet() {
               </div>
               <div className='qrcode'>
                 <QRCodeCanvas
-                  value={siteUrl + `/${encodeURIComponent(roomInfo.building)}/${encodeURIComponent(roomInfo.room)}`}
+                  value={siteUrl + `/tablet/${encodeURIComponent(roomInfo.room)}/${secretUrl}`}
                   size={100}
                   style={{ width: '100%', height: 'auto' }}
                 />

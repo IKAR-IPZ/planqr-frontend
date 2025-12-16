@@ -1,7 +1,7 @@
 // const siteUrl = import.meta.env.VITE_SITE_URL;
 const API_URL = "/api/messages";
 
-export const fetchMessages = async (lessonId: number) => {
+export const fetchMessages = async (lessonId: string | number) => {
     try {
         const response = await fetch(`${API_URL}/${lessonId}`);
         if (!response.ok) throw new Error("Failed to fetch messages");

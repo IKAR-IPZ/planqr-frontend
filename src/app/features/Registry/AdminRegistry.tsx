@@ -311,7 +311,7 @@ const AdminRegistry = () => {
                                     <div className="card-actions">
                                         <a
                                             className="btn action-view"
-                                            href={`/tablet/WI/${device.deviceClassroom}/${device.deviceURL}`}
+                                            href={`/tablet/${device.deviceClassroom}/${device.deviceURL}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
