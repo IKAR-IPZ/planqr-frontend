@@ -72,7 +72,7 @@ const Registry = () => {
                 // Let's assume deviceClassroom is the Room Number. Building is... ? 
                 // In legacy, "department" and "room" were needed. 
                 // Let's use "WI" as default department for now as seen in Tablet.tsx logic
-                navigate(`/tablet/WI/${data.config.room}/${data.config.secretUrl}`);
+                navigate(`/tablet/${data.config.room}/${data.config.secretUrl}`);
             }
         };
 

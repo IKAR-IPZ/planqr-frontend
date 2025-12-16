@@ -13,8 +13,8 @@ export const routes: RouteObject[] = [
         children: [
             { path: 'LecturerPlan/:teacher', element: <LecturerPlan /> },
             { path: ':department/:room', element: <PlanDetails /> },
-            { path: 'tablet/:department/:room/:secretUrl', element: <Tablet /> },
-            { path: 'admin/registry', element: <AdminRegistry /> },
+            { path: 'tablet/:room/:secretUrl', element: <Tablet /> },
+            { path: 'adminpanel', element: <AdminRegistry /> },
             { path: 'registry', element: <Registry /> }
         ]
     }
