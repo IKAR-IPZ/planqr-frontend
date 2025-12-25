@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_SITE_URL: "${VITE_SITE_URL}"
+    network_mode: "host"
+    volumes:
+      - /home/user/planqr-secrets/certs:/etc/nginx/certs:ro
+    restart: always

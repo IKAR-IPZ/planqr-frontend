@@ -1,0 +1,22 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [ "develop", "main" ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v4
+
+      - name: Stwórz plik .env z sekretów
+        run: echo "${{ secrets.ENV_FILE }}" > .env
+
+      - name: Uruchom Docker Compose
+        run: |
+          docker compose down
+          # Docker zobaczy plik .env i podstawi zmienną VITE_SITE_URL
+          docker compose up -d --build
+          docker image prune -f
