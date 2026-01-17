@@ -520,7 +520,7 @@ export default function Tablet() {
               </div>
               <div className='qrcode'>
                 <QRCodeCanvas
-                  value={siteUrl + `/tablet/${encodeURIComponent(roomInfo.room)}/${secretUrl}`}
+                  value={siteUrl + `/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
                   size={100}
                   style={{ width: '100%', height: 'auto' }}
                 />

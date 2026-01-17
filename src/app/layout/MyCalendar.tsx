@@ -11,11 +11,15 @@ import 'tippy.js/dist/tippy.css';
 import { fetchMessages } from "../services/messageService";
 import { EventApi, EventClickArg } from '@fullcalendar/core';
 import listPlugin from '@fullcalendar/list';
+import LogoWI from '../../assets/WI.jpg';
+import LogoZUT from '../../assets/ZUT_Logo.png';
+import { checkRoomStatus, getRoomReservations, createReservation, RoomReservation } from "../services/reservationService";
 
 export default function MyCalendar() {
   const { department, room } = useParams();
   const [events, setEvents] = useState([]); 
   const [currentDates, setCurrentDates] = useState({ start: '', end: '' });
+  const [facultyInfo, setFacultyInfo] = useState<{ name: string; logo: string | null }>({ name: '', logo: null });
 
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -25,6 +29,11 @@ export default function MyCalendar() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventApi | null>(null);
+  const [currentRoomStatus, setCurrentRoomStatus] = useState<'occupied' | 'free' | 'reserved'>('free');
+  const [showReservationModal, setShowReservationModal] = useState(false);
+  const [reservationStart, setReservationStart] = useState('');
+  const [reservationEnd, setReservationEnd] = useState('');
+  const [reservations, setReservations] = useState<RoomReservation[]>([]);
 
 
   useEffect(() => {
@@ -81,8 +90,24 @@ export default function MyCalendar() {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch events');
       const data = await response.json();
+      
+      // Add reservations as events (use current reservations state)
+      const reservationEvents = (reservations || []).map((reservation) => ({
+        title: 'Rezerwacja',
+        start: reservation.startTime,
+        end: reservation.endTime,
+        color: '#f59e0b',
+        borderColor: '#f59e0b',
+        extendedProps: {
+          isReservation: true,
+          reservationId: reservation.id
+        }
+      }));
+      
+      // Combine scheduled events with reservations
+      const allEvents = [...data, ...reservationEvents];
 
-      setEvents(data.map((event: any) => ({
+      const mappedEvents = allEvents.map((event: any) => ({
         title: event.title,
         start: event.start,
         end: event.end,
@@ -107,7 +132,37 @@ export default function MyCalendar() {
           id: event.id,
           login: event.login,
         }
-      })));
+      }));
+
+
+      setEvents(mappedEvents);
+
+      // Extract faculty info from first event
+      if (mappedEvents.length > 0 && mappedEvents[0].wydzial) {
+        const wydzial = mappedEvents[0].wydzial;
+        const wydz_sk = mappedEvents[0].wydz_sk || '';
+        
+        // Map faculty codes to logos
+        let facultyLogo: string | null = null;
+        if (wydz_sk === 'WI' || wydzial?.toUpperCase().includes('INFORMATYKA') || wydzial?.toUpperCase().includes('WI')) {
+          facultyLogo = LogoWI;
+        }
+        
+        setFacultyInfo({
+          name: wydzial || department || '',
+          logo: facultyLogo
+        });
+      } else if (department) {
+        // Fallback to department param
+        let facultyLogo: string | null = null;
+        if (department.toUpperCase() === 'WI') {
+          facultyLogo = LogoWI;
+        }
+        setFacultyInfo({
+          name: department,
+          logo: facultyLogo
+        });
+      }
 
       console.log('Fetched events:', data); 
     } catch (error) {
@@ -120,22 +175,145 @@ export default function MyCalendar() {
     return new Date(dateString).toLocaleString();
   };
 
-  useEffect(() => {
-    if (currentDates.start && currentDates.end) {
-      fetchEvents(currentDates.start, currentDates.end);
+  const handleReserveRoom = async () => {
+    if (!department || !room || !reservationStart || !reservationEnd) {
+      alert('Proszę wypełnić wszystkie pola');
+      return;
     }
-    const intervalId = setInterval(() => {
+
+    try {
+      await createReservation({
+        room,
+        department,
+        startTime: reservationStart,
+        endTime: reservationEnd,
+        status: 'reserved'
+      });
+      setShowReservationModal(false);
+      setReservationStart('');
+      setReservationEnd('');
+      // Refresh reservations and events
       if (currentDates.start && currentDates.end) {
-        fetchEvents(currentDates.start, currentDates.end);
+        const updatedReservations = await getRoomReservations(room, department, currentDates.start, currentDates.end);
+        setReservations(updatedReservations);
+        // Re-fetch events to show new reservation
+        await fetchEvents(currentDates.start, currentDates.end);
       }
-    }, 15 * 60 * 1000); // 15 minutes in milliseconds
+      alert('Sala została zarezerwowana');
+    } catch (error) {
+      console.error('Error creating reservation:', error);
+      alert('Nie udało się zarezerwować sali');
+    }
+  };
+
+  const getStatusColor = (status: 'occupied' | 'free' | 'reserved') => {
+    switch (status) {
+      case 'occupied':
+        return '#ef4444'; // red
+      case 'reserved':
+        return '#f59e0b'; // orange
+      case 'free':
+        return '#10b981'; // green
+      default:
+        return '#6b7280'; // gray
+    }
+  };
+
+  const getStatusText = (status: 'occupied' | 'free' | 'reserved') => {
+    switch (status) {
+      case 'occupied':
+        return 'Zajęta';
+      case 'reserved':
+        return 'Rezerwacja';
+      case 'free':
+        return 'Wolna';
+      default:
+        return 'Nieznany';
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (currentDates.start && currentDates.end) {
+        if (department && room) {
+          const res = await getRoomReservations(room, department, currentDates.start, currentDates.end);
+          setReservations(res);
+        }
+        await fetchEvents(currentDates.start, currentDates.end);
+      }
+    };
+
+    loadData();
+    const intervalId = setInterval(loadData, 15 * 60 * 1000); // 15 minutes in milliseconds
 
     return () => clearInterval(intervalId);
   }, [department, room, currentDates]);
 
+  // Re-fetch events when reservations change
+  useEffect(() => {
+    if (currentDates.start && currentDates.end) {
+      fetchEvents(currentDates.start, currentDates.end);
+    }
+  }, [reservations]);
+
+  // Check current room status
+  useEffect(() => {
+    const updateRoomStatus = async () => {
+      if (department && room) {
+        const status = await checkRoomStatus(room, department, new Date());
+        setCurrentRoomStatus(status);
+      }
+    };
+
+    updateRoomStatus();
+    const statusInterval = setInterval(updateRoomStatus, 60000); // Update every minute
+    return () => clearInterval(statusInterval);
+  }, [department, room, events, reservations]);
+
   return (
     <>
     <div className="lecturer-calendar">
+      <div className="plan-header-info">
+        <div className="plan-header-logos">
+          <img src={LogoZUT} alt="Logo ZUT" className="plan-zut-logo" />
+          {facultyInfo.logo && (
+            <img src={facultyInfo.logo} alt={`Logo ${facultyInfo.name}`} className="plan-faculty-logo" />
+          )}
+        </div>
+        <div className="plan-header-text">
+          <h2 className="plan-faculty-name">{facultyInfo.name || department}</h2>
+          <h3 className="plan-room-number">Sala: {room}</h3>
+          <div className="plan-room-status" style={{ 
+            backgroundColor: getStatusColor(currentRoomStatus),
+            color: 'white',
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            marginTop: '0.5rem'
+          }}>
+            Status: {getStatusText(currentRoomStatus)}
+          </div>
+          {currentRoomStatus === 'free' && (
+            <button 
+              onClick={() => setShowReservationModal(true)}
+              style={{
+                marginTop: '0.5rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: 'bold'
+              }}
+            >
+              Zarezerwuj salę
+            </button>
+          )}
+        </div>
+      </div>
     <div className={`main-content ${isSidebarOpen ? 'shrink' : ''}`}>
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
@@ -211,6 +389,39 @@ export default function MyCalendar() {
               </div>
             )}
           </div>
+
+      {/* Reservation Modal */}
+      {showReservationModal && (
+        <div className="reservation-modal-overlay" onClick={() => setShowReservationModal(false)}>
+          <div className="reservation-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Rezerwacja sali {room}</h2>
+            <div className="reservation-form">
+              <label>
+                Data i godzina rozpoczęcia:
+                <input
+                  type="datetime-local"
+                  value={reservationStart}
+                  onChange={(e) => setReservationStart(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+              </label>
+              <label>
+                Data i godzina zakończenia:
+                <input
+                  type="datetime-local"
+                  value={reservationEnd}
+                  onChange={(e) => setReservationEnd(e.target.value)}
+                  min={reservationStart || new Date().toISOString().slice(0, 16)}
+                />
+              </label>
+              <div className="reservation-modal-actions">
+                <button onClick={() => setShowReservationModal(false)}>Anuluj</button>
+                <button onClick={handleReserveRoom} style={{ backgroundColor: '#10b981' }}>Zarezerwuj</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

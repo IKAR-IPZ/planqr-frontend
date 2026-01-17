@@ -4,8 +4,61 @@
     box-sizing: border-box;
 }
 
+.plan-header-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    background: white;
+    border-radius: 8px;
+    margin: 1rem auto;
+    max-width: 95%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 8%;
+}
+
+.plan-header-logos {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.plan-zut-logo {
+    height: 50px;
+    object-fit: contain;
+}
+
+.plan-faculty-logo {
+    height: 60px;
+    object-fit: contain;
+}
+
+.plan-header-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.plan-faculty-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0033cc;
+    margin: 0;
+}
+
+.plan-room-number {
+    font-size: 1.8rem;
+    font-weight: bold;
+    background: linear-gradient(135deg, #00c344 0%, rgb(33,138,174) 69%, rgb(32,167,172) 89%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
 .fc {
-    margin-top: 7%;
+    margin-top: 2%;
 }
 .fc-view-harness 
 {
@@ -362,6 +415,96 @@ button.sidebarChatButton:active {
 }
 
 
+/* Reservation Modal */
+.reservation-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.reservation-modal {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.reservation-modal h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    color: #0033cc;
+}
+
+.reservation-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.reservation-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.reservation-form input {
+    padding: 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.reservation-form input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.reservation-modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    justify-content: flex-end;
+}
+
+.reservation-modal-actions button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.reservation-modal-actions button:first-child {
+    background-color: #6b7280;
+    color: white;
+}
+
+.reservation-modal-actions button:first-child:hover {
+    background-color: #4b5563;
+}
+
+.reservation-modal-actions button:last-child {
+    background-color: #10b981;
+    color: white;
+}
+
+.reservation-modal-actions button:last-child:hover {
+    background-color: #059669;
+}
+
 @media (max-width: 600px) {
     .message-bubble {
         font-size: 14px;
@@ -401,5 +544,16 @@ button.sidebarChatButton:active {
         font-size: 1.5rem !important;
         color: rgb(68, 68, 68);
         margin-bottom: 10px; /* Dodanie marginesu dolnego */
+    }
+
+    .plan-header-info {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .plan-header-text {
+        align-items: center;
+        text-align: center;
     }
 }
