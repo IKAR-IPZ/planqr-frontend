@@ -90,7 +90,7 @@
     ```bash
     npm run dev
     ```
-    Frontend będzie dostępny pod adresem: `http://localhost:5173`.
+    Frontend będzie dostępny pod adresem: `http://localhost:3000`.
 
 ### Uruchomienie z Docker (Produkcja/Full Stack)
 
