@@ -11,7 +11,10 @@ const __dirname = dirname(__filename)
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
-  const siteUrl = env.VITE_SITE_URL // Np. https://planqr.wi.zut.edu.pl
+  let siteUrl = env.VITE_SITE_URL || 'http://localhost' // Np. https://planqr.wi.zut.edu.pl or fallback
+  if (!siteUrl.startsWith('http://') && !siteUrl.startsWith('https://')) {
+    siteUrl = 'http://' + siteUrl
+  }
 
 
   const certKeyPath = path.resolve(__dirname, '../certs/cert.key')
@@ -24,7 +27,7 @@ export default defineConfig(({ mode }) => {
         key: fs.readFileSync(certKeyPath),
         cert: fs.readFileSync(certPemPath),
       } : undefined,
-      port: 443,
+      port: mode === 'development' ? 3000 : 443,
       host: true,
       proxy: {
         '/schedule_student.php': {
