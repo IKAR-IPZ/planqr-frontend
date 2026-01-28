@@ -55,7 +55,7 @@ export default function NavBar() {
         </a>
       </Menu.Item>
       <Menu.Item className="room-name">
-        <p><strong>{room || teacher}</strong></p>
+        <p><strong>{room ? `Sala: ${room}` : teacher}</strong></p>
       </Menu.Item>
       <Menu.Menu position="right" className="navbar-menu">
         <Menu.Item>

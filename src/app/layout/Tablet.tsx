@@ -169,36 +169,29 @@ export default function Tablet() {
 
   useEffect(() => {
     const parseRoomInfo = () => {
+      let roomPart = '';
+      
       if (params.room) {
-        setRoomInfo({
-          building: "WI", // Default to WI as department is removed from URL but API might expect it or it can be inferred
-          room: decodeURIComponent(params.room)
-        });
-        return;
+        roomPart = decodeURIComponent(params.room);
+      } else {
+        const pathParts = location.pathname.split('/');
+        if (pathParts.length >= 3) {
+          roomPart = decodeURIComponent(pathParts[2]);
+        }
       }
 
-      const pathParts = location.pathname.split('/');
-
-      if (pathParts.length >= 3) {
-        // Old structure was /tablet/DEPT/ROOM/SECRET or similar
-        // New structure is /tablet/ROOM/SECRET?
-        // Let's assume params.room covers it mostly via react-router.
-        // If we are parsing manually:
-        // path: /tablet/:room/:secretUrl
-        // pathParts: ["", "tablet", "room", "secret"]
-
-        const roomPart = decodeURIComponent(pathParts[2]);
-
-        const buildingMatch = roomPart.match(/^([^-\d]+)/);
-        const roomMatch = roomPart.match(/[-\s]*(\d+)$/);
-
+      if (roomPart) {
+        // Extract building code from room name (e.g., "WI1-100" -> "WI", "WA1-100" -> "WA")
+        // Match letters at the start before numbers or dashes
+        const buildingMatch = roomPart.match(/^([A-Z]+)/);
+        const building = buildingMatch ? buildingMatch[1] : "WI"; // Default to WI if not found
+        
         setRoomInfo({
-          building: "WI",
+          building: building,
           room: roomPart
         });
       }
     };
-
 
     parseRoomInfo();
   }, [location.pathname, params]);

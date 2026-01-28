@@ -13,6 +13,8 @@ import { EventApi, EventClickArg } from '@fullcalendar/core';
 import listPlugin from '@fullcalendar/list';
 import LogoWI from '../../assets/WI.jpg';
 import LogoZUT from '../../assets/ZUT_Logo.png';
+// TODO: Add LogoWA import when available
+// import LogoWA from '../../assets/WA.jpg';
 import { checkRoomStatus, getRoomReservations, createReservation, RoomReservation } from "../services/reservationService";
 
 export default function MyCalendar() {
@@ -144,8 +146,15 @@ export default function MyCalendar() {
         
         // Map faculty codes to logos
         let facultyLogo: string | null = null;
-        if (wydz_sk === 'WI' || wydzial?.toUpperCase().includes('INFORMATYKA') || wydzial?.toUpperCase().includes('WI')) {
+        const wydz_sk_upper = wydz_sk.toUpperCase();
+        const wydzial_upper = wydzial?.toUpperCase() || '';
+        
+        if (wydz_sk_upper === 'WI' || wydzial_upper.includes('INFORMATYKA') || wydzial_upper.includes('WI')) {
           facultyLogo = LogoWI;
+        } else if (wydz_sk_upper === 'WA' || wydzial_upper.includes('ARCHITEKTURA') || wydzial_upper.includes('WA')) {
+          // TODO: Uncomment when LogoWA is available
+          // facultyLogo = LogoWA;
+          facultyLogo = null; // Placeholder until logo is added
         }
         
         setFacultyInfo({
@@ -155,8 +164,13 @@ export default function MyCalendar() {
       } else if (department) {
         // Fallback to department param
         let facultyLogo: string | null = null;
-        if (department.toUpperCase() === 'WI') {
+        const dept_upper = department.toUpperCase();
+        if (dept_upper === 'WI') {
           facultyLogo = LogoWI;
+        } else if (dept_upper === 'WA') {
+          // TODO: Uncomment when LogoWA is available
+          // facultyLogo = LogoWA;
+          facultyLogo = null; // Placeholder until logo is added
         }
         setFacultyInfo({
           name: department,
@@ -275,38 +289,42 @@ export default function MyCalendar() {
     <div className="lecturer-calendar">
       <div className="plan-header-info">
         <div className="plan-header-logos">
-          <img src={LogoZUT} alt="Logo ZUT" className="plan-zut-logo" />
-          {facultyInfo.logo && (
-            <img src={facultyInfo.logo} alt={`Logo ${facultyInfo.name}`} className="plan-faculty-logo" />
-          )}
+          <div className="plan-logo-stack">
+            <img src={LogoZUT} alt="Logo ZUT" className="plan-zut-logo" />
+            {facultyInfo.logo && (
+              <img src={facultyInfo.logo} alt={`Logo ${facultyInfo.name}`} className="plan-faculty-logo" />
+            )}
+          </div>
         </div>
         <div className="plan-header-text">
-          <h2 className="plan-faculty-name">{facultyInfo.name || department}</h2>
+          <h2 className="plan-faculty-name">Wydział: {facultyInfo.name || department}</h2>
           <h3 className="plan-room-number">Sala: {room}</h3>
           <div className="plan-room-status" style={{ 
             backgroundColor: getStatusColor(currentRoomStatus),
             color: 'white',
-            padding: '0.5rem 1rem',
+            padding: '0.6rem 1.2rem',
             borderRadius: '8px',
             fontSize: '1rem',
-            fontWeight: 'bold',
-            marginTop: '0.5rem'
+            fontWeight: '600',
+            marginTop: '0.5rem',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
           }}>
             Status: {getStatusText(currentRoomStatus)}
           </div>
           {currentRoomStatus === 'free' && (
             <button 
               onClick={() => setShowReservationModal(true)}
+              className="plan-reserve-button"
               style={{
                 marginTop: '0.5rem',
-                padding: '0.5rem 1rem',
+                padding: '0.6rem 1.2rem',
                 backgroundColor: '#3b82f6',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: 'bold'
+                fontSize: '0.95rem',
+                fontWeight: '600'
               }}
             >
               Zarezerwuj salę
@@ -322,7 +340,7 @@ export default function MyCalendar() {
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: 'timeGridWeek,dayGridMonth,timeGridDay',
+          right: 'timeGridDay,timeGridWeek,dayGridMonth',
         }}
         height="auto"
         locale={plLocale}
