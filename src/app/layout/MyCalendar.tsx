@@ -11,15 +11,13 @@ import 'tippy.js/dist/tippy.css';
 import { fetchMessages } from "../services/messageService";
 import { EventApi, EventClickArg } from '@fullcalendar/core';
 import listPlugin from '@fullcalendar/list';
-import LogoWI from '../../assets/WI.jpg';
-import LogoZUT from '../../assets/ZUT_Logo.png';
 // TODO: Add LogoWA import when available
 // import LogoWA from '../../assets/WA.jpg';
 import { checkRoomStatus, getRoomReservations, createReservation, RoomReservation } from "../services/reservationService";
 
 export default function MyCalendar() {
   const { department, room } = useParams();
-  const [events, setEvents] = useState([]); 
+  const [events, setEvents] = useState([]);
   const [currentDates, setCurrentDates] = useState({ start: '', end: '' });
   const [facultyInfo, setFacultyInfo] = useState<{ name: string; logo: string | null }>({ name: '', logo: null });
 
@@ -39,9 +37,9 @@ export default function MyCalendar() {
 
 
   useEffect(() => {
-    document.title = `Plan sali - ${room}` 
+    document.title = `Plan sali - ${room}`
   }
-  , []);
+    , []);
 
   const handleEventClick = (info: EventClickArg) => {
     const event = info.event;
@@ -87,12 +85,12 @@ export default function MyCalendar() {
 
   const fetchEvents = async (startDate: string, endDate: string) => {
     const url = `/schedule_student.php?kind=apiwi&department=${department}&room=${room}&start=${startDate}&end=${endDate}`;
-    
+
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch events');
       const data = await response.json();
-      
+
       // Add reservations as events (use current reservations state)
       const reservationEvents = (reservations || []).map((reservation) => ({
         title: 'Rezerwacja',
@@ -105,7 +103,7 @@ export default function MyCalendar() {
           reservationId: reservation.id
         }
       }));
-      
+
       // Combine scheduled events with reservations
       const allEvents = [...data, ...reservationEvents];
 
@@ -140,45 +138,12 @@ export default function MyCalendar() {
       setEvents(mappedEvents);
 
       // Extract faculty info from first event
-      if (mappedEvents.length > 0 && mappedEvents[0].wydzial) {
-        const wydzial = mappedEvents[0].wydzial;
-        const wydz_sk = mappedEvents[0].wydz_sk || '';
-        
-        // Map faculty codes to logos
-        let facultyLogo: string | null = null;
-        const wydz_sk_upper = wydz_sk.toUpperCase();
-        const wydzial_upper = wydzial?.toUpperCase() || '';
-        
-        if (wydz_sk_upper === 'WI' || wydzial_upper.includes('INFORMATYKA') || wydzial_upper.includes('WI')) {
-          facultyLogo = LogoWI;
-        } else if (wydz_sk_upper === 'WA' || wydzial_upper.includes('ARCHITEKTURA') || wydzial_upper.includes('WA')) {
-          // TODO: Uncomment when LogoWA is available
-          // facultyLogo = LogoWA;
-          facultyLogo = null; // Placeholder until logo is added
-        }
-        
-        setFacultyInfo({
-          name: wydzial || department || '',
-          logo: facultyLogo
-        });
-      } else if (department) {
-        // Fallback to department param
-        let facultyLogo: string | null = null;
-        const dept_upper = department.toUpperCase();
-        if (dept_upper === 'WI') {
-          facultyLogo = LogoWI;
-        } else if (dept_upper === 'WA') {
-          // TODO: Uncomment when LogoWA is available
-          // facultyLogo = LogoWA;
-          facultyLogo = null; // Placeholder until logo is added
-        }
-        setFacultyInfo({
-          name: department,
-          logo: facultyLogo
-        });
-      }
+      setFacultyInfo({
+        name: department || '',
+        logo: null
+      });
 
-      console.log('Fetched events:', data); 
+      console.log('Fetched events:', data);
     } catch (error) {
       console.error('Error fetching events:', error);
     }
@@ -286,160 +251,156 @@ export default function MyCalendar() {
 
   return (
     <>
-    <div className="lecturer-calendar">
-      <div className="plan-header-info">
-        <div className="plan-header-logos">
-          <div className="plan-logo-stack">
-            <img src={LogoZUT} alt="Logo ZUT" className="plan-zut-logo" />
-            {facultyInfo.logo && (
-              <img src={facultyInfo.logo} alt={`Logo ${facultyInfo.name}`} className="plan-faculty-logo" />
-            )}
-          </div>
-        </div>
-        <div className="plan-header-text">
-          <h2 className="plan-faculty-name">Wydział: {facultyInfo.name || department}</h2>
-          <h3 className="plan-room-number">Sala: {room}</h3>
-          <div className="plan-room-status" style={{ 
-            backgroundColor: getStatusColor(currentRoomStatus),
-            color: 'white',
-            padding: '0.6rem 1.2rem',
-            borderRadius: '8px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            marginTop: '0.5rem',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-          }}>
-            Status: {getStatusText(currentRoomStatus)}
-          </div>
-          {currentRoomStatus === 'free' && (
-            <button 
-              onClick={() => setShowReservationModal(true)}
-              className="plan-reserve-button"
-              style={{
-                marginTop: '0.5rem',
-                padding: '0.6rem 1.2rem',
-                backgroundColor: '#3b82f6',
+      <div className="lecturer-calendar">
+        <div className="calendar-view-container">
+          <div className="plan-header-info">
+            <div className="plan-header-text">
+              <h2 className="plan-faculty-name">Wydział: {facultyInfo.name || department}</h2>
+              <h3 className="plan-room-number">Sala: {room}</h3>
+              <div className="plan-room-status" style={{
+                backgroundColor: getStatusColor(currentRoomStatus),
                 color: 'white',
-                border: 'none',
+                padding: '0.6rem 1.2rem',
                 borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.95rem',
-                fontWeight: '600'
-              }}
-            >
-              Zarezerwuj salę
-            </button>
-          )}
-        </div>
-      </div>
-    <div className={`main-content ${isSidebarOpen ? 'shrink' : ''}`}>
-      <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-        initialView={calendarView}
-        events={events}
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'timeGridDay,timeGridWeek,dayGridMonth',
-        }}
-        height="auto"
-        locale={plLocale}
-        allDaySlot={false}
-        datesSet={(dateInfo) => {
-          setCurrentDates({
-            start: dateInfo.startStr,
-            end: dateInfo.endStr,
-          });
-        }}
-        eventDidMount={(info) => {
-          // Sprawdzenie, czy użytkownik korzysta z ekranu dotykowego
-          const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        
-          if (!isTouchDevice) {
-            const content = `${info.event.title} , prowadzący ${info.event.extendedProps.worker_title}, sala ${info.event.extendedProps.room}, grupa ${info.event.extendedProps.group_name} - ${info.event.extendedProps.lesson_status}`;
-            tippy(info.el, {
-              content: content,
-              placement: 'top',
-              trigger: 'mouseenter focus', // Wyświetlanie tylko po najechaniu myszką lub skupieniu
-              theme: 'custom-yellow',
-            });
-          }
-        }}
-        eventClick={handleEventClick}
-        slotMinTime="07:00:00"
-        slotMaxTime="22:00:00"
-        windowResize={handleWindowResize}
-        
-      />
-      </div>
-      {isSidebarOpen && (
-              <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-                <button
-                  className="sidebarCloseButton"
-                  onClick={closeSidebar}
-                >
-                  Zamknij
-                </button>
-                {selectedEvent ? (
-                  <div>
-                    <h3 className="text-xl font-bold mb-4">{selectedEvent.title}</h3>
-
-                    <p><strong>Sala:</strong> {selectedEvent.extendedProps.room}<strong>  Grupa:</strong> {selectedEvent.extendedProps.group_name}</p>
-                  </div>
-                ) : (
-                  <p>Brak szczegółów wydarzenia</p>
-                )}
-                <div className="sidebarChat">
-                  <div className="messages-container">
-                    {messages.map((msg, index) => (
-                      <div key={index} className="message-wrapper">
-                        <div className="message-header">
-                          <strong>{msg.lecturer}</strong>
-                          <span className="message-time">{msg.createdAt ? formatDate(msg.createdAt) : "Invalid Date"}</span>
-                        </div>
-                        <div className="message-bubble">
-                          <p className="message-text">{msg.body}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                fontSize: '1rem',
+                fontWeight: '600',
+                marginTop: '0.5rem',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+              }}>
+                Status: {getStatusText(currentRoomStatus)}
               </div>
-            )}
+              {currentRoomStatus === 'free' && (
+                <button
+                  onClick={() => setShowReservationModal(true)}
+                  className="plan-reserve-button"
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '0.6rem 1.2rem',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  Zarezerwuj salę
+                </button>
+              )}
+            </div>
           </div>
+          <div className={`main-content ${isSidebarOpen ? 'shrink' : ''}`}>
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+              initialView={calendarView}
+              events={events}
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: 'timeGridDay,timeGridWeek,dayGridMonth',
+              }}
+              height="auto"
+              locale={plLocale}
+              allDaySlot={false}
+              datesSet={(dateInfo) => {
+                setCurrentDates({
+                  start: dateInfo.startStr,
+                  end: dateInfo.endStr,
+                });
+              }}
+              eventDidMount={(info) => {
+                // Sprawdzenie, czy użytkownik korzysta z ekranu dotykowego
+                const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-      {/* Reservation Modal */}
-      {showReservationModal && (
-        <div className="reservation-modal-overlay" onClick={() => setShowReservationModal(false)}>
-          <div className="reservation-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Rezerwacja sali {room}</h2>
-            <div className="reservation-form">
-              <label>
-                Data i godzina rozpoczęcia:
-                <input
-                  type="datetime-local"
-                  value={reservationStart}
-                  onChange={(e) => setReservationStart(e.target.value)}
-                  min={new Date().toISOString().slice(0, 16)}
-                />
-              </label>
-              <label>
-                Data i godzina zakończenia:
-                <input
-                  type="datetime-local"
-                  value={reservationEnd}
-                  onChange={(e) => setReservationEnd(e.target.value)}
-                  min={reservationStart || new Date().toISOString().slice(0, 16)}
-                />
-              </label>
-              <div className="reservation-modal-actions">
-                <button onClick={() => setShowReservationModal(false)}>Anuluj</button>
-                <button onClick={handleReserveRoom} style={{ backgroundColor: '#10b981' }}>Zarezerwuj</button>
+                if (!isTouchDevice) {
+                  const content = `${info.event.title} , prowadzący ${info.event.extendedProps.worker_title}, sala ${info.event.extendedProps.room}, grupa ${info.event.extendedProps.group_name} - ${info.event.extendedProps.lesson_status}`;
+                  tippy(info.el, {
+                    content: content,
+                    placement: 'top',
+                    trigger: 'mouseenter focus', // Wyświetlanie tylko po najechaniu myszką lub skupieniu
+                    theme: 'custom-yellow',
+                  });
+                }
+              }}
+              eventClick={handleEventClick}
+              slotMinTime="07:00:00"
+              slotMaxTime="22:00:00"
+              windowResize={handleWindowResize}
+
+            />
+          </div>
+        </div>
+        {isSidebarOpen && (
+          <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+            <button
+              className="sidebarCloseButton"
+              onClick={closeSidebar}
+            >
+              Zamknij
+            </button>
+            {selectedEvent ? (
+              <div>
+                <h3 className="text-xl font-bold mb-4">{selectedEvent.title}</h3>
+
+                <p><strong>Sala:</strong> {selectedEvent.extendedProps.room}<strong>  Grupa:</strong> {selectedEvent.extendedProps.group_name}</p>
+              </div>
+            ) : (
+              <p>Brak szczegółów wydarzenia</p>
+            )}
+            <div className="sidebarChat">
+              <div className="messages-container">
+                {messages.map((msg, index) => (
+                  <div key={index} className="message-wrapper">
+                    <div className="message-header">
+                      <strong>{msg.lecturer}</strong>
+                      <span className="message-time">{msg.createdAt ? formatDate(msg.createdAt) : "Invalid Date"}</span>
+                    </div>
+                    <div className="message-bubble">
+                      <p className="message-text">{msg.body}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* Reservation Modal */}
+      {
+        showReservationModal && (
+          <div className="reservation-modal-overlay" onClick={() => setShowReservationModal(false)}>
+            <div className="reservation-modal" onClick={(e) => e.stopPropagation()}>
+              <h2>Rezerwacja sali {room}</h2>
+              <div className="reservation-form">
+                <label>
+                  Data i godzina rozpoczęcia:
+                  <input
+                    type="datetime-local"
+                    value={reservationStart}
+                    onChange={(e) => setReservationStart(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                </label>
+                <label>
+                  Data i godzina zakończenia:
+                  <input
+                    type="datetime-local"
+                    value={reservationEnd}
+                    onChange={(e) => setReservationEnd(e.target.value)}
+                    min={reservationStart || new Date().toISOString().slice(0, 16)}
+                  />
+                </label>
+                <div className="reservation-modal-actions">
+                  <button onClick={() => setShowReservationModal(false)}>Anuluj</button>
+                  <button onClick={handleReserveRoom} style={{ backgroundColor: '#10b981' }}>Zarezerwuj</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
     </>
   );
 }

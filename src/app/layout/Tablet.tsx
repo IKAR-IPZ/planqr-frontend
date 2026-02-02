@@ -52,72 +52,80 @@ export default function Tablet() {
   const [isValid, setIsValid] = useState<boolean | null>(null); // Stan do przechowywania wyniku walidacji
 
 
+  // ZAKOMENTOWANE: Walidacja room i secretUrl - włącz ponownie w produkcji
+  // useEffect(() => {
+  //   const validateRoomAndSecretUrl = async () => {
+  //     try {
+  //       const response = await fetch(
+  //         `/api/devices/validate?room=${encodeURIComponent(
+  //           roomInfo.room
+  //         )}&secretUrl=${encodeURIComponent(secretUrl || '')}`
+  //       );
+
+  //       if (!response.ok) {
+  //         throw new Error('Nie znaleziono urządzenia z podanym room i secretUrl.');
+  //       }
+
+  //       const data = await response.json();
+  //       console.log('Walidacja zakończona sukcesem:', data);
+  //       setIsValid(true);
+  //     } catch (err: any) {
+  //       console.error('Błąd podczas walidacji:', err.message);
+  //       setIsValid(false);
+  //       setError(err.message);
+  //     }
+  //   };
+
+  //   if (roomInfo.room && secretUrl) {
+  //     validateRoomAndSecretUrl();
+  //   }
+  // }, [roomInfo.room, secretUrl]);
+
+  // Tymczasowe obejście walidacji dla developmentu
   useEffect(() => {
-    const validateRoomAndSecretUrl = async () => {
-      try {
-        const response = await fetch(
-          `/api/devices/validate?room=${encodeURIComponent(
-            roomInfo.room
-          )}&secretUrl=${encodeURIComponent(secretUrl || '')}`
-        );
+    setIsValid(true);
+  }, []);
 
-        if (!response.ok) {
-          throw new Error('Nie znaleziono urządzenia z podanym room i secretUrl.');
-        }
+  // ZAKOMENTOWANE: Sprawdzanie konfiguracji urządzenia - włącz ponownie w produkcji
+  // useEffect(() => {
+  //   const checkConfig = async () => {
+  //     const storedUuid = localStorage.getItem('tablet_uuid');
+  //     if (!storedUuid) return;
 
-        const data = await response.json();
-        console.log('Walidacja zakończona sukcesem:', data);
-        setIsValid(true);
-      } catch (err: any) {
-        console.error('Błąd podczas walidacji:', err.message);
-        setIsValid(false);
-        setError(err.message);
-      }
-    };
+  //     try {
+  //       const response = await fetch(`/api/registry/status/${storedUuid}`);
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         if (data.status !== 'ACTIVE') {
+  //           navigate('/registry');
+  //           return;
+  //         }
 
-    if (roomInfo.room && secretUrl) {
-      validateRoomAndSecretUrl();
-    }
-  }, [roomInfo.room, secretUrl]);
+  //         if (data.config && data.config.room && data.config.room !== roomInfo.room) {
+  //           navigate(`/tablet/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
+  //         }
+  //       } else {
+  //         // If 404 meaning device not found
+  //         if (response.status === 404) {
+  //           navigate('/registry');
+  //         }
+  //       }
+  //     } catch (err) {
+  //       console.error("Config check failed", err);
+  //     }
+  //   };
 
-  useEffect(() => {
-    const checkConfig = async () => {
-      const storedUuid = localStorage.getItem('tablet_uuid');
-      if (!storedUuid) return;
-
-      try {
-        const response = await fetch(`/api/registry/status/${storedUuid}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status !== 'ACTIVE') {
-            navigate('/registry');
-            return;
-          }
-
-          if (data.config && data.config.room && data.config.room !== roomInfo.room) {
-            navigate(`/tablet/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
-          }
-        } else {
-          // If 404 meaning device not found
-          if (response.status === 404) {
-            navigate('/registry');
-          }
-        }
-      } catch (err) {
-        console.error("Config check failed", err);
-      }
-    };
-
-    const interval = setInterval(checkConfig, 10000); // Check every 10 seconds
-    return () => clearInterval(interval);
-  }, [navigate, roomInfo]);
+  //   const interval = setInterval(checkConfig, 10000); // Check every 10 seconds
+  //   return () => clearInterval(interval);
+  // }, [navigate, roomInfo]);
 
 
 
-  if (isValid === false) {
-    navigate('/registry');
-    return null;
-  }
+  // ZAKOMENTOWANE: Przekierowanie przy nieudanej walidacji - włącz ponownie w produkcji
+  // if (isValid === false) {
+  //   navigate('/registry');
+  //   return null;
+  // }
 
   const showSpecialDateForAll = false;
   const hasSpecialDate = showSpecialDateForAll;
