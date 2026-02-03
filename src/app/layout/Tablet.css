@@ -67,7 +67,7 @@ body {
        ============================================================================= */
 
 .current-class-display {
-  width: 35%;
+  width: 31%;
   height: 100%;
   background: linear-gradient(135deg, #2d4190 0%, #1e2f6b 100%);
   color: white;
@@ -158,6 +158,7 @@ body {
   border-bottom: 1px solid #dadce0;
   background-color: #fff;
   width: 100%;
+  min-height: 100px;
 }
 
 .header-logos {
@@ -182,8 +183,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 60px;
-  padding: 0 15px;
+  height: 100px;
+  padding: 15px 20px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -197,22 +198,32 @@ body {
 }
 
 .room-number {
-  font-size: 36px;
+  font-size: 52px;
   font-weight: bold;
   text-align: center;
-  width: 60%;
+  flex: 1;
   text-transform: uppercase;
 }
 
 .datetime-placeholder {
-  font-size: 30px;
+  font-size: 72px;
   font-weight: bold;
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .qrcode {
   height: auto;
-  width: 100px;
-  margin-bottom: 30px;
+  width: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  /* Dodaj padding aby QR kod miał przestrzeń */
+  overflow: visible;
+  /* Upewnij się, że zawartość nie jest obcinana */
 }
 
 /* =============================================================================
@@ -221,7 +232,7 @@ body {
 
 .calendar-panel {
   max-width: none !important;
-  width: 65% !important;
+  width: 69% !important;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -345,7 +356,7 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  border-top: 2px solid #ea4335;
+  border-top: 4px solid #ea4335;
   z-index: 10;
   pointer-events: none;
   width: 100%;
@@ -433,7 +444,8 @@ body {
   height: 100%;
   padding-bottom: 20px;
   overflow: hidden;
-  font-size: 23px;
+  font-size: 50px;
+  font-weight: 800;
 }
 
 .description-block-1 {
@@ -472,7 +484,8 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   height: 100%;
-  font-size: 20px;
+  font-size: 46px;
+  font-weight: 800;
 }
 
 

@@ -2,10 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
-import LogoWI from '../../assets/WI.jpg';
-import LogoZUT from '../../assets/ZUT_Logo.png';
 import { QRCodeCanvas } from 'qrcode.react';
-import { get } from 'http';
 
 interface ScheduleEvent {
   id: string;
@@ -247,7 +244,7 @@ export default function Tablet() {
             instructor: 'Dr Jan Kowalski',
             room: roomInfo.room,
             form: 'L',
-            group_name: 'Laboratorium A',
+            group_name: 'W32-321',
             login: 'jkowalski',
             notifications: [],
             color: '#2d4190'
@@ -260,7 +257,7 @@ export default function Tablet() {
             instructor: 'Dr Jan Kowalski',
             room: roomInfo.room,
             form: 'L',
-            group_name: 'Laboratorium B',
+            group_name: 'W32-323',
             login: 'jkowalski',
             notifications: ['Proszę przynieść laptopy'],
             color: '#28a745'
@@ -273,7 +270,7 @@ export default function Tablet() {
             instructor: 'Dr Jan Kowalski',
             room: roomInfo.room,
             form: 'L',
-            group_name: 'Laboratorium C',
+            group_name: 'W31-310',
             login: 'jkowalski',
             notifications: [],
             color: '#2d4190'
@@ -286,7 +283,20 @@ export default function Tablet() {
             instructor: 'Dr Jan Kowalski',
             room: roomInfo.room,
             form: 'L',
-            group_name: 'Laboratorium D',
+            group_name: 'W31-322',
+            login: 'jkowalski',
+            notifications: [],
+            color: '#28a745'
+          },
+          {
+            id: '5',
+            startTime: '16:15',
+            endTime: '18:00',
+            description: 'Sieci komputerowe',
+            instructor: 'Jan Kowalski',
+            room: roomInfo.room,
+            form: 'L',
+            group_name: 'W32-324',
             login: 'jkowalski',
             notifications: [],
             color: '#28a745'
@@ -622,12 +632,6 @@ export default function Tablet() {
         {/* Right Panel - Calendar */}
         <div className="calendar-panel">
           <div className="header-container">
-            <div className="header-logos">
-              <div className="university-logo-container">
-                <img src={LogoZUT} alt="Logo ZUT" className="university-logo" />
-              </div>
-            </div>
-
             <div className="room-info-container">
               <div className="datetime-placeholder">
                 <div className="time">
@@ -635,9 +639,6 @@ export default function Tablet() {
                 </div>
               </div>
 
-              <div className="room-number">
-                <span>{roomInfo.room}</span>
-              </div>
               <div className='qrcode'>
                 <QRCodeCanvas
                   value={`https://plan.zut.edu.pl/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
