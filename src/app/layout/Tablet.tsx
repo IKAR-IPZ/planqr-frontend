@@ -48,80 +48,75 @@ export default function Tablet() {
   const [isValid, setIsValid] = useState<boolean | null>(null); // Stan do przechowywania wyniku walidacji
 
 
-  // ZAKOMENTOWANE: Walidacja room i secretUrl - włącz ponownie w produkcji
-  // useEffect(() => {
-  //   const validateRoomAndSecretUrl = async () => {
-  //     try {
-  //       const response = await fetch(
-  //         `/api/devices/validate?room=${encodeURIComponent(
-  //           roomInfo.room
-  //         )}&secretUrl=${encodeURIComponent(secretUrl || '')}`
-  //       );
-
-  //       if (!response.ok) {
-  //         throw new Error('Nie znaleziono urządzenia z podanym room i secretUrl.');
-  //       }
-
-  //       const data = await response.json();
-  //       console.log('Walidacja zakończona sukcesem:', data);
-  //       setIsValid(true);
-  //     } catch (err: any) {
-  //       console.error('Błąd podczas walidacji:', err.message);
-  //       setIsValid(false);
-  //       setError(err.message);
-  //     }
-  //   };
-
-  //   if (roomInfo.room && secretUrl) {
-  //     validateRoomAndSecretUrl();
-  //   }
-  // }, [roomInfo.room, secretUrl]);
-
-  // Tymczasowe obejście walidacji dla developmentu
+  // Walidacja room i secretUrl
   useEffect(() => {
-    setIsValid(true);
-  }, []);
+    const validateRoomAndSecretUrl = async () => {
+      try {
+        const response = await fetch(
+          `/api/devices/validate?room=${encodeURIComponent(
+            roomInfo.room
+          )}&secretUrl=${encodeURIComponent(secretUrl || '')}`
+        );
 
-  // ZAKOMENTOWANE: Sprawdzanie konfiguracji urządzenia - włącz ponownie w produkcji
-  // useEffect(() => {
-  //   const checkConfig = async () => {
-  //     const storedUuid = localStorage.getItem('tablet_uuid');
-  //     if (!storedUuid) return;
+        if (!response.ok) {
+          throw new Error('Nie znaleziono urządzenia z podanym room i secretUrl.');
+        }
 
-  //     try {
-  //       const response = await fetch(`/api/registry/status/${storedUuid}`);
-  //       if (response.ok) {
-  //         const data = await response.json();
-  //         if (data.status !== 'ACTIVE') {
-  //           navigate('/registry');
-  //           return;
-  //         }
+        const data = await response.json();
+        console.log('Walidacja zakończona sukcesem:', data);
+        setIsValid(true);
+      } catch (err: any) {
+        console.error('Błąd podczas walidacji:', err.message);
+        setIsValid(false);
+        setError(err.message);
+      }
+    };
 
-  //         if (data.config && data.config.room && data.config.room !== roomInfo.room) {
-  //           navigate(`/tablet/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
-  //         }
-  //       } else {
-  //         // If 404 meaning device not found
-  //         if (response.status === 404) {
-  //           navigate('/registry');
-  //         }
-  //       }
-  //     } catch (err) {
-  //       console.error("Config check failed", err);
-  //     }
-  //   };
+    if (roomInfo.room && secretUrl) {
+      validateRoomAndSecretUrl();
+    }
+  }, [roomInfo.room, secretUrl]);
 
-  //   const interval = setInterval(checkConfig, 10000); // Check every 10 seconds
-  //   return () => clearInterval(interval);
-  // }, [navigate, roomInfo]);
+  // Sprawdzanie konfiguracji urządzenia
+  useEffect(() => {
+    const checkConfig = async () => {
+      const storedUuid = localStorage.getItem('tablet_uuid');
+      if (!storedUuid) return;
+
+      try {
+        const response = await fetch(`/api/registry/status/${storedUuid}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status !== 'ACTIVE') {
+            navigate('/registry');
+            return;
+          }
+
+          if (data.config && data.config.room && data.config.room !== roomInfo.room) {
+            navigate(`/tablet/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
+          }
+        } else {
+          // If 404 meaning device not found
+          if (response.status === 404) {
+            navigate('/registry');
+          }
+        }
+      } catch (err) {
+        console.error("Config check failed", err);
+      }
+    };
+
+    const interval = setInterval(checkConfig, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [navigate, roomInfo]);
 
 
 
-  // ZAKOMENTOWANE: Przekierowanie przy nieudanej walidacji - włącz ponownie w produkcji
-  // if (isValid === false) {
-  //   navigate('/registry');
-  //   return null;
-  // }
+  // Przekierowanie przy nieudanej walidacji
+  if (isValid === false) {
+    navigate('/registry');
+    return null;
+  }
 
   const showSpecialDateForAll = false;
   const hasSpecialDate = showSpecialDateForAll;
@@ -150,7 +145,7 @@ export default function Tablet() {
   const [scheduleItems, setScheduleItems] = useState<ScheduleEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+
   const [calendarStartHour, setCalendarStartHour] = useState(6);
   const [scrollableStates, setScrollableStates] = useState<{ [key: number]: boolean }>({});
   const marqueeRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -231,85 +226,6 @@ export default function Tablet() {
 
       setIsLoading(true);
 
-      // MOCK DATA - Remove this when backend is ready
-      const USE_MOCK_DATA = true;
-
-      if (USE_MOCK_DATA) {
-        const mockEvents: ScheduleEvent[] = [
-          {
-            id: '1',
-            startTime: '08:15',
-            endTime: '10:00',
-            description: 'Sieci komputerowe',
-            instructor: 'Dr Jan Kowalski',
-            room: roomInfo.room,
-            form: 'L',
-            group_name: 'W32-321',
-            login: 'jkowalski',
-            notifications: [],
-            color: '#2d4190'
-          },
-          {
-            id: '2',
-            startTime: '10:15',
-            endTime: '12:00',
-            description: 'Sieci komputerowe',
-            instructor: 'Dr Jan Kowalski',
-            room: roomInfo.room,
-            form: 'L',
-            group_name: 'W32-323',
-            login: 'jkowalski',
-            notifications: ['Proszę przynieść laptopy'],
-            color: '#28a745'
-          },
-          {
-            id: '3',
-            startTime: '12:15',
-            endTime: '14:00',
-            description: 'Sieci komputerowe',
-            instructor: 'Dr Jan Kowalski',
-            room: roomInfo.room,
-            form: 'L',
-            group_name: 'W31-310',
-            login: 'jkowalski',
-            notifications: [],
-            color: '#2d4190'
-          },
-          {
-            id: '4',
-            startTime: '14:15',
-            endTime: '16:00',
-            description: 'Sieci komputerowe',
-            instructor: 'Dr Jan Kowalski',
-            room: roomInfo.room,
-            form: 'L',
-            group_name: 'W31-322',
-            login: 'jkowalski',
-            notifications: [],
-            color: '#28a745'
-          },
-          {
-            id: '5',
-            startTime: '16:15',
-            endTime: '18:00',
-            description: 'Sieci komputerowe',
-            instructor: 'Jan Kowalski',
-            room: roomInfo.room,
-            form: 'L',
-            group_name: 'W32-324',
-            login: 'jkowalski',
-            notifications: [],
-            color: '#28a745'
-          }
-        ];
-
-        setScheduleItems(mockEvents);
-        setCalendarStartHour(8);
-        setIsLoading(false);
-        setError(null);
-        return;
-      }
-      // END MOCK DATA
 
       try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -409,9 +325,7 @@ export default function Tablet() {
         }
 
         setScheduleItems(sortedEvents);
-        if (sortedEvents.length > 0) {
-          setSelectedEvent(sortedEvents[0]);
-        }
+
         setIsLoading(false);
         setError(null);
       } catch (error) {
@@ -563,16 +477,7 @@ export default function Tablet() {
     return currentEvent;
   };
 
-  useEffect(() => {
-    if (!isLoading && !error && scheduleItems.length > 0) {
-      const currentEvent = findCurrentEvent();
-      if (currentEvent) {
-        setSelectedEvent(currentEvent);
-      } else {
-        setSelectedEvent(scheduleItems[0]);
-      }
-    }
-  }, [scheduleItems, isLoading, error]);
+
 
   return (
     <div className="tablet-container">
