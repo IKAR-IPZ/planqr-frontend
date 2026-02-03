@@ -22,7 +22,6 @@ interface ScheduleEvent {
 }
 
 export default function Tablet() {
-  const siteUrl = window.location.origin;
   const navigate = useNavigate();
   const { secretUrl } = useParams<{ secretUrl: string }>();
 
@@ -178,7 +177,7 @@ export default function Tablet() {
   useEffect(() => {
     const parseRoomInfo = () => {
       let roomPart = '';
-      
+
       if (params.room) {
         roomPart = decodeURIComponent(params.room);
       } else {
@@ -193,7 +192,7 @@ export default function Tablet() {
         // Match letters at the start before numbers or dashes
         const buildingMatch = roomPart.match(/^([A-Z]+)/);
         const building = buildingMatch ? buildingMatch[1] : "WI"; // Default to WI if not found
-        
+
         setRoomInfo({
           building: building,
           room: roomPart
@@ -234,6 +233,73 @@ export default function Tablet() {
       }
 
       setIsLoading(true);
+
+      // MOCK DATA - Remove this when backend is ready
+      const USE_MOCK_DATA = true;
+
+      if (USE_MOCK_DATA) {
+        const mockEvents: ScheduleEvent[] = [
+          {
+            id: '1',
+            startTime: '08:15',
+            endTime: '10:00',
+            description: 'Sieci komputerowe',
+            instructor: 'Dr Jan Kowalski',
+            room: roomInfo.room,
+            form: 'L',
+            group_name: 'Laboratorium A',
+            login: 'jkowalski',
+            notifications: [],
+            color: '#2d4190'
+          },
+          {
+            id: '2',
+            startTime: '10:15',
+            endTime: '12:00',
+            description: 'Sieci komputerowe',
+            instructor: 'Dr Jan Kowalski',
+            room: roomInfo.room,
+            form: 'L',
+            group_name: 'Laboratorium B',
+            login: 'jkowalski',
+            notifications: ['Proszę przynieść laptopy'],
+            color: '#28a745'
+          },
+          {
+            id: '3',
+            startTime: '12:15',
+            endTime: '14:00',
+            description: 'Sieci komputerowe',
+            instructor: 'Dr Jan Kowalski',
+            room: roomInfo.room,
+            form: 'L',
+            group_name: 'Laboratorium C',
+            login: 'jkowalski',
+            notifications: [],
+            color: '#2d4190'
+          },
+          {
+            id: '4',
+            startTime: '14:15',
+            endTime: '16:00',
+            description: 'Sieci komputerowe',
+            instructor: 'Dr Jan Kowalski',
+            room: roomInfo.room,
+            form: 'L',
+            group_name: 'Laboratorium D',
+            login: 'jkowalski',
+            notifications: [],
+            color: '#28a745'
+          }
+        ];
+
+        setScheduleItems(mockEvents);
+        setCalendarStartHour(8);
+        setIsLoading(false);
+        setError(null);
+        return;
+      }
+      // END MOCK DATA
 
       try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -501,6 +567,59 @@ export default function Tablet() {
   return (
     <div className="tablet-container">
       <div className="calendar-layout">
+        {/* Left Panel - Current Class Display */}
+        <div className="current-class-display">
+          {(() => {
+            const currentEvent = findCurrentEvent();
+            const nextEvent = !currentEvent ? scheduleItems.find(event => {
+              const now = new Date();
+              const eventStart = new Date();
+              const [hours, minutes] = event.startTime.split(':');
+              eventStart.setHours(parseInt(hours), parseInt(minutes), 0);
+              return eventStart > now;
+            }) : null;
+
+            const displayEvent = currentEvent || nextEvent;
+
+            if (!displayEvent) {
+              return (
+                <div className="no-current-class">
+                  <h2>Brak zajęć</h2>
+                  <p>{scheduleItems.length === 0 ? 'Dziś nie ma zaplanowanych zajęć' : 'Wszystkie zajęcia zostały zakończone'}</p>
+                </div>
+              );
+            }
+
+            return (
+              <>
+                <div className="class-status-badge">
+                  {currentEvent ? 'TRWAJĄ ZAJĘCIA' : 'NASTĘPNE ZAJĘCIA'}
+                </div>
+                <h1 className="current-class-title">{displayEvent.description}</h1>
+                <div className="current-class-details">
+                  <div className="detail-row">
+                    <span className="detail-label">Prowadzący:</span>
+                    <span className="detail-value">{displayEvent.instructor}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Godziny:</span>
+                    <span className="detail-value">{displayEvent.startTime} - {displayEvent.endTime}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Grupa:</span>
+                    <span className="detail-value">{displayEvent.group_name}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Forma:</span>
+                    <span className="detail-value">{displayEvent.form}</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Right Panel - Calendar */}
         <div className="calendar-panel">
           <div className="header-container">
             <div className="header-logos">
@@ -521,7 +640,7 @@ export default function Tablet() {
               </div>
               <div className='qrcode'>
                 <QRCodeCanvas
-                  value={siteUrl + `/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
+                  value={`https://plan.zut.edu.pl/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
                   size={100}
                   style={{ width: '100%', height: 'auto' }}
                 />
@@ -563,7 +682,6 @@ export default function Tablet() {
                       backgroundColor: event.color,
                       color: '#fff',
                     }}
-                    onClick={() => setSelectedEvent(event)}
                   >
                     <div className="calendar-event-left">
                       <span>{event.startTime}<br /> - <br />{event.endTime}</span>
@@ -583,7 +701,7 @@ export default function Tablet() {
                       <div className="event-footer">
                         {event.notifications && event.notifications.length > 0 ? (
                           <div
-                            ref={(el) => (marqueeRefs.current[index] = el)} // Przypisz referencję dla każdego wydarzenia
+                            ref={(el) => (marqueeRefs.current[index] = el)}
                             className={`notifications-marquee ${!scrollableStates[index] ? 'no-scroll' : ''}`}
                           >
                             {event.notifications.map((notification, notifIndex) => (
