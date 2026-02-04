@@ -113,7 +113,10 @@ const AdminRegistry = () => {
     };
 
     const handleRegister = async () => {
-        if (!selectedDevice || !formClassroom) return;
+        if (!selectedDevice || !formClassroom) {
+            setRoomError('Proszę wprowadzić nazwę sali');
+            return;
+        }
 
         // Validate room existence
         const isValid = await validateRoom(formClassroom);
@@ -134,21 +137,31 @@ const AdminRegistry = () => {
             });
             if (response.ok) {
                 setRegisterModalOpen(false);
+                setRoomError('');
                 fetchDevices();
                 setDeleteId(null); // Clear delete ID if it was set
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                setRoomError(errorData.message || 'Nie udało się zaktualizować urządzenia');
             }
         } catch (error) {
             console.error("Error registering device", error);
+            setRoomError('Wystąpił błąd podczas aktualizacji urządzenia');
         }
     }
 
     const handleDelete = async () => {
         if (deleteId === null) return;
         try {
-            await fetch(`${siteUrl}/api/devices/${deleteId}`, { method: 'DELETE' });
-            fetchDevices();
+            const response = await fetch(`${siteUrl}/api/devices/${deleteId}`, { method: 'DELETE' });
+            if (response.ok) {
+                fetchDevices();
+            } else {
+                alert('Nie udało się usunąć urządzenia');
+            }
         } catch (error) {
             console.error('Error deleting device:', error);
+            alert('Wystąpił błąd podczas usuwania urządzenia');
         } finally {
             setConfirmOpen(false);
             setRegisterModalOpen(false); // Also close the modal if deleted from there
@@ -222,7 +235,12 @@ const AdminRegistry = () => {
             {/* MAIN CONTENT */}
             <main className="admin-content">
                 <div className="admin-page-header">
-                    <h1 className="admin-page-title">Zarządzanie Tabletami</h1>
+                    <div>
+                        <h1 className="admin-page-title">Zarządzanie Tabletami</h1>
+                        <p style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                            Zarządzaj urządzeniami tabletowymi i przypisuj je do sal
+                        </p>
+                    </div>
                 </div>
 
                 {/* PENDING SECTION */}
@@ -311,11 +329,11 @@ const AdminRegistry = () => {
                                     <div className="card-actions">
                                         <a
                                             className="btn action-view"
-                                            href={`/tablet/${device.deviceClassroom}/${device.deviceURL}`}
+                                            href={`/${device.deviceClassroom?.split(' ')[0] || 'WI'}/${device.deviceClassroom}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
-                                            <i className="fas fa-external-link-alt" style={{ opacity: 0.8, marginRight: '0.5rem' }} /> Podgląd
+                                            <i className="fas fa-external-link-alt" style={{ opacity: 0.8, marginRight: '0.5rem' }} /> Plan sali
                                         </a>
                                         <button
                                             className="btn action-delete"

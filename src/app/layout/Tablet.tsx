@@ -2,10 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
-import LogoWI from '../../assets/WI.jpg';
-import LogoZUT from '../../assets/ZUT_Logo.png';
 import { QRCodeCanvas } from 'qrcode.react';
-import { get } from 'http';
 
 interface ScheduleEvent {
   id: string;
@@ -22,7 +19,6 @@ interface ScheduleEvent {
 }
 
 export default function Tablet() {
-  const siteUrl = window.location.origin;
   const navigate = useNavigate();
   const { secretUrl } = useParams<{ secretUrl: string }>();
 
@@ -52,6 +48,7 @@ export default function Tablet() {
   const [isValid, setIsValid] = useState<boolean | null>(null); // Stan do przechowywania wyniku walidacji
 
 
+  // Walidacja room i secretUrl
   useEffect(() => {
     const validateRoomAndSecretUrl = async () => {
       try {
@@ -80,6 +77,7 @@ export default function Tablet() {
     }
   }, [roomInfo.room, secretUrl]);
 
+  // Sprawdzanie konfiguracji urządzenia
   useEffect(() => {
     const checkConfig = async () => {
       const storedUuid = localStorage.getItem('tablet_uuid');
@@ -114,6 +112,7 @@ export default function Tablet() {
 
 
 
+  // Przekierowanie przy nieudanej walidacji
   if (isValid === false) {
     navigate('/registry');
     return null;
@@ -146,7 +145,7 @@ export default function Tablet() {
   const [scheduleItems, setScheduleItems] = useState<ScheduleEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+
   const [calendarStartHour, setCalendarStartHour] = useState(6);
   const [scrollableStates, setScrollableStates] = useState<{ [key: number]: boolean }>({});
   const marqueeRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -169,36 +168,29 @@ export default function Tablet() {
 
   useEffect(() => {
     const parseRoomInfo = () => {
+      let roomPart = '';
+
       if (params.room) {
-        setRoomInfo({
-          building: "WI", // Default to WI as department is removed from URL but API might expect it or it can be inferred
-          room: decodeURIComponent(params.room)
-        });
-        return;
+        roomPart = decodeURIComponent(params.room);
+      } else {
+        const pathParts = location.pathname.split('/');
+        if (pathParts.length >= 3) {
+          roomPart = decodeURIComponent(pathParts[2]);
+        }
       }
 
-      const pathParts = location.pathname.split('/');
-
-      if (pathParts.length >= 3) {
-        // Old structure was /tablet/DEPT/ROOM/SECRET or similar
-        // New structure is /tablet/ROOM/SECRET?
-        // Let's assume params.room covers it mostly via react-router.
-        // If we are parsing manually:
-        // path: /tablet/:room/:secretUrl
-        // pathParts: ["", "tablet", "room", "secret"]
-
-        const roomPart = decodeURIComponent(pathParts[2]);
-
-        const buildingMatch = roomPart.match(/^([^-\d]+)/);
-        const roomMatch = roomPart.match(/[-\s]*(\d+)$/);
+      if (roomPart) {
+        // Extract building code from room name (e.g., "WI1-100" -> "WI", "WA1-100" -> "WA")
+        // Match letters at the start before numbers or dashes
+        const buildingMatch = roomPart.match(/^([A-Z]+)/);
+        const building = buildingMatch ? buildingMatch[1] : "WI"; // Default to WI if not found
 
         setRoomInfo({
-          building: "WI",
+          building: building,
           room: roomPart
         });
       }
     };
-
 
     parseRoomInfo();
   }, [location.pathname, params]);
@@ -233,6 +225,7 @@ export default function Tablet() {
       }
 
       setIsLoading(true);
+
 
       try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -332,9 +325,7 @@ export default function Tablet() {
         }
 
         setScheduleItems(sortedEvents);
-        if (sortedEvents.length > 0) {
-          setSelectedEvent(sortedEvents[0]);
-        }
+
         setIsLoading(false);
         setError(null);
       } catch (error) {
@@ -486,28 +477,66 @@ export default function Tablet() {
     return currentEvent;
   };
 
-  useEffect(() => {
-    if (!isLoading && !error && scheduleItems.length > 0) {
-      const currentEvent = findCurrentEvent();
-      if (currentEvent) {
-        setSelectedEvent(currentEvent);
-      } else {
-        setSelectedEvent(scheduleItems[0]);
-      }
-    }
-  }, [scheduleItems, isLoading, error]);
+
 
   return (
     <div className="tablet-container">
       <div className="calendar-layout">
+        {/* Left Panel - Current Class Display */}
+        <div className="current-class-display">
+          {(() => {
+            const currentEvent = findCurrentEvent();
+            const nextEvent = !currentEvent ? scheduleItems.find(event => {
+              const now = new Date();
+              const eventStart = new Date();
+              const [hours, minutes] = event.startTime.split(':');
+              eventStart.setHours(parseInt(hours), parseInt(minutes), 0);
+              return eventStart > now;
+            }) : null;
+
+            const displayEvent = currentEvent || nextEvent;
+
+            if (!displayEvent) {
+              return (
+                <div className="no-current-class">
+                  <h2>Brak zajęć</h2>
+                  <p>{scheduleItems.length === 0 ? 'Dziś nie ma zaplanowanych zajęć' : 'Wszystkie zajęcia zostały zakończone'}</p>
+                </div>
+              );
+            }
+
+            return (
+              <>
+                <div className="class-status-badge">
+                  {currentEvent ? 'TRWAJĄ ZAJĘCIA' : 'NASTĘPNE ZAJĘCIA'}
+                </div>
+                <h1 className="current-class-title">{displayEvent.description}</h1>
+                <div className="current-class-details">
+                  <div className="detail-row">
+                    <span className="detail-label">Prowadzący:</span>
+                    <span className="detail-value">{displayEvent.instructor}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Godziny:</span>
+                    <span className="detail-value">{displayEvent.startTime} - {displayEvent.endTime}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Grupa:</span>
+                    <span className="detail-value">{displayEvent.group_name}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Forma:</span>
+                    <span className="detail-value">{displayEvent.form}</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Right Panel - Calendar */}
         <div className="calendar-panel">
           <div className="header-container">
-            <div className="header-logos">
-              <div className="university-logo-container">
-                <img src={LogoZUT} alt="Logo ZUT" className="university-logo" />
-              </div>
-            </div>
-
             <div className="room-info-container">
               <div className="datetime-placeholder">
                 <div className="time">
@@ -515,12 +544,9 @@ export default function Tablet() {
                 </div>
               </div>
 
-              <div className="room-number">
-                <span>{roomInfo.room}</span>
-              </div>
               <div className='qrcode'>
                 <QRCodeCanvas
-                  value={siteUrl + `/tablet/${encodeURIComponent(roomInfo.room)}/${secretUrl}`}
+                  value={`https://plan.zut.edu.pl/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
                   size={100}
                   style={{ width: '100%', height: 'auto' }}
                 />
@@ -562,7 +588,6 @@ export default function Tablet() {
                       backgroundColor: event.color,
                       color: '#fff',
                     }}
-                    onClick={() => setSelectedEvent(event)}
                   >
                     <div className="calendar-event-left">
                       <span>{event.startTime}<br /> - <br />{event.endTime}</span>
@@ -582,7 +607,7 @@ export default function Tablet() {
                       <div className="event-footer">
                         {event.notifications && event.notifications.length > 0 ? (
                           <div
-                            ref={(el) => (marqueeRefs.current[index] = el)} // Przypisz referencję dla każdego wydarzenia
+                            ref={(el) => (marqueeRefs.current[index] = el)}
                             className={`notifications-marquee ${!scrollableStates[index] ? 'no-scroll' : ''}`}
                           >
                             {event.notifications.map((notification, notifIndex) => (

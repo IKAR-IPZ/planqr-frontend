@@ -1,5 +1,4 @@
 import { Button, Menu } from 'semantic-ui-react';
-import img from '../../assets/ZUT_Logo.png';
 import './NavBar.css';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -49,14 +48,11 @@ export default function NavBar() {
 
   return (
     <Menu inverted fixed="top" className="navbar">
-      <Menu.Item className="navbar-logo">
-        <a href="/">
-          <img src={img} alt="logo" />
-        </a>
-      </Menu.Item>
-      <Menu.Item className="room-name">
-        <p><strong>{room || teacher}</strong></p>
-      </Menu.Item>
+      {teacher && (
+        <Menu.Item className="room-name">
+          <p><strong>{teacher}</strong></p>
+        </Menu.Item>
+      )}
       <Menu.Menu position="right" className="navbar-menu">
         <Menu.Item>
           {room ? null : (
