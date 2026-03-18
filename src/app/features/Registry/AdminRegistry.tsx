@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 // Removed semantic-ui-react imports
 import './Registry.css';
 
@@ -20,6 +21,8 @@ const AdminRegistry = () => {
     const [devices, setDevices] = useState<Device[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const navigate = useNavigate();
+    const location = useLocation();
 
     // Modal State
     const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -36,6 +39,13 @@ const AdminRegistry = () => {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
+
+    const redirectToLogin = () => {
+        navigate('/', {
+            replace: true,
+            state: { from: location }
+        });
+    };
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -74,7 +84,15 @@ const AdminRegistry = () => {
     const fetchDevices = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/devices');
+            const response = await fetch('/api/devices', {
+                credentials: 'include'
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                redirectToLogin();
+                return;
+            }
+
             if (response.ok) {
                 const data = await response.json();
                 setDevices(data);
@@ -128,12 +146,19 @@ const AdminRegistry = () => {
             const response = await fetch(`/api/devices/${selectedDevice.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     id: selectedDevice.id,
                     deviceName: formClassroom,
                     deviceClassroom: formClassroom
                 })
             });
+
+            if (response.status === 401 || response.status === 403) {
+                redirectToLogin();
+                return;
+            }
+
             if (response.ok) {
                 setRegisterModalOpen(false);
                 setRoomError('');
@@ -152,7 +177,16 @@ const AdminRegistry = () => {
     const handleDelete = async () => {
         if (deleteId === null) return;
         try {
-            const response = await fetch(`/api/devices/${deleteId}`, { method: 'DELETE' });
+            const response = await fetch(`/api/devices/${deleteId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                redirectToLogin();
+                return;
+            }
+
             if (response.ok) {
                 fetchDevices();
             } else {
@@ -452,7 +486,10 @@ const AdminRegistry = () => {
                                                 setDeleteId(selectedDevice.id);
                                                 // We need to wait for state/effect? No, just call fetch.
                                                 // Refactored logic below to be cleaner.
-                                                fetch(`/api/devices/${selectedDevice.id}`, { method: 'DELETE' })
+                                                fetch(`/api/devices/${selectedDevice.id}`, {
+                                                    method: 'DELETE',
+                                                    credentials: 'include'
+                                                })
                                                     .then(() => {
                                                         setRegisterModalOpen(false);
                                                         fetchDevices();

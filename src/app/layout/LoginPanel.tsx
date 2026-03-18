@@ -1,7 +1,7 @@
 import "../layout/style.css";
 import logo from "../../assets/ZUT_Logo.png";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 
 
@@ -9,6 +9,8 @@ export default function LoginPanel() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from?.pathname || '/';
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -27,7 +29,10 @@ export default function LoginPanel() {
           const { givenName, surname } = data;
           const fullName = `${surname} ${givenName}`;
           const encodedFullName = encodeURIComponent(fullName);
-          navigate(`/LecturerPlan/${encodedFullName}`);
+          navigate(
+            redirectTo !== '/' ? redirectTo : `/LecturerPlan/${encodedFullName}`,
+            { replace: true }
+          );
         }
       } catch (error) {
         console.log(error);
@@ -35,7 +40,7 @@ export default function LoginPanel() {
     };
 
     checkLoginStatus();
-  }, [navigate]);
+  }, [navigate, redirectTo]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -52,10 +57,13 @@ export default function LoginPanel() {
 
       if (response.ok) {
         const data = await response.json();
-        const { givenName, surname, title } = data;
+        const { givenName, surname } = data;
         const fullName = `${surname} ${givenName}`;
         const encodedFullName = encodeURIComponent(fullName);
-        navigate(`/LecturerPlan/${encodedFullName}`);
+        navigate(
+          redirectTo !== '/' ? redirectTo : `/LecturerPlan/${encodedFullName}`,
+          { replace: true }
+        );
       } else {
         alert("Invalid username or password");
       }
