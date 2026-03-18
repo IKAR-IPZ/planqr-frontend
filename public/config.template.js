@@ -1,0 +1,3 @@
+window.__APP_CONFIG__ = {
+  ZUT_PLAN_BASE_URL: "${ZUT_PLAN_BASE_URL}"
+};

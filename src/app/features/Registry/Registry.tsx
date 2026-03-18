@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import './Registry.css';
 
 const Registry = () => {
-    const siteUrl = import.meta.env.VITE_SITE_URL || 'http://localhost:5000';
     const navigate = useNavigate();
     const [uuid, setUuid] = useState<string>('');
     const [status, setStatus] = useState<string>('LOADING');
@@ -29,7 +28,7 @@ const Registry = () => {
 
         const performHandshake = async () => {
             try {
-                const response = await fetch(`${siteUrl}/api/registry/handshake`, {
+                const response = await fetch('/api/registry/handshake', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ deviceId: uuid })
@@ -49,7 +48,7 @@ const Registry = () => {
 
         const checkStatus = async () => {
             try {
-                const response = await fetch(`${siteUrl}/api/registry/status/${uuid}`);
+                const response = await fetch(`/api/registry/status/${uuid}`);
                 if (response.ok) {
                     const data = await response.json();
                     handleStatus(data);
@@ -80,7 +79,7 @@ const Registry = () => {
         pollInterval = setInterval(checkStatus, 5000); // Poll every 5s
 
         return () => clearInterval(pollInterval);
-    }, [uuid, navigate, siteUrl]);
+    }, [uuid, navigate]);
 
     return (
         <div className="registry-container">
@@ -117,4 +116,3 @@ const Registry = () => {
 };
 
 export default Registry;
-

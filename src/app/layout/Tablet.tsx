@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import './Tablet.css';
+import { appConfig } from '../../config/appConfig';
 import { fetchMessages } from '../services/messageService';
 import { QRCodeCanvas } from 'qrcode.react';
 
@@ -546,7 +547,7 @@ export default function Tablet() {
 
               <div className='qrcode'>
                 <QRCodeCanvas
-                  value={`https://plan.zut.edu.pl/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
+                  value={`${appConfig.zutPlanBaseUrl}/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
                   size={100}
                   style={{ width: '100%', height: 'auto' }}
                 />

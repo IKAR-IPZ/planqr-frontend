@@ -1,5 +1,3 @@
-const siteUrl = import.meta.env.VITE_SITE_URL || 'http://localhost:5000';
-
 export interface RoomReservation {
   id?: number;
   room: string;
@@ -36,7 +34,7 @@ export const checkRoomStatus = async (room: string, department: string, dateTime
     }
     
     // Check for reservations
-    const reservationResponse = await fetch(`${siteUrl}/api/reservations/check?room=${encodeURIComponent(room)}&department=${encodeURIComponent(department)}&datetime=${dateTime.toISOString()}`);
+    const reservationResponse = await fetch(`/api/reservations/check?room=${encodeURIComponent(room)}&department=${encodeURIComponent(department)}&datetime=${dateTime.toISOString()}`);
     if (reservationResponse.ok) {
       const reservation = await reservationResponse.json();
       if (reservation.exists) {
@@ -53,7 +51,7 @@ export const checkRoomStatus = async (room: string, department: string, dateTime
 
 export const createReservation = async (reservation: Omit<RoomReservation, 'id'>): Promise<RoomReservation> => {
   try {
-    const response = await fetch(`${siteUrl}/api/reservations`, {
+    const response = await fetch('/api/reservations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reservation),
@@ -73,7 +71,7 @@ export const createReservation = async (reservation: Omit<RoomReservation, 'id'>
 
 export const getRoomReservations = async (room: string, department: string, startDate: string, endDate: string): Promise<RoomReservation[]> => {
   try {
-    const response = await fetch(`${siteUrl}/api/reservations?room=${encodeURIComponent(room)}&department=${encodeURIComponent(department)}&start=${startDate}&end=${endDate}`);
+    const response = await fetch(`/api/reservations?room=${encodeURIComponent(room)}&department=${encodeURIComponent(department)}&start=${startDate}&end=${endDate}`);
     
     if (!response.ok) {
       return [];
@@ -88,7 +86,7 @@ export const getRoomReservations = async (room: string, department: string, star
 
 export const deleteReservation = async (id: number): Promise<void> => {
   try {
-    const response = await fetch(`${siteUrl}/api/reservations/${id}`, {
+    const response = await fetch(`/api/reservations/${id}`, {
       method: 'DELETE',
       credentials: 'include'
     });

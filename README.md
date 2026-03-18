@@ -64,11 +64,12 @@
     ```
 
 3.  **Skonfiguruj środowisko**:
-    Upewnij się, że plik `.env` istnieje i wskazuje na Twój backend.
-    ```ini
-    # .env
-    VITE_SITE_URL=http://localhost:9099
+    Frontend korzysta z jednego wspólnego pliku `.env` w katalogu głównym projektu.
+    ```bash
+    cd ..
+    cp .env.dev.example .env
     ```
+    Przy lokalnym `npm run dev` frontend automatycznie czyta zmienne z katalogu nadrzędnego.
 
 4.  **Generowanie Certyfikatów (SSL)**:
     Do poprawnego działania aplikacji wymagane są certyfikaty SSL. Wygeneruj je prosto używając narzędzia `mkcert`.
@@ -90,7 +91,7 @@
     ```bash
     npm run dev
     ```
-    Frontend będzie dostępny pod adresem: `http://localhost:3000`.
+    Frontend będzie dostępny pod adresem ustawionym w `FRONTEND_PUBLIC_URL`.
 
 ### Uruchomienie z Docker (Produkcja/Full Stack)
 
@@ -106,26 +107,24 @@ Aplikacja jest skonfigurowana do działania w kontenerze.
 3.  **Uruchomienie**:
     W głównym katalogu projektu (jeden poziom wyżej):
     ```bash
-    docker-compose up -d --build
+    cp .env.prod.example .env
+    docker compose up -d --build
     ```
 
-    Frontend będzie dostępny pod adresem: `https://localhost` (HTTPS).
-    Backend API: `http://localhost:9099`.
+    Frontend będzie dostępny pod adresem ustawionym w `FRONTEND_PUBLIC_URL`.
+    Backend API będzie wystawiony pod adresem z `BACKEND_PUBLIC_URL`.
 
-### Przykładowa konfiguracja (`docker-compose.yml`)
+### Najważniejsze zmienne frontendu
 
-```yaml
-services:
-  frontend:
-    build:
-      context: ./planqr-frontend
-      args:
-        - VITE_SITE_URL=https://localhost
-    network_mode: "host"
-    volumes:
-      - ./certs:/etc/nginx/certs:ro
-    depends_on:
-      - backend
+```properties
+FRONTEND_PORT=443
+FRONTEND_DEV_PORT=3000
+FRONTEND_PUBLIC_URL=https://localhost:3000
+BACKEND_PUBLIC_URL=http://localhost:9099
+BACKEND_INTERNAL_URL=http://backend:9099
+ZUT_SCHEDULE_STUDENT_URL=https://plan.zut.edu.pl/schedule_student.php
+ZUT_SCHEDULE_URL=https://plan.zut.edu.pl/schedule.php
+ZUT_PLAN_BASE_URL=https://plan.zut.edu.pl
 ```
 
 ---
