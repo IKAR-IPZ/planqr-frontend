@@ -13,16 +13,25 @@ export const fetchMessages = async (lessonId: string | number) => {
 };
 
 export const createMessage = async (message: any) => {
+    console.log("[messageService] createMessage called with:", JSON.stringify(message));
     try {
         const response = await fetch(API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(message),
         });
-        if (!response.ok) throw new Error("Failed to send message");
-        return await response.json();
+        console.log("[messageService] POST response status:", response.status, response.statusText);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("[messageService] POST failed:", response.status, errorText);
+            throw new Error(`Failed to send message: ${response.status} ${errorText}`);
+        }
+        const result = await response.json();
+        console.log("[messageService] POST success:", JSON.stringify(result));
+        return result;
     } catch (error) {
-        console.error("Error sending message:", error);
+        console.error("[messageService] Error sending message:", error);
+        throw error; // RE-THROW so the caller sees it!
     }
 };
 

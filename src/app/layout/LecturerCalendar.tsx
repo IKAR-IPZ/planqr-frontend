@@ -197,26 +197,40 @@ export default function LecturerCalendar() {
   // Chat
   const handleSendMessage = async () => {
     const lessonId = selectedEventData?.id;
-    if (lessonId && newMessage.trim() !== "") {
-      const sanitizedMessage = leoProfanity.clean(newMessage);
-      const message = {
-        body: sanitizedMessage,
-        lecturer: selectedEventData?.worker_title || activeTeacher || "Wykładowca",
-        login: actualLogin || "Unknown",
-        room: selectedEventData?.room || "Unknown",
-        lessonId: lessonId,
-        group: selectedEventData?.group_name || "Unknown",
-        createdAt: new Date(),
-      };
-      try {
-        await createMessage(message);
-        const updatedMessages = await fetchMessages(lessonId);
-        setMessages(updatedMessages);
-        setNewMessage("");
-      } catch (error: any) {
-        console.error("Error sending message", error);
-        alert('Błąd podczas wysyłania wiadomości: ' + error.message);
-      }
+    console.log("[MSG] handleSendMessage called. lessonId:", lessonId, "newMessage:", newMessage, "actualLogin:", actualLogin);
+    console.log("[MSG] selectedEventData:", JSON.stringify(selectedEventData));
+    
+    if (!lessonId) {
+      console.error("[MSG] ABORTED: No lessonId! selectedEventData:", selectedEventData);
+      return;
+    }
+    if (!newMessage.trim()) {
+      console.warn("[MSG] ABORTED: Empty message");
+      return;
+    }
+
+    const sanitizedMessage = leoProfanity.clean(newMessage);
+    const message = {
+      body: sanitizedMessage,
+      lecturer: selectedEventData?.worker_title || activeTeacher || "Wykładowca",
+      login: actualLogin || "mock_login",
+      room: selectedEventData?.room || "Unknown",
+      lessonId: lessonId,
+      group: selectedEventData?.group_name || "Unknown",
+      createdAt: new Date(),
+    };
+    console.log("[MSG] Sending message payload:", JSON.stringify(message));
+    
+    try {
+      const result = await createMessage(message);
+      console.log("[MSG] createMessage response:", JSON.stringify(result));
+      const updatedMessages = await fetchMessages(lessonId);
+      console.log("[MSG] fetchMessages returned:", updatedMessages.length, "messages");
+      setMessages(updatedMessages);
+      setNewMessage("");
+    } catch (error: any) {
+      console.error("[MSG] Error sending message:", error);
+      alert('Błąd podczas wysyłania wiadomości: ' + error.message);
     }
   };
 
