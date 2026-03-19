@@ -16,7 +16,7 @@ import { checkRoomStatus, getRoomReservations, createReservation, RoomReservatio
 
 export default function MyCalendar() {
   const { department, room } = useParams();
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [currentDates, setCurrentDates] = useState({ start: '', end: '' });
   const [facultyInfo, setFacultyInfo] = useState<{ name: string; logo: string | null }>({ name: '', logo: null });
 

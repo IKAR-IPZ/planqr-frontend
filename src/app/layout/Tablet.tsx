@@ -73,22 +73,37 @@ export default function Tablet() {
       if (!roomInfo.building || !roomInfo.room) return;
       try {
         const targetDate = new Date();
-        const formattedDate = targetDate.toISOString().split('T')[0];
-        const nextDay = new Date(targetDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const nextDayFormatted = nextDay.toISOString().split('T')[0];
+        // Request an extra day before and after to handle ZUT API date offset quirk
+        const dayBefore = new Date(targetDate);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        const dayBeforeFormatted = dayBefore.toISOString().split('T')[0];
+        const twoDaysAfter = new Date(targetDate);
+        twoDaysAfter.setDate(twoDaysAfter.getDate() + 2);
+        const twoDaysAfterFormatted = twoDaysAfter.toISOString().split('T')[0];
 
         const fullId = roomInfo.room.startsWith(roomInfo.building)
           ? roomInfo.room
           : `${roomInfo.building} ${roomInfo.room}`;
 
-        const url = `/api/schedule?kind=room&id=${encodeURIComponent(fullId)}&start=${formattedDate}&end=${nextDayFormatted}`;
+        const url = `/api/schedule?kind=room&id=${encodeURIComponent(fullId)}&start=${dayBeforeFormatted}&end=${twoDaysAfterFormatted}`;
+        console.log('[Tablet] Fetching schedule:', url);
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Nie udało się pobrać planu');
+        if (!response.ok) {
+          throw new Error('Nie udało się pobrać planu');
+        }
 
         const data = await response.json();
-        const targetDateString = targetDate.toDateString();
-        const targetEvents = data.filter((e: any) => new Date(e.start).toDateString() === targetDateString);
+        console.log('[Tablet] Raw API response:', data.length, 'events');
+
+        // Filter out invalid events (ZUT API returns empty first element) and match today's date
+        // Use local YYYY-MM-DD comparison to avoid timezone issues
+        const todayLocal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+        const targetEvents = data.filter((e: any) => {
+          if (!e.start || !e.title) return false; // Skip incomplete events
+          const eventDate = e.start.split('T')[0]; // Extract YYYY-MM-DD from ISO string
+          return eventDate === todayLocal;
+        });
+        console.log('[Tablet] Today:', todayLocal, '| Matching events:', targetEvents.length);
 
         const formattedEvents = await Promise.all(
           targetEvents.map(async (event: any) => {
@@ -113,9 +128,12 @@ export default function Tablet() {
           })
         );
 
+        console.log('[Tablet] Formatted events:', formattedEvents.length, formattedEvents);
+
         setScheduleItems(formattedEvents.sort((a, b) => a.startTime.localeCompare(b.startTime)));
         setIsLoading(false);
       } catch (error) {
+        console.error('[Tablet] fetchSchedule ERROR:', error);
         setIsLoading(false);
       }
     };
@@ -156,6 +174,24 @@ export default function Tablet() {
         });
      });
      return alertMessage;
+  }, [scheduleItems]);
+
+  // Aggregate all non-room-change messages from all today's events
+  const allMessages = useMemo(() => {
+     const msgs: { body: string; lecturer: string; createdAt: string; eventTitle: string }[] = [];
+     scheduleItems.forEach(ev => {
+        ev.notifications?.forEach(msg => {
+           if (!msg.isRoomChange) {
+              msgs.push({
+                 body: msg.body,
+                 lecturer: msg.lecturer || 'Wykładowca',
+                 createdAt: msg.createdAt || '',
+                 eventTitle: ev.description,
+              });
+           }
+        });
+     });
+     return msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [scheduleItems]);
 
   // Layout calculations for right panel
@@ -228,6 +264,29 @@ export default function Tablet() {
             )}
          </div>
 
+         {/* Messages Section */}
+         {allMessages.length > 0 && (
+            <div className="tablet-messages-section">
+               <div className="tablet-messages-header">📢 Wiadomości od wykładowcy</div>
+               <div className="tablet-messages-list">
+                  {allMessages.map((msg, i) => (
+                     <div key={i} className="tablet-message-item">
+                        <div className="tablet-message-meta">
+                           <span className="tablet-message-lecturer">{msg.lecturer}</span>
+                           <span className="tablet-message-event">• {msg.eventTitle}</span>
+                        </div>
+                        <div className="tablet-message-body">{msg.body}</div>
+                        {msg.createdAt && (
+                           <div className="tablet-message-time">
+                              {new Date(msg.createdAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                           </div>
+                        )}
+                     </div>
+                  ))}
+               </div>
+            </div>
+         )}
+
          {/* QR Code Location */}
          <div className="tablet-qr-section">
             <div className="qr-wrapper">
@@ -285,6 +344,11 @@ export default function Tablet() {
                      <div className="event-title">{ev.description} ({ev.form})</div>
                      <div className="event-time">{ev.startTime} - {ev.endTime}</div>
                      <div className="event-instructor">{ev.instructor} • {ev.group_name}</div>
+                     {ev.notifications?.filter(n => !n.isRoomChange).length > 0 && (
+                        <div className="event-message-badge">
+                           📢 {ev.notifications.filter(n => !n.isRoomChange).length}
+                        </div>
+                     )}
                   </div>
                );
             })}
