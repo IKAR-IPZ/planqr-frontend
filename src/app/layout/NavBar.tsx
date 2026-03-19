@@ -1,8 +1,9 @@
-import { NavLink, useNavigate, useParams } from 'react-router-dom';
+import { NavLink, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 export default function NavBar() {
   const { room, teacher } = useParams();
+  const location = useLocation();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
@@ -47,7 +48,7 @@ export default function NavBar() {
         <i className="fas fa-calendar-alt navbar__icon"></i>
         <div className="navbar__title">
           <span>Plan<span className="navbar__brand-accent">QR</span></span>
-          {teacher && <span className="navbar__subtitle">| {teacher}</span>}
+          {teacher && !location.pathname.startsWith('/lecturerPlan') && <span className="navbar__subtitle">| {teacher}</span>}
         </div>
       </div>
 

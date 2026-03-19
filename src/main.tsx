@@ -1,4 +1,3 @@
-import '../src/app/layout/style.css'
 import ReactDOM from 'react-dom/client'
 import './index.css'
 import React from 'react'

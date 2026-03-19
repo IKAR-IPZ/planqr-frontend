@@ -1,4 +1,3 @@
-import './App.css';
 import '../src/app/layout/LoginPanel';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import LoginPanel from '../src/app/layout/LoginPanel';

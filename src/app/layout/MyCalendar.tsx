@@ -3,7 +3,6 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
-import './MyCalendar.css';
 import plLocale from '@fullcalendar/core/locales/pl';
 import { useParams } from 'react-router-dom';
 import tippy from 'tippy.js';

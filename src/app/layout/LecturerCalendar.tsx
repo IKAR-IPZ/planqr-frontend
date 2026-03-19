@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -32,11 +32,15 @@ const MOCK_TEACHER_NAME = "Lipczyński Tomasz";
 
 export default function LecturerCalendar() {
   const navigate = useNavigate();
+  const { teacher } = useParams<{ teacher?: string }>();
+  
   const [actualLogin, setActualLogin] = useState<string | null>(null);
   const [activeTeacher, setActiveTeacher] = useState<string | null>(MOCK_TEACHER_NAME || null);
   
   const [events, setEvents] = useState<any[]>([]);
   const [currentDates, setCurrentDates] = useState({ start: '', end: '' });
+
+  console.log("[LecturerCalendar] Render - activeTeacher:", activeTeacher, "actualLogin:", actualLogin);
 
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -64,37 +68,66 @@ export default function LecturerCalendar() {
   }, []);
 
   // Init Login & Teacher
+  // ⚠️ MOCK HAS ABSOLUTE PRIORITY: if MOCK_TEACHER_NAME is set, activeTeacher is NEVER changed by login check.
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
         const response = await fetch('/api/auth/check-login', { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
+          // Always store the actual login for isOutgoing checks
           setActualLogin(data.login);
-          const fullName = `${data.surname} ${data.givenName}`;
-          if (!MOCK_TEACHER_NAME) {
+
+          // Determine which teacher to show - set ONCE, never override mock
+          if (MOCK_TEACHER_NAME) {
+            // Mock is active - DO NOT touch activeTeacher, it's already set in useState
+            console.log(`[LecturerCalendar] Mock active. Keeping: "${MOCK_TEACHER_NAME}". Logged in as: "${data.login}"`);
+          } else if (teacher) {
+            setActiveTeacher(decodeURIComponent(teacher));
+            console.log(`[LecturerCalendar] URL param teacher: "${decodeURIComponent(teacher)}"`);
+          } else {
+            const fullName = `${data.surname} ${data.givenName}`;
             setActiveTeacher(fullName);
+            console.log(`[LecturerCalendar] Using logged-in user: "${fullName}"`);
+          }
+        } else {
+          // Not logged in
+          if (MOCK_TEACHER_NAME) {
+            setActualLogin("mock_login");
+          } else if (teacher) {
+            setActiveTeacher(decodeURIComponent(teacher));
           }
         }
       } catch (error) {
         console.error("Auth check failed", error);
+        if (MOCK_TEACHER_NAME) setActualLogin("mock_login");
+        else if (teacher) setActiveTeacher(decodeURIComponent(teacher));
       }
     };
     checkLoginStatus();
-  }, []);
+  }, [teacher]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   useEffect(() => {
     if (activeTeacher) document.title = `Kokpit - ${activeTeacher}`;
   }, [activeTeacher]);
 
   const fetchEvents = async (startDate: string, endDate: string, targetTeacher: string) => {
-    if (!targetTeacher) return;
+    console.log(`[LecturerCalendar] fetchEvents Triggered! targetTeacher: "${targetTeacher}", URL param "teacher": "${teacher}"`);
+    if (!targetTeacher) {
+      console.warn("[LecturerCalendar] fetchEvents ABORTED: No targetTeacher!");
+      return;
+    }
     const url = `/api/schedule?kind=worker&id=${encodeURIComponent(targetTeacher)}&start=${startDate}&end=${endDate}`;
+    console.log("[LecturerCalendar] Fetching URL:", url);
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch events');
-      const data = await response.json();
-      
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch events');
+        const data = await response.json();
+        console.log(`[LecturerCalendar] Fetched ${data.length} events for ${targetTeacher}`);
+        if (data.length > 0) {
+            console.log("[LecturerCalendar] First event worker:", data[0].worker_title);
+        }
       setEvents(data.map((event: any) => ({
         ...event,
         id: event.id || event.lessonId, // Ensure top-level ID for FullCalendar
@@ -114,6 +147,7 @@ export default function LecturerCalendar() {
 
   // Fetching logic
   useEffect(() => {
+    console.log("[LecturerCalendar] useEffect (Fetch) triggered. activeTeacher:", activeTeacher, "dates:", currentDates);
     if (currentDates.start && currentDates.end && activeTeacher) {
       fetchEvents(currentDates.start, currentDates.end, activeTeacher);
     }
@@ -138,6 +172,7 @@ export default function LecturerCalendar() {
     setEditingRoom(false);
     
     const lessonId = event.id || event.extendedProps.id;
+    console.log("[LecturerCalendar] Event Clicked! LessonID:", lessonId, "selectedEventData:", event.extendedProps);
     if (lessonId) {
       fetchMessages(lessonId)
         .then(setMessages)
@@ -257,7 +292,10 @@ export default function LecturerCalendar() {
             height="100%"
             locale={plLocale}
             allDaySlot={false}
-            datesSet={info => setCurrentDates({ start: info.startStr, end: info.endStr })}
+            datesSet={info => setCurrentDates(prev => {
+              if (prev.start === info.startStr && prev.end === info.endStr) return prev; // no change
+              return { start: info.startStr, end: info.endStr };
+            })}
             eventClick={handleEventClick}
             slotMinTime="07:00:00"
             slotMaxTime="21:00:00"
@@ -279,7 +317,7 @@ export default function LecturerCalendar() {
           <div className="lecturer-plan__sidebar-header">
             <div>
               <div className="lecturer-plan__sidebar-title">{selectedEventData?.title}</div>
-              <div className="text-sm text-gray-500 mt-1">{selectedEventData?.worker_title || activeTeacher}</div>
+              <div className="text-sm text-gray-500 mt-1">{activeTeacher || selectedEventData?.worker_title}</div>
             </div>
             <button className="lecturer-plan__close-btn" onClick={closeSidebar}><FaTimes /></button>
           </div>
@@ -339,7 +377,7 @@ export default function LecturerCalendar() {
                       <div className="text-center text-gray-400 text-sm mt-4">Brak wiadomości</div>
                     ) : (
                       messages.map(msg => {
-                        const isOutgoing = msg.login === actualLogin;
+                        const isOutgoing = msg.login === actualLogin || (actualLogin === "mock_login" && msg.lecturer === MOCK_TEACHER_NAME);
 
                         if (msg.isRoomChange) {
                           return (
