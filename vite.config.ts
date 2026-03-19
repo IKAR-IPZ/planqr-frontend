@@ -11,7 +11,7 @@ const __dirname = dirname(__filename)
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
-  let siteUrl = env.VITE_SITE_URL || 'http://localhost' // Np. https://planqr.wi.zut.edu.pl or fallback
+  let siteUrl = env.VITE_SITE_URL || 'https://localhost:9099'
   if (!siteUrl.startsWith('http://') && !siteUrl.startsWith('https://')) {
     siteUrl = 'http://' + siteUrl
   }
