@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Registry.css';
 
 const Registry = () => {
     const siteUrl = import.meta.env.VITE_SITE_URL || 'http://localhost:5000';
@@ -83,19 +82,19 @@ const Registry = () => {
     }, [uuid, navigate, siteUrl]);
 
     return (
-        <div className="registry-container">
-            <header className="registry-header">
-                <h1 className="registry-title">Device Registration</h1>
+        <div className="registry">
+            <header className="registry__header">
+                <h1 className="registry__title">Device Registration</h1>
             </header>
 
-            <div className="registry-status-card">
+            <div className="registry__status-card">
                 {status === 'LOADING' && <div className="loading-spinner"></div>}
 
                 {status === 'PENDING' && (
                     <div style={{ textAlign: 'center' }}>
                         <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Pairing Code</h2>
-                        <div className="uuid-display">{uuid}</div>
-                        <p className="status-text pulse">Waiting for administrator approval...</p>
+                        <div className="registry__uuid-display pulse">{uuid}</div>
+                        <p className="registry__status-text pulse">Waiting for administrator approval...</p>
                         <div className="qr-placeholder">
                             {/* Could generate QR code of UUID for easier admin scanning if mobile app exists */}
                         </div>

@@ -5,14 +5,17 @@ import PlanDetails from "../features/PlanDetails";
 import Tablet from "../layout/Tablet";
 import AdminRegistry from "../features/Registry/AdminRegistry";
 import Registry from "../features/Registry/Registry";
+import AttendancePanel from "../features/AttendancePanel";
 
 export const routes: RouteObject[] = [
     {
         path: '/',
         element: <App />,
         children: [
-            { path: 'LecturerPlan/:teacher', element: <LecturerPlan /> },
-            { path: ':department/:room', element: <PlanDetails /> },
+            { path: 'lecturerPlan', element: <LecturerPlan /> },
+            { path: 'lecturerPlan/:teacher', element: <LecturerPlan /> },
+            { path: 'attendance/:lessonId', element: <AttendancePanel /> },
+            { path: 'room/:department/:room', element: <PlanDetails /> },
             { path: 'tablet/:room/:secretUrl', element: <Tablet /> },
             { path: 'adminpanel', element: <AdminRegistry /> },
             { path: 'registry', element: <Registry /> }

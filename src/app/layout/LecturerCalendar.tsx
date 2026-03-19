@@ -1,139 +1,186 @@
+import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import listPlugin from '@fullcalendar/list'; // Import list plugin
+import listPlugin from '@fullcalendar/list';
 import plLocale from '@fullcalendar/core/locales/pl';
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
-import { EventApi, EventClickArg } from '@fullcalendar/core';
+import { EventClickArg } from '@fullcalendar/core';
 import { fetchMessages, createMessage, deleteMessage } from "../services/messageService";
-import { FaTrashAlt } from "react-icons/fa";
+import { FaPaperPlane, FaTimes, FaTrash } from "react-icons/fa";
 import * as leoProfanity from "leo-profanity";
 import polishBadWords from "../../assets/badWords";
 
 leoProfanity.loadDictionary("en");
 leoProfanity.add(polishBadWords);
 
-
+// =====================================================================
+// 🛠️ MOCK / TRYB TESTOWY (TYLKO DLA DEWELOPERA) 🛠️
+// =====================================================================
+// Aby podejrzeć plan konkretnego dydaktyka, wpisz jego Imię i Nazwisko poniżej.
+// Na przykład: "Śliwiński Grzegorz" lub "Nowak Anna".
+// 
+// Jeśli zostawisz pusty tekst "", aplikacja zadziała standardowo i pobierze
+// plan zalogowanego obecnie użytkownika.
+// PAMIĘTAJ ABY ZOSTAWIĆ PUSTE PRZED WRZUCENIEM NA PRODUKCJĘ!
+// =====================================================================
+const MOCK_TEACHER_NAME = "Lipczyński Tomasz";
+// =====================================================================
 
 export default function LecturerCalendar() {
-  useEffect(() => {
-    document.title = `Plan wykładowcy - ${teacher}`;
-    leoProfanity.loadDictionary("en");
-    leoProfanity.add(polishBadWords);
-  }
-    , []);
-
-  const { teacher } = useParams();
-  const [events, setEvents] = useState([]);
+  const navigate = useNavigate();
+  const [actualLogin, setActualLogin] = useState<string | null>(null);
+  const [activeTeacher, setActiveTeacher] = useState<string | null>(MOCK_TEACHER_NAME || null);
+  
+  const [events, setEvents] = useState<any[]>([]);
   const [currentDates, setCurrentDates] = useState({ start: '', end: '' });
 
+  // Sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedEventData, setSelectedEventData] = useState<any | null>(null);
+
+  // Messages state
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
-  const [login, setLogin] = useState<string | null>(null);
-  const [lessonLogin, setLessonLogin] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const fetchEvents = async (startDate: string, endDate: string) => {
-    const url = `/api/schedule?kind=worker&id=${teacher}&start=${startDate}&end=${endDate}`;
+  // Room Edit
+  const [editingRoom, setEditingRoom] = useState(false);
+  const [editedRoom, setEditedRoom] = useState("");
 
+  // Calendar View
+  const [calendarView, setCalendarView] = useState(window.innerWidth < 1024 ? 'listWeek' : 'timeGridWeek');
+
+  const handleWindowResize = () => {
+    setCalendarView(window.innerWidth < 1024 ? 'listWeek' : 'timeGridWeek');
+  };
+
+  useEffect(() => {
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, []);
+
+  // Init Login & Teacher
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      try {
+        const response = await fetch('/api/auth/check-login', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          setActualLogin(data.login);
+          const fullName = `${data.surname} ${data.givenName}`;
+          if (!MOCK_TEACHER_NAME) {
+            setActiveTeacher(fullName);
+          }
+        }
+      } catch (error) {
+        console.error("Auth check failed", error);
+      }
+    };
+    checkLoginStatus();
+  }, []);
+
+  useEffect(() => {
+    if (activeTeacher) document.title = `Kokpit - ${activeTeacher}`;
+  }, [activeTeacher]);
+
+  const fetchEvents = async (startDate: string, endDate: string, targetTeacher: string) => {
+    if (!targetTeacher) return;
+    const url = `/api/schedule?kind=worker&id=${encodeURIComponent(targetTeacher)}&start=${startDate}&end=${endDate}`;
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch events');
       const data = await response.json();
-
+      
       setEvents(data.map((event: any) => ({
-        id: event.id,
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        description: event.description,
-        color: event.color,
-        borderColor: event.borderColor,
-        worker: event.worker,
-        worker_title: event.worker_title,
-        worker_cover: event.worker_cover,
-        room: event.room,
-        group_name: event.group_name,
-        lesson_form: event.lesson_form,
-        lesson_status: event.lesson_status,
-        lesson_form_short: event.lesson_form_short,
-        tok_name: event.tok_name,
-        lesson_status_short: event.lesson_status_short,
-        status_item: event.status_item,
-        subject: event.subject,
-        wydzial: event.wydzial,
-        wydz_sk: event.wydz_sk,
-        login: event.login,
-        extendedProps: {
-          id: event.id,
-          login: event.login,
+        ...event,
+        id: event.id || event.lessonId, // Ensure top-level ID for FullCalendar
+        extendedProps: { 
+          id: event.id || event.lessonId, 
+          login: event.login, 
+          room: event.room, 
+          group_name: event.group_name, 
+          worker_title: event.worker_title, 
+          lesson_form: event.lesson_form 
         }
-
       })));
-
-      console.log('Fetched events:', data);
     } catch (error) {
       console.error('Error fetching events:', error);
     }
   };
 
-  //Sidebar
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<EventApi | null>(null);
+  // Fetching logic
+  useEffect(() => {
+    if (currentDates.start && currentDates.end && activeTeacher) {
+      fetchEvents(currentDates.start, currentDates.end, activeTeacher);
+    }
+    const intervalId = setInterval(() => {
+      if (currentDates.start && currentDates.end && activeTeacher) {
+        fetchEvents(currentDates.start, currentDates.end, activeTeacher);
+      }
+    }, 15 * 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, [activeTeacher, currentDates]);
 
+  // Event interaction
   const handleEventClick = (info: EventClickArg) => {
     const event = info.event;
-    console.log("Clicked event:", event.extendedProps);
-
-    setSelectedEvent(event);
-    const lessonId = event.extendedProps.id;
-
+    setSelectedEventData({
+      id: event.id || event.extendedProps.id,
+      title: event.title,
+      room: event.extendedProps.room,
+      worker_title: event.extendedProps.worker_title,
+      group_name: event.extendedProps.group_name
+    });
+    setEditingRoom(false);
+    
+    const lessonId = event.id || event.extendedProps.id;
     if (lessonId) {
-      setSelectedLessonId(lessonId);
-      setLessonLogin(event.extendedProps.login);
       fetchMessages(lessonId)
         .then(setMessages)
-        .catch((err) => console.error("Error fetching messages:", err));
-    } else {
-      console.error("Lesson ID is missing!");
+        .catch(console.error);
     }
-
     setIsSidebarOpen(true);
   };
 
   const closeSidebar = () => {
-    setSelectedEvent(null);
     setIsSidebarOpen(false);
+    setTimeout(() => setSelectedEventData(null), 300); // Wait for transition
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (isSidebarOpen) scrollToBottom();
+  }, [messages, isSidebarOpen]);
+
+  // Chat
   const handleSendMessage = async () => {
-    const localTime = new Date();
-    console.log(localTime);
-    if (selectedLessonId && newMessage.trim() !== "") {
+    const lessonId = selectedEventData?.id;
+    if (lessonId && newMessage.trim() !== "") {
       const sanitizedMessage = leoProfanity.clean(newMessage);
       const message = {
         body: sanitizedMessage,
-        lecturer: selectedEvent?.extendedProps.worker_title || "N/A",
-        login: selectedEvent?.extendedProps.login || "Guest",
-        room: selectedEvent?.extendedProps.room || "Unknown",
-        lessonId: selectedLessonId,
-        group: selectedEvent?.extendedProps.group_name || "Unknown",
-        createdAt: localTime,
+        lecturer: selectedEventData?.worker_title || activeTeacher || "Wykładowca",
+        login: actualLogin || "Unknown",
+        room: selectedEventData?.room || "Unknown",
+        lessonId: lessonId,
+        group: selectedEventData?.group_name || "Unknown",
+        createdAt: new Date(),
       };
-
-      console.log("Sending message:", message);
-
       try {
         await createMessage(message);
-        const updatedMessages = await fetchMessages(selectedLessonId);
+        const updatedMessages = await fetchMessages(lessonId);
         setMessages(updatedMessages);
         setNewMessage("");
-      } catch (error) {
-        console.error("Error sending message:", error);
+      } catch (error: any) {
+        console.error("Error sending message", error);
+        alert('Błąd podczas wysyłania wiadomości: ' + error.message);
       }
     }
   };
@@ -141,167 +188,207 @@ export default function LecturerCalendar() {
   const handleDeleteMessage = async (id: number) => {
     try {
       await deleteMessage(id);
-      setMessages(messages.filter(msg => msg.id !== id));
+      setMessages(prev => prev.filter(msg => msg.id !== id));
     } catch (error) {
-      console.error("Error deleting message:", error);
+      console.error("Error deleting", error);
     }
   };
 
-  useEffect(() => {
-    if (currentDates.start && currentDates.end) {
-      fetchEvents(currentDates.start, currentDates.end);
-    }
-    const intervalId = setInterval(() => {
-      if (currentDates.start && currentDates.end) {
-        fetchEvents(currentDates.start, currentDates.end);
+  // Room Edit & Attendance
+  const handleSaveRoom = async () => {
+    if (selectedEventData) {
+      const oldRoom = selectedEventData.room || "";
+      const lessonId = selectedEventData.id;
+      const finalRoom = editedRoom.trim();
+
+      if (finalRoom === "" || finalRoom === oldRoom) {
+        setEditingRoom(false);
+        return;
       }
-    }, 15 * 60 * 1000); // 15 minutes in milliseconds
 
-    return () => clearInterval(intervalId);
-  }, [teacher, currentDates]);
+      const message = {
+        body: `Zajęcia przeniesione do sali: ${finalRoom}`,
+        lecturer: selectedEventData.worker_title || activeTeacher || "Wykładowca",
+        login: actualLogin || "Unknown",
+        room: oldRoom, // Stara sala - tam gdzie wisi tablet, otrzyma alert
+        lessonId: lessonId,
+        group: selectedEventData.group_name || "Unknown",
+        createdAt: new Date(),
+        // Nowe pola wg Twojego backendu:
+        isRoomChange: true,
+        newRoom: finalRoom
+      };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  useEffect(() => {
-    const checkLoginStatus = async () => {
       try {
-        const response = await fetch('/api/auth/check-login', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setLogin(data.login); // Zaktualizuj stan loginu
-        }
+        await createMessage(message);
+        // Odśwież wiadomości, by pokazać ten wysłany specjalny komunikat
+        const updatedMessages = await fetchMessages(lessonId);
+        setMessages(updatedMessages);
+
+        // Nadpisz wizualnie salę u prowadzącego, żeby widział że dokonał zmiany
+        setEvents(prev => prev.map(e => 
+          e.extendedProps?.id === lessonId 
+            ? { ...e, extendedProps: { ...e.extendedProps, room: finalRoom } } 
+            : e
+        ));
+        setSelectedEventData((prev: any) => prev ? { ...prev, room: finalRoom } : null);
+        setEditingRoom(false);
       } catch (error) {
-        console.log(error);
+        console.error("Error sending room change message:", error);
+        alert("Błąd: Nie udało się powiadomić sali o przeniesieniu.");
       }
-    };
-
-    checkLoginStatus();
-  }, []);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
     }
   };
-
-  const [calendarView, setCalendarView] = useState(window.innerWidth < 600 ? 'listWeek' : 'timeGridWeek');
-
-  const handleWindowResize = () => {
-    if (window.innerWidth < 600) {
-      setCalendarView('listWeek');
-    } else {
-      setCalendarView('timeGridWeek');
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener('resize', handleWindowResize);
-    return () => {
-      window.removeEventListener('resize', handleWindowResize);
-    };
-  }, []);
 
   return (
-    <div className="lecturer-calendar">
-      <div className={`main-content ${isSidebarOpen ? 'shrink' : ''}`}>
-        <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]} // Dodano listPlugin
-          initialView={calendarView}
-          events={events}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'timeGridWeek,dayGridMonth,timeGridDay',
-          }}
-          height="auto"
-          locale={plLocale}
-          allDaySlot={false}
-          datesSet={(dateInfo) => {
-            setCurrentDates({
-              start: dateInfo.startStr,
-              end: dateInfo.endStr,
-            });
-          }}
-          eventDidMount={(info) => {
-            // Sprawdzenie, czy użytkownik korzysta z ekranu dotykowego
-            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    <div className="lecturer-plan">
+      <div className="lecturer-plan__layout">
+        {/* Calendar Wrapper */}
+        <div className={`lecturer-plan__calendar ${isSidebarOpen ? 'lecturer-plan__calendar--shrink' : ''}`}>
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+            initialView={calendarView}
+            events={events}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'timeGridWeek,dayGridMonth,listWeek',
+            }}
+            height="100%"
+            locale={plLocale}
+            allDaySlot={false}
+            datesSet={info => setCurrentDates({ start: info.startStr, end: info.endStr })}
+            eventClick={handleEventClick}
+            slotMinTime="07:00:00"
+            slotMaxTime="21:00:00"
+            eventDidMount={(info) => {
+              const isTouch = 'ontouchstart' in window;
+              if (!isTouch) {
+                tippy(info.el, {
+                  content: `${info.event.title} - Sala ${info.event.extendedProps.room}`,
+                  placement: 'top',
+                  theme: 'light-border'
+                });
+              }
+            }}
+          />
+        </div>
 
-            if (!isTouchDevice) {
-              const content = `${info.event.title} , prowadzący ${info.event.extendedProps.worker_title}, sala ${info.event.extendedProps.room}, grupa ${info.event.extendedProps.group_name} - ${info.event.extendedProps.lesson_status}`;
-              tippy(info.el, {
-                content: content,
-                placement: 'top',
-                trigger: 'mouseenter focus', // Wyświetlanie tylko po najechaniu myszką lub skupieniu
-                theme: 'custom-yellow',
-              });
-            }
-          }}
-          eventClick={handleEventClick}
-          slotMinTime="07:00:00"
-          slotMaxTime="21:00:00"
-          windowResize={handleWindowResize} // Dodano obsługę zmiany rozmiaru okna
-        />
-      </div>
-      {/* Sidebar */}
-      {isSidebarOpen && (
-        <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-          <button
-            className="sidebarCloseButton"
-            onClick={closeSidebar}
-          >
-            Zamknij
-          </button>
-          {selectedEvent ? (
+        {/* Premium Sidebar */}
+        <div className={`lecturer-plan__sidebar ${isSidebarOpen ? 'lecturer-plan__sidebar--open' : ''}`}>
+          <div className="lecturer-plan__sidebar-header">
             <div>
-              <h3 className="text-xl font-bold mb-4">{selectedEvent.title}</h3>
-              {/* <p><strong>Opis:</strong> {selectedEvent.extendedProps.description}</p> */}
-              {/*<p><strong>Prowadzący:</strong> {selectedEvent.extendedProps.worker_title}</p>*/}
-              <p><strong>Sala:</strong> {selectedEvent.extendedProps.room}<strong>  Grupa:</strong> {selectedEvent.extendedProps.group_name}</p>
-              {/* <p><strong>Status zajęć:</strong> {selectedEvent.extendedProps.lesson_status}</p> */}
+              <div className="lecturer-plan__sidebar-title">{selectedEventData?.title}</div>
+              <div className="text-sm text-gray-500 mt-1">{selectedEventData?.worker_title || activeTeacher}</div>
             </div>
-          ) : (
-            <p>Brak szczegółów wydarzenia</p>
-          )}
-          <div className="sidebarChat">
-            <div className="messages-container">
-              {messages.map((msg, index) => (
-                <div key={index} className="message-wrapper">
-                  <div className="message-header">
-                    <strong>{msg.lecturer}</strong>
-                    <span className="message-time">{msg.createdAt ? formatDate(msg.createdAt) : "Invalid Date"}</span>
-                  </div>
-                  <div className="message-bubble">
-                    <p className="message-text">{msg.body}</p>
-                    {login === lessonLogin && (
-                      <button className="delete-btn" onClick={() => handleDeleteMessage(msg.id)}>
-                        <FaTrashAlt />
-                      </button>
+            <button className="lecturer-plan__close-btn" onClick={closeSidebar}><FaTimes /></button>
+          </div>
+
+          {selectedEventData && (
+            <div className="lecturer-plan__sidebar-content">
+              {/* Info Section */}
+              <div className="lecturer-plan__details-section">
+                <div className="lecturer-plan__section-title">Szczegóły logistyczne</div>
+                <div className="lecturer-plan__detail-row">
+                  <span className="lecturer-plan__detail-label">Grupa</span>
+                  <span className="lecturer-plan__detail-value">{selectedEventData.group_name || "-"}</span>
+                </div>
+                <div className="lecturer-plan__detail-row">
+                  <span className="lecturer-plan__detail-label">Sala</span>
+                  <div className="lecturer-plan__detail-value">
+                    {!editingRoom ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{selectedEventData.room || "-"}</span>
+                        <button className="lecturer-plan__btn-small lecturer-plan__btn-small--outline" onClick={() => { setEditedRoom(selectedEventData.room || ""); setEditingRoom(true); }}>Edytuj (Komunikat)</button>
+                      </div>
+                    ) : (
+                      <div className="lecturer-plan__edit-room">
+                        <input type="text" className="lecturer-plan__edit-input" value={editedRoom} onChange={e => setEditedRoom(e.target.value)} autoFocus />
+                        <button className="lecturer-plan__btn-small lecturer-plan__btn-small--success" onClick={handleSaveRoom}>✓</button>
+                        <button className="lecturer-plan__btn-small lecturer-plan__btn-small--danger" onClick={() => setEditingRoom(false)}>✕</button>
+                      </div>
                     )}
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Attendance Section */}
+              <div className="lecturer-plan__details-section">
+                <div className="lecturer-plan__section-title">Otwórz Dziennik Obecności</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                  Moduł kompatybilny z integracją czytników Kantech i przyszłym eksportem dla sytemu USOS.
+                </div>
+                <button 
+                  className="lecturer-plan__btn-small lecturer-plan__btn-small--primary" 
+                  style={{ width: '100%', padding: '10px', display: 'flex', justifyContent: 'center' }}
+                  onClick={() => {
+                    const roomId = selectedEventData.room || "";
+                    navigate(`/attendance/${selectedEventData.id}?room=${encodeURIComponent(roomId)}`);
+                  }}
+                >
+                  Zarządzaj Obecnością (Kantech & USOS)
+                </button>
+              </div>
+
+              {/* Chat Section */}
+              <div className="lecturer-plan__details-section" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div className="lecturer-plan__section-title">Komunikacja z Salą</div>
+                <div className="lecturer-plan__chat-container">
+                  <div className="lecturer-plan__chat-messages">
+                    {messages.length === 0 ? (
+                      <div className="text-center text-gray-400 text-sm mt-4">Brak wiadomości</div>
+                    ) : (
+                      messages.map(msg => {
+                        const isOutgoing = msg.login === actualLogin;
+
+                        if (msg.isRoomChange) {
+                          return (
+                            <div key={msg.id} className="lecturer-plan__message" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', alignSelf: 'center', width: '100%' }}>
+                              <div className="lecturer-plan__message-header" style={{ color: '#7f1d1d' }}>
+                                <span>⚠️ ZMIANA SALI ⚠️</span>
+                                <span className="lecturer-plan__message-time">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              </div>
+                              <div style={{ fontWeight: 600 }}>{msg.body}</div>
+                              {isOutgoing && (
+                                <button className="lecturer-plan__delete-msg" onClick={() => handleDeleteMessage(msg.id)} title="Usuń"><FaTrash /></button>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={msg.id} className={`lecturer-plan__message ${isOutgoing ? 'lecturer-plan__message--outgoing' : 'lecturer-plan__message--incoming'}`}>
+                            <div className="lecturer-plan__message-header">
+                              <span>{msg.lecturer}</span>
+                              <span className="lecturer-plan__message-time">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                            <div>{msg.body}</div>
+                            {isOutgoing && (
+                              <button className="lecturer-plan__delete-msg" onClick={() => handleDeleteMessage(msg.id)} title="Usuń"><FaTrash /></button>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                  <div className="lecturer-plan__chat-input-area">
+                    <input 
+                      type="text" 
+                      className="lecturer-plan__chat-input" 
+                      placeholder="Napisz wiadomość..." 
+                      value={newMessage}
+                      onChange={e => setNewMessage(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                    />
+                    <button className="lecturer-plan__chat-send" onClick={handleSendMessage}><FaPaperPlane size={14}/></button>
+                  </div>
+                </div>
+              </div>
             </div>
-            {login === lessonLogin && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Chat..."
-                  className="sidebarChatInput"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
-                <button className="sidebarChatButton" onClick={handleSendMessage}>Wyślij</button>
-              </>
-            )}
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

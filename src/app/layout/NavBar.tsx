@@ -1,10 +1,5 @@
-import { Button, Menu } from 'semantic-ui-react';
-import './NavBar.css';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useParams } from 'react-router-dom';
+import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-
-
 
 export default function NavBar() {
   const { room, teacher } = useParams();
@@ -47,27 +42,28 @@ export default function NavBar() {
   };
 
   return (
-    <Menu inverted fixed="top" className="navbar">
-      {teacher && (
-        <Menu.Item className="room-name">
-          <p><strong>{teacher}</strong></p>
-        </Menu.Item>
-      )}
-      <Menu.Menu position="right" className="navbar-menu">
-        <Menu.Item>
-          {room ? null : (
-            isLoggedIn ? (
-              <button onClick={handleLogout} color="red" className="navbar-login-btn-exit">
-                Wyloguj
-              </button>
-            ) : (
-              <Button as={NavLink} to="/" color="blue" className="navbar-login-btn">
-                Logowanie
-              </Button>
-            )
-          )}
-        </Menu.Item>
-      </Menu.Menu>
-    </Menu>
+    <header className="navbar">
+      <div className="navbar__brand">
+        <i className="fas fa-calendar-alt navbar__icon"></i>
+        <div className="navbar__title">
+          <span>Plan<span className="navbar__brand-accent">QR</span></span>
+          {teacher && <span className="navbar__subtitle">| {teacher}</span>}
+        </div>
+      </div>
+
+      <div className="navbar__actions">
+        {room ? null : (
+          isLoggedIn ? (
+            <button onClick={handleLogout} className="btn btn--danger navbar__btn">
+              <i className="fas fa-sign-out-alt"></i> Wyloguj
+            </button>
+          ) : (
+            <NavLink to="/" className="btn btn--primary navbar__btn">
+              <i className="fas fa-sign-in-alt"></i> Logowanie
+            </NavLink>
+          )
+        )}
+      </div>
+    </header>
   );
 }

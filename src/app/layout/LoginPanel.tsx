@@ -23,11 +23,8 @@ export default function LoginPanel() {
           credentials: 'include',
         });
         if (response.ok) {
-          const data = await response.json();
-          const { givenName, surname } = data;
-          const fullName = `${surname} ${givenName}`;
-          const encodedFullName = encodeURIComponent(fullName);
-          navigate(`/LecturerPlan/${encodedFullName}`);
+          await response.json();
+          navigate(`/lecturerPlan`);
         }
       } catch (error) {
         console.log(error);
@@ -51,11 +48,8 @@ export default function LoginPanel() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const { givenName, surname, title } = data;
-        const fullName = `${surname} ${givenName}`;
-        const encodedFullName = encodeURIComponent(fullName);
-        navigate(`/LecturerPlan/${encodedFullName}`);
+        await response.json();
+        navigate(`/lecturerPlan`);
       } else {
         alert("Invalid username or password");
       }

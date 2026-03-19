@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
 import { QRCodeCanvas } from 'qrcode.react';
+import { FaUserFriends } from 'react-icons/fa';
 
 interface ScheduleEvent {
   id: string;
@@ -14,237 +15,65 @@ interface ScheduleEvent {
   form: string;
   group_name: string;
   login: string;
-  notifications: string[];
+  notifications: any[];
   color: string;
 }
 
 export default function Tablet() {
-  const navigate = useNavigate();
-  const { secretUrl } = useParams<{ secretUrl: string }>();
-
-  const timeGridRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const rootElement = document.getElementById('root');
-    if (rootElement) {
-      rootElement.classList.add('tablet-mode');
-    }
-
-    return () => {
-      if (rootElement) {
-        rootElement.classList.remove('tablet-mode');
-      }
-    };
-  }, []);
-
   const params = useParams<{ room?: string }>();
   const location = useLocation();
 
-  const [roomInfo, setRoomInfo] = useState({
-    building: "",
-    room: ""
-  });
-
-  const [isValid, setIsValid] = useState<boolean | null>(null); // Stan do przechowywania wyniku walidacji
-
-
-  // Walidacja room i secretUrl
-  useEffect(() => {
-    const validateRoomAndSecretUrl = async () => {
-      try {
-        const response = await fetch(
-          `/api/devices/validate?room=${encodeURIComponent(
-            roomInfo.room
-          )}&secretUrl=${encodeURIComponent(secretUrl || '')}`
-        );
-
-        if (!response.ok) {
-          throw new Error('Nie znaleziono urządzenia z podanym room i secretUrl.');
-        }
-
-        const data = await response.json();
-        console.log('Walidacja zakończona sukcesem:', data);
-        setIsValid(true);
-      } catch (err: any) {
-        console.error('Błąd podczas walidacji:', err.message);
-        setIsValid(false);
-        setError(err.message);
-      }
-    };
-
-    if (roomInfo.room && secretUrl) {
-      validateRoomAndSecretUrl();
-    }
-  }, [roomInfo.room, secretUrl]);
-
-  // Sprawdzanie konfiguracji urządzenia
-  useEffect(() => {
-    const checkConfig = async () => {
-      const storedUuid = localStorage.getItem('tablet_uuid');
-      if (!storedUuid) return;
-
-      try {
-        const response = await fetch(`/api/registry/status/${storedUuid}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status !== 'ACTIVE') {
-            navigate('/registry');
-            return;
-          }
-
-          if (data.config && data.config.room && data.config.room !== roomInfo.room) {
-            navigate(`/tablet/${encodeURIComponent(data.config.room)}/${data.config.secretUrl}`);
-          }
-        } else {
-          // If 404 meaning device not found
-          if (response.status === 404) {
-            navigate('/registry');
-          }
-        }
-      } catch (err) {
-        console.error("Config check failed", err);
-      }
-    };
-
-    const interval = setInterval(checkConfig, 10000); // Check every 10 seconds
-    return () => clearInterval(interval);
-  }, [navigate, roomInfo]);
-
-
-
-  // Przekierowanie przy nieudanej walidacji
-  if (isValid === false) {
-    navigate('/registry');
-    return null;
-  }
-
-  const showSpecialDateForAll = false;
-  const hasSpecialDate = showSpecialDateForAll;
-
-  const initialDate = hasSpecialDate
-    ? new Date()
-    : new URLSearchParams(location.search).get('date')
-      ? new Date(new URLSearchParams(location.search).get('date') || '')
-      : new Date();
-
+  const [roomInfo, setRoomInfo] = useState({ building: "", room: "" });
+  
+  // States
   const [currentDateTime, setCurrentDateTime] = useState({
-    date: initialDate.toLocaleDateString('pl-PL', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }),
-    time: new Date().toLocaleTimeString('pl-PL', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }),
-    dayName: initialDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-    dayNumber: initialDate.getDate()
+    date: '', time: '', dayName: '', dayNumber: 0
   });
-
   const [scheduleItems, setScheduleItems] = useState<ScheduleEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const [calendarStartHour, setCalendarStartHour] = useState(6);
-  const [scrollableStates, setScrollableStates] = useState<{ [key: number]: boolean }>({});
-  const marqueeRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Time metrics for calendar view
+  const calendarStartHour = 7; // Fixed start hour
+  const timeSlotsCount = 13; // 7:00 to 19:00
 
+  // 1. Parse Room Info
   useEffect(() => {
-    const updatedScrollableStates: { [key: number]: boolean } = {};
+    let roomPart = params.room ? decodeURIComponent(params.room) : '';
+    if (!roomPart) {
+      const pathParts = location.pathname.split('/');
+      if (pathParts.length >= 3) roomPart = decodeURIComponent(pathParts[2]);
+    }
 
-    scheduleItems.forEach((_, index) => {
-      const marqueeElement = marqueeRefs.current[index];
-      if (marqueeElement) {
-        const isOverflowing = marqueeElement.scrollWidth > 925;
-        // console.log(marqueeElement.scrollWidth, marqueeElement.clientWidth, isOverflowing);
-        updatedScrollableStates[index] = isOverflowing;
-      }
-    });
-
-    setScrollableStates(updatedScrollableStates);
-  }, [scheduleItems]);
-
-
-  useEffect(() => {
-    const parseRoomInfo = () => {
-      let roomPart = '';
-
-      if (params.room) {
-        roomPart = decodeURIComponent(params.room);
-      } else {
-        const pathParts = location.pathname.split('/');
-        if (pathParts.length >= 3) {
-          roomPart = decodeURIComponent(pathParts[2]);
-        }
-      }
-
-      if (roomPart) {
-        // Extract building code from room name (e.g., "WI1-100" -> "WI", "WA1-100" -> "WA")
-        // Match letters at the start before numbers or dashes
-        const buildingMatch = roomPart.match(/^([A-Z]+)/);
-        const building = buildingMatch ? buildingMatch[1] : "WI"; // Default to WI if not found
-
-        setRoomInfo({
-          building: building,
-          room: roomPart
-        });
-      }
-    };
-
-    parseRoomInfo();
+    if (roomPart) {
+      const buildingMatch = roomPart.match(/^([A-Z]+)/);
+      const building = buildingMatch ? buildingMatch[1] : "WI";
+      setRoomInfo({ building, room: roomPart });
+    }
   }, [location.pathname, params]);
 
+  // 2. Clock
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const updateTime = () => {
       const now = new Date();
       setCurrentDateTime({
-        date: now.toLocaleDateString('pl-PL', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        }),
-        time: now.toLocaleTimeString('pl-PL', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        }),
-        dayName: now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-        dayNumber: now.getDate(),
+        date: now.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        time: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        dayName: now.toLocaleDateString('en-US', { weekday: 'long' }),
+        dayNumber: now.getDate()
       });
-    }, 1000);
-
+    };
+    updateTime();
+    const intervalId = setInterval(updateTime, 1000);
     return () => clearInterval(intervalId);
   }, []);
 
+  // 3. Fetch Schedule & Messages
   useEffect(() => {
     const fetchSchedule = async () => {
-      if (!roomInfo.building || !roomInfo.room) {
-        console.log("Informacje o sali nie są jeszcze dostępne");
-        return;
-      }
-
-      setIsLoading(true);
-
-
+      if (!roomInfo.building || !roomInfo.room) return;
       try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const dateParam = urlParams.get('date');
-
-        let targetDate;
-        if (hasSpecialDate) {
-          targetDate = new Date();
-        } else if (dateParam) {
-          targetDate = new Date(dateParam);
-          if (isNaN(targetDate.getTime())) {
-            throw new Error('Nieprawidłowy format daty');
-          }
-        } else {
-          targetDate = new Date();
-        }
-
+        const targetDate = new Date();
         const formattedDate = targetDate.toISOString().split('T')[0];
-
         const nextDay = new Date(targetDate);
         nextDay.setDate(nextDay.getDate() + 1);
         const nextDayFormatted = nextDay.toISOString().split('T')[0];
@@ -254,381 +83,213 @@ export default function Tablet() {
           : `${roomInfo.building} ${roomInfo.room}`;
 
         const url = `/api/schedule?kind=room&id=${encodeURIComponent(fullId)}&start=${formattedDate}&end=${nextDayFormatted}`;
-
-        console.log("Pobieranie planu zajęć z URL:", url);
-
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Nie udało się pobrać planu zajęć');
+        if (!response.ok) throw new Error('Nie udało się pobrać planu');
 
         const data = await response.json();
-        console.log("Otrzymane dane planu:", data);
-
         const targetDateString = targetDate.toDateString();
-        const targetEvents = data.filter((event: any) => {
-          const eventDate = new Date(event.start);
-          return eventDate.toDateString() === targetDateString;
-        });
-
-        console.log("Przefiltrowane wydarzenia na dzisiaj:", targetEvents);
+        const targetEvents = data.filter((e: any) => new Date(e.start).toDateString() === targetDateString);
 
         const formattedEvents = await Promise.all(
           targetEvents.map(async (event: any) => {
             let messages = [];
             try {
-              if (event.id) {
-                messages = await fetchMessages(event.id); // Pobierz powiadomienia dla każdego wydarzenia
-              }
-            } catch (err) {
-              console.error('Błąd podczas pobierania wiadomości dla lekcji:', event.id, err);
-            }
-
-            const startTime = new Date(event.start).toLocaleTimeString('pl-PL', {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-
-            const endTime = new Date(event.end).toLocaleTimeString('pl-PL', {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-
+              if (event.id) messages = await fetchMessages(event.id);
+            } catch (err) {}
+            
             return {
               id: event.id,
-              startTime,
-              endTime,
+              startTime: new Date(event.start).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+              endTime: new Date(event.end).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
               description: event.subject || event.title,
-              instructor: event.worker_title || 'Brak informacji',
-              room: event.room || 'Brak informacji',
+              instructor: event.worker_title || 'Brak',
+              room: event.room || '',
               group_name: event.group_name || '',
               login: event.login || '',
-              notifications: messages.map((msg: { body: string }) => msg.body), // Dodaj powiadomienia
+              notifications: messages,
               color: event.color || '#039be5',
               form: event.lesson_form_short || '',
             } as ScheduleEvent;
           })
         );
 
-        console.log("Sformatowane wydarzenia:", formattedEvents);
-
-        const sortedEvents = formattedEvents.sort((a, b) =>
-          a.startTime.localeCompare(b.startTime)
-        );
-
-        // Ustaw godzinę początkową kalendarza na podstawie pierwszego wydarzenia
-        if (sortedEvents.length > 0) {
-          const firstEventStartHour = parseInt(
-            sortedEvents[0].startTime.split(':')[0]
-          );
-          setCalendarStartHour(Math.max(6, firstEventStartHour)); // Minimum godz. 6, lub godzinę przed pierwszymi zajęciami
-        } else {
-          setCalendarStartHour(6); // Domyślna godzina początkowa
-        }
-
-        setScheduleItems(sortedEvents);
-
+        setScheduleItems(formattedEvents.sort((a, b) => a.startTime.localeCompare(b.startTime)));
         setIsLoading(false);
-        setError(null);
       } catch (error) {
-        console.error('Błąd podczas pobierania planu zajęć:', error);
-        setScheduleItems([]);
-        setError('Nie udało się pobrać planu zajęć');
         setIsLoading(false);
       }
     };
 
-    fetchSchedule();
-
-    const intervalId = setInterval(fetchSchedule, 15 * 60 * 1000);
-
-    return () => clearInterval(intervalId);
-  }, [roomInfo.building, roomInfo.room, location.search, hasSpecialDate]);
-
-  useEffect(() => {
-    const updateMessages = async () => {
-      try {
-        const updatedItems = await Promise.all(scheduleItems.map(async (event) => {
-          try {
-            const messages = await fetchMessages(event.id);
-            return { ...event, notifications: messages.map((msg: { body: string }) => msg.body) };
-          } catch {
-            return event;
-          }
-        }));
-        setScheduleItems(updatedItems);
-      } catch (err) {
-        console.error("Błąd przy aktualizacji wiadomości:", err);
-      }
-    };
-
-    if (scheduleItems.length > 0) {
-      updateMessages();
-      const intervalId = setInterval(updateMessages, 30 * 1000);
+    if (roomInfo.room) {
+      fetchSchedule();
+      const intervalId = setInterval(fetchSchedule, 30000); // 30s check for fast message sync
       return () => clearInterval(intervalId);
     }
-  }, [scheduleItems.length]);
+  }, [roomInfo]);
 
-  // Funkcja do automatycznego przewijania kalendarza
-  const scrollToCurrentTime = () => {
-    if (!timeGridRef.current || scheduleItems.length === 0) return;
-
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-
-    // Znajdź aktualnie trwające zajęcia lub najbliższe przyszłe
-    const currentEvent = scheduleItems.find(event => isEventCurrent(event));
-    const upcomingEvent = scheduleItems.find(event => {
-      const eventStartHour = parseInt(event.startTime.split(':')[0]);
-      const eventStartMinute = parseInt(event.startTime.split(':')[1]);
-      const eventStartTime = eventStartHour + eventStartMinute / 60;
-      const currentTime = currentHour + currentMinute / 60;
-      return eventStartTime > currentTime;
-    });
-
-    let targetHour = currentHour;
-
-    if (currentEvent) {
-      // Jeśli są obecnie trwające zajęcia, przewiń do ich początku
-      targetHour = parseInt(currentEvent.startTime.split(':')[0]);
-    } else if (upcomingEvent) {
-      // Jeśli nie ma obecnie trwających zajęć, przewiń do najbliższych przyszłych
-      targetHour = parseInt(upcomingEvent.startTime.split(':')[0]);
-    }
-
-    // Oblicz pozycję do przewinięcia
-    const slotHeight = 100;
-    const scrollPosition = Math.max(0, (targetHour - calendarStartHour) * slotHeight);
-
-    timeGridRef.current.scrollTo({
-      top: scrollPosition,
-      behavior: 'smooth'
-    });
+  // View Helpers
+  const parseTime = (timeStr: string) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h + m / 60;
   };
 
-  // Efekt do automatycznego przewijania
-  useEffect(() => {
-    if (!isLoading && !error && scheduleItems.length > 0) {
-      // Przewiń po załadowaniu danych
-      setTimeout(scrollToCurrentTime, 100);
+  const nowVal = new Date().getHours() + new Date().getMinutes() / 60;
 
-      // Ustaw interwał do przewijania co minutę
-      const scrollInterval = setInterval(scrollToCurrentTime, 60000);
+  const currentEvent = scheduleItems.find(e => {
+    const start = parseTime(e.startTime);
+    const end = parseTime(e.endTime);
+    return nowVal >= start && nowVal < end;
+  });
 
-      return () => clearInterval(scrollInterval);
-    }
-  }, [scheduleItems, calendarStartHour, isLoading, error]);
+  const nextEvent = !currentEvent ? scheduleItems.find(e => {
+    return parseTime(e.startTime) > nowVal;
+  }) : null;
 
-  const getEventTime = (event: ScheduleEvent) => {
-    const startHour = parseInt(event.startTime.split(':')[0]);
-    const startMinute = parseInt(event.startTime.split(':')[1]);
-    const endHour = parseInt(event.endTime.split(':')[0]);
-    const endMinute = parseInt(event.endTime.split(':')[1]);
+  // Check for Room Change Alert
+  const roomChangeAlert = useMemo(() => {
+     let alertMessage: any = null;
+     scheduleItems.forEach(ev => {
+        ev.notifications?.forEach(msg => {
+           if (msg.isRoomChange) {
+              alertMessage = msg;
+           }
+        });
+     });
+     return alertMessage;
+  }, [scheduleItems]);
 
-    const startTimeValue = startHour + startMinute / 60;
-    const endTimeValue = endHour + endMinute / 60;
+  // Layout calculations for right panel
+  const slotHeight = 120; // 120px per hour
+  const getCurrentTimeTop = () => (nowVal - calendarStartHour) * slotHeight;
 
-    return { startTimeValue, endTimeValue };
-  }
-
-  const isEventCurrent = (event: ScheduleEvent) => {
-    const now = new Date();
-    const currentTimeValue = now.getHours() + now.getMinutes() / 60;
-
-    const startHour = parseInt(event.startTime.split(':')[0]);
-    const startMinute = parseInt(event.startTime.split(':')[1]);
-    const endHour = parseInt(event.endTime.split(':')[0]);
-    const endMinute = parseInt(event.endTime.split(':')[1]);
-
-    const startTimeValue = startHour + startMinute / 60;
-    const endTimeValue = endHour + endMinute / 60;
-
-    return currentTimeValue >= startTimeValue && currentTimeValue < endTimeValue;
-  };
-
-  const timeSlots = () => {
-    return Array.from({ length: 15 }, (_, i) => {
-      const hour = i + calendarStartHour;
-      const hourFormatted = hour < 10 ? `0${hour}` : `${hour}`;
-      return `${hourFormatted}:00`;
-    });
-  };
-
-  const getEventStyle = (event: ScheduleEvent) => {
-    const startTime = getEventTime(event).startTimeValue;
-    const endTime = getEventTime(event).endTimeValue;
-    const duration = endTime - startTime;
-    const slotHeight = 100;
-    const topPosition = (startTime - calendarStartHour) * slotHeight;
-    const height = duration * slotHeight;
-
-    return {
-      top: `${topPosition}px`,
-      height: `${height}px`,
-    };
-  };
-
-  const getCurrentTimePosition = () => {
-    const currentTime = new Date().getHours() + new Date().getMinutes() / 60;
-    return (currentTime - calendarStartHour) * 100;
-  };
-
-  const findCurrentEvent = () => {
-    const currentEvent = scheduleItems.find(event => isEventCurrent(event));
-    return currentEvent;
-  };
-
-
+  if (isLoading) return <div className="fullscreen-msg">Wczytywanie systemu...</div>;
 
   return (
-    <div className="tablet-container">
-      <div className="calendar-layout">
-        {/* Left Panel - Current Class Display */}
-        <div className="current-class-display">
-          {(() => {
-            const currentEvent = findCurrentEvent();
-            const nextEvent = !currentEvent ? scheduleItems.find(event => {
-              const now = new Date();
-              const eventStart = new Date();
-              const [hours, minutes] = event.startTime.split(':');
-              eventStart.setHours(parseInt(hours), parseInt(minutes), 0);
-              return eventStart > now;
-            }) : null;
-
-            const displayEvent = currentEvent || nextEvent;
-
-            if (!displayEvent) {
-              return (
-                <div className="no-current-class">
-                  <h2>Brak zajęć</h2>
-                  <p>{scheduleItems.length === 0 ? 'Dziś nie ma zaplanowanych zajęć' : 'Wszystkie zajęcia zostały zakończone'}</p>
-                </div>
-              );
-            }
-
-            return (
-              <>
-                <div className="class-status-badge">
-                  {currentEvent ? 'TRWAJĄ ZAJĘCIA' : 'NASTĘPNE ZAJĘCIA'}
-                </div>
-                <h1 className="current-class-title">{displayEvent.description}</h1>
-                <div className="current-class-details">
-                  <div className="detail-row">
-                    <span className="detail-label">Prowadzący:</span>
-                    <span className="detail-value">{displayEvent.instructor}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Godziny:</span>
-                    <span className="detail-value">{displayEvent.startTime} - {displayEvent.endTime}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Grupa:</span>
-                    <span className="detail-value">{displayEvent.group_name}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Forma:</span>
-                    <span className="detail-value">{displayEvent.form}</span>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-
-        {/* Right Panel - Calendar */}
-        <div className="calendar-panel">
-          <div className="header-container">
-            <div className="room-info-container">
-              <div className="datetime-placeholder">
-                <div className="time">
-                  {currentDateTime.time}
-                </div>
-              </div>
-
-              <div className='qrcode'>
-                <QRCodeCanvas
-                  value={`https://plan.zut.edu.pl/${roomInfo.building}/${encodeURIComponent(roomInfo.room)}`}
-                  size={100}
-                  style={{ width: '100%', height: 'auto' }}
-                />
-              </div>
-            </div>
+    <div className="tablet-wrapper">
+      
+      {/* 🚨 Fullscreen Room Change Alert Overlay 🚨 */}
+      {roomChangeAlert && (
+          <div className="room-change-overlay">
+              <h1>⚠️ Zmiana Sali</h1>
+              <h2>Zajęcia zostały przeniesione do: {roomChangeAlert.newRoom}</h2>
+              {roomChangeAlert.body && <p>{roomChangeAlert.body}</p>}
           </div>
+      )}
 
-          {isLoading ? (
-            <div className="loading-container">Ładowanie planu zajęć...</div>
-          ) : error ? (
-            <div className="error-container">{error}</div>
-          ) : scheduleItems.length === 0 ? (
-            <div className="no-events-container">Brak zajęć na dzisiaj</div>
-          ) : (
-            <div className="calendar-container">
-              <div className="day-indicator">
-                <div className="day-name">{currentDateTime.dayName}</div>
-                <div className="day-circle">{currentDateTime.dayNumber}</div>
-              </div>
+      {/* LEFT PANEL */}
+      <div className="tablet-left">
+         <div className="tablet-clock">
+            <div className="tablet-time">{currentDateTime.time.substring(0, 5)}</div>
+            <div className="tablet-date">{currentDateTime.date} • {currentDateTime.dayName}</div>
+         </div>
 
-              <div className="time-grid" ref={timeGridRef}>
-                {timeSlots().map((time, index) => (
-                  <div key={index} className="time-slot">
-                    <div className="time-label">{time}</div>
-                    <div className="time-cell"></div>
+         <div className="tablet-room-info">
+            <div className="tablet-room-capacity"><FaUserFriends /> Ekran Informacyjny</div>
+            <div className="tablet-room-name">Sala {roomInfo.building}-{roomInfo.room}</div>
+         </div>
+
+         <div className={`tablet-status-box ${currentEvent ? 'occupied' : 'available'}`}>
+            {currentEvent ? (
+               <>
+                  <div className="status-heading">Trwają zajęcia</div>
+                  <div className="status-sub">pozostało ok. {Math.round((parseTime(currentEvent.endTime) - nowVal) * 60)} min</div>
+                  
+                  <div className="status-details">
+                     <div className="status-detail-item"><strong>Przedmiot:</strong> {currentEvent.description} ({currentEvent.form})</div>
+                     <div className="status-detail-item"><strong>Prowadzący:</strong> {currentEvent.instructor}</div>
+                     <div className="status-detail-item"><strong>Godziny:</strong> {currentEvent.startTime} - {currentEvent.endTime}</div>
+                     {currentEvent.group_name && <div className="status-detail-item"><strong>Grupa:</strong> {currentEvent.group_name}</div>}
                   </div>
-                ))}
 
-                <div className="current-time-indicator" style={{ top: `${getCurrentTimePosition()}px` }}>
-                  <div className="time-circle"></div>
-                </div>
+                  {currentEvent.notifications?.filter(n => !n.isRoomChange).length > 0 && (
+                     <div className="status-notifications">
+                        {currentEvent.notifications.filter(n => !n.isRoomChange).map((n, i) => (
+                           <div key={i} className="status-notif-item">📢 {n.body}</div>
+                        ))}
+                     </div>
+                  )}
+               </>
+            ) : (
+               <>
+                  <div className="status-heading">Dostępna</div>
+                  {nextEvent ? (
+                     <div className="status-sub">do {nextEvent.startTime} ({(Math.round((parseTime(nextEvent.startTime) - nowVal) * 60))} min)</div>
+                  ) : (
+                     <div className="status-sub">do końca dnia</div>
+                  )}
 
-                {scheduleItems.map((event, index) => (
-                  <div
-                    key={index}
-                    className={`calendar-event ${isEventCurrent(event) ? 'current' : ''}`}
-                    style={{
-                      ...getEventStyle(event),
-                      backgroundColor: event.color,
-                      color: '#fff',
-                    }}
-                  >
-                    <div className="calendar-event-left">
-                      <span>{event.startTime}<br /> - <br />{event.endTime}</span>
-                    </div>
-                    <div className="calendar-event-right">
-                      <div className="event-description">
-                        <div className="description-block description-block-1">
-                          <span>{event.description} ({event.form})</span>
-                        </div>
-                        <div className="description-block description-block-2">
-                          <span>{event.instructor}</span>
-                        </div>
-                        <div className="description-block description-block-3">
-                          <span>{event.group_name}</span>
-                        </div>
-                      </div>
-                      <div className="event-footer">
-                        {event.notifications && event.notifications.length > 0 ? (
-                          <div
-                            ref={(el) => (marqueeRefs.current[index] = el)}
-                            className={`notifications-marquee ${!scrollableStates[index] ? 'no-scroll' : ''}`}
-                          >
-                            {event.notifications.map((notification, notifIndex) => (
-                              <div key={notifIndex} className="notification-item">
-                                {notification}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="notifications-marquee no-scroll">
-                            <span>Brak powiadomień</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  {nextEvent && (
+                     <div className="status-details">
+                        <div className="status-detail-item"><strong>Następne zajęcia:</strong> {nextEvent.description}</div>
+                        <div className="status-detail-item"><strong>Prowadzący:</strong> {nextEvent.instructor}</div>
+                     </div>
+                  )}
+               </>
+            )}
+         </div>
+
+         {/* QR Code Location */}
+         <div className="tablet-qr-section">
+            <div className="qr-wrapper">
+               <QRCodeCanvas 
+                 value={`https://plan.zut.edu.pl/#${encodeURIComponent(roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`)}&&&&`} 
+                 size={110} 
+                 fgColor="#0f172a"
+               />
             </div>
-          )}
-        </div>
+            <div className="qr-text">
+               <h3>Zeskanuj Kod QR</h3>
+               <p>Zobacz pełny harmonogram na swoim urządzeniu.</p>
+            </div>
+         </div>
+      </div>
+
+      {/* RIGHT PANEL: TIMELINE */}
+      <div className="tablet-right">
+         <div className="timeline-container" style={{ transform: `translateY(0)` }}>
+            
+            {/* Background Grid */}
+            {Array.from({ length: timeSlotsCount }).map((_, i) => (
+               <div key={i} className="time-slot" style={{ top: i * slotHeight + 'px', position: 'absolute', width: '100%' }}>
+                  <div className="time-label">{calendarStartHour + i}:00</div>
+                  <div className="time-line"></div>
+               </div>
+            ))}
+
+            {/* Current Time Line */}
+            {nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount && (
+               <div className="current-time-line" style={{ top: getCurrentTimeTop() + 'px' }}>
+                  <div className="current-time-label">{currentDateTime.time.substring(0, 5)}</div>
+                  <div className="current-time-dot"></div>
+               </div>
+            )}
+
+            {/* Render Events */}
+            {scheduleItems.map((ev, i) => {
+               const st = parseTime(ev.startTime);
+               const et = parseTime(ev.endTime);
+               const dur = et - st;
+               const top = (st - calendarStartHour) * slotHeight;
+               const height = dur * slotHeight;
+               const isPast = nowVal > et;
+
+               return (
+                  <div 
+                     key={i} 
+                     className={`timeline-event ${isPast ? 'past' : ''}`}
+                     style={{
+                        top: top + 'px',
+                        height: (height - 4) + 'px', // tiny gap
+                     }}
+                  >
+                     <div className="event-title">{ev.description} ({ev.form})</div>
+                     <div className="event-time">{ev.startTime} - {ev.endTime}</div>
+                     <div className="event-instructor">{ev.instructor} • {ev.group_name}</div>
+                  </div>
+               );
+            })}
+
+         </div>
       </div>
     </div>
   );

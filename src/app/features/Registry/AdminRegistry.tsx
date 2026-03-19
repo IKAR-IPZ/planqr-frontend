@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from 'react';
 // Removed semantic-ui-react imports
-import './Registry.css';
 
 interface Device {
     id: number;
@@ -177,49 +176,49 @@ const AdminRegistry = () => {
         );
 
     return (
-        <div className="admin-layout">
+        <div className="admin-panel">
             {/* SIDEBAR */}
-            <aside className="admin-sidebar">
-                <div className="sidebar-header">
-                    <div className="sidebar-brand">
-                        <i className="fas fa-shield-alt" style={{ color: '#60a5fa', marginRight: '0.75rem' }}></i>
+            <aside className="admin-panel__sidebar">
+                <div className="admin-panel__sidebar-header">
+                    <div className="admin-panel__sidebar-brand">
+                        <i className="fas fa-shield-alt" style={{ color: 'var(--color-blue-glow)', marginRight: '0.75rem' }}></i>
                         <span>Rejestr Urządzeń</span>
                     </div>
                 </div>
 
-                <div className="sidebar-search">
-                    <label style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>SZUKAJ</label>
+                <div className="admin-panel__sidebar-search">
+                    <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>SZUKAJ</label>
                     <input
                         type="text"
-                        className="dark-input-sidebar"
+                        className="admin-panel__sidebar-input"
                         placeholder="Sala lub ID..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                <div className="sidebar-stats">
-                    <label style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>PRZEGLĄD</label>
+                <div className="admin-panel__sidebar-stats">
+                    <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>PRZEGLĄD</label>
 
-                    <div className="stat-item">
-                        <span className="stat-label">Wszystkie</span>
-                        <span className="stat-value">{devices.length}</span>
+                    <div className="admin-panel__stat-item">
+                        <span className="admin-panel__stat-label">Wszystkie</span>
+                        <span className="admin-panel__stat-value">{devices.length}</span>
                     </div>
 
-                    <div className="stat-item active">
-                        <span className="stat-label">Aktywne</span>
-                        <span className="stat-value" style={{ color: '#4ade80' }}>{activeDevices.length}</span>
+                    <div className="admin-panel__stat-item admin-panel__stat-item--active">
+                        <span className="admin-panel__stat-label">Aktywne</span>
+                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-success)' }}>{activeDevices.length}</span>
                     </div>
 
-                    <div className="stat-item pending">
-                        <span className="stat-label">Oczekujące</span>
-                        <span className="stat-value" style={{ color: '#facc15' }}>{pendingDevices.length}</span>
+                    <div className="admin-panel__stat-item admin-panel__stat-item--pending">
+                        <span className="admin-panel__stat-label">Oczekujące</span>
+                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-warning)' }}>{pendingDevices.length}</span>
                     </div>
                 </div>
 
-                <div className="sidebar-actions">
+                <div className="admin-panel__sidebar-actions">
                     <button
-                        className={`btn btn-primary btn-full ${loading ? 'loading' : ''}`}
+                        className={`btn btn--primary btn--full ${loading ? 'loading' : ''}`}
                         onClick={fetchDevices}
                         disabled={loading}
                     >
@@ -227,17 +226,17 @@ const AdminRegistry = () => {
                         Odśwież
                     </button>
                     <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                        <a href="/" style={{ color: '#64748b', fontSize: '0.85rem', textDecoration: 'none' }}>Powrót do strony głównej</a>
+                        <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>Powrót do strony głównej</a>
                     </div>
                 </div>
             </aside>
 
             {/* MAIN CONTENT */}
-            <main className="admin-content">
-                <div className="admin-page-header">
+            <main className="admin-panel__content">
+                <div className="admin-panel__page-header">
                     <div>
-                        <h1 className="admin-page-title">Zarządzanie Tabletami</h1>
-                        <p style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                        <h1 className="admin-panel__page-title">Zarządzanie Tabletami</h1>
+                        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.95rem' }}>
                             Zarządzaj urządzeniami tabletowymi i przypisuj je do sal
                         </p>
                     </div>
@@ -245,15 +244,15 @@ const AdminRegistry = () => {
 
                 {/* PENDING SECTION */}
                 {pendingDevices.length > 0 && (
-                    <div className="content-section">
-                        <div className="section-label" style={{ color: '#fbbf24' }}>
+                    <div className="admin-panel__section">
+                        <div className="admin-panel__section-label" style={{ color: 'var(--color-warning)' }}>
                             <i className="fas fa-exclamation-circle" /> Wykryto Nowe Urządzenia ({pendingDevices.length})
                         </div>
-                        <div className="device-grid">
+                        <div className="admin-panel__device-grid">
                             {pendingDevices.map(device => (
-                                <div key={device.id} className="admin-device-card" style={{ borderColor: '#f59e0b', background: 'rgba(245, 158, 11, 0.05)' }}>
+                                <div key={device.id} className="admin-panel__device-card" style={{ borderColor: 'var(--color-warning)', background: 'rgba(245, 158, 11, 0.05)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <div className="status-badge pending">
+                                        <div className="admin-panel__status-badge admin-panel__status-badge--pending">
                                             <div className="status-dot"></div> Oczekuje na akceptację
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -271,14 +270,14 @@ const AdminRegistry = () => {
                                         </div>
                                     </div>
                                     <h3 style={{ margin: '0 0 0.5rem 0' }}>{device.deviceId}</h3>
-                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
                                         Urządzenie czeka na przypisanie sali.
                                     </p>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                        <button className="btn btn-success" onClick={() => openRegisterModal(device)}>
+                                        <button className="btn btn--success" onClick={() => openRegisterModal(device)}>
                                             Autoryzuj
                                         </button>
-                                        <button className="btn btn-danger" onClick={() => { setDeleteId(device.id); setConfirmOpen(true); }}>
+                                        <button className="btn btn--danger" onClick={() => { setDeleteId(device.id); setConfirmOpen(true); }}>
                                             Odrzuć
                                         </button>
                                     </div>
@@ -289,8 +288,8 @@ const AdminRegistry = () => {
                 )}
 
                 {/* ACTIVE SECTION */}
-                <div className="content-section">
-                    <div className="section-label">
+                <div className="admin-panel__section">
+                    <div className="admin-panel__section-label">
                         Aktywne Terminale
                     </div>
 
@@ -301,17 +300,17 @@ const AdminRegistry = () => {
                             <p>Poczekaj na nowe połączenia systemowe.</p>
                         </div>
                     ) : (
-                        <div className="device-grid">
+                        <div className="admin-panel__device-grid">
                             {activeDevices.map(device => (
-                                <div key={device.id} className="admin-device-card">
+                                <div key={device.id} className="admin-panel__device-card">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                                         <div>
                                             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem' }}>{device.deviceClassroom}</h3>
-                                            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px', color: '#94a3b8', fontSize: '0.8rem' }}>
+                                            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                                                 {device.deviceId}
                                             </code>
                                         </div>
-                                        <div className="status-badge online">
+                                        <div className="admin-panel__status-badge admin-panel__status-badge--online">
                                             <div className="status-dot"></div> Aktywny
                                         </div>
                                         <button
@@ -329,7 +328,7 @@ const AdminRegistry = () => {
                                     <div className="card-actions">
                                         <a
                                             className="btn action-view"
-                                            href={`/${device.deviceClassroom?.split(' ')[0] || 'WI'}/${device.deviceClassroom}`}
+                                            href={`/room/${device.deviceClassroom?.split(' ')[0] || 'WI'}/${device.deviceClassroom}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
@@ -338,7 +337,7 @@ const AdminRegistry = () => {
                                         <button
                                             className="btn action-delete"
                                             onClick={() => openRegisterModal(device)}
-                                            style={{ color: '#fbbf24', borderColor: 'rgba(251, 191, 36, 0.4)', background: 'rgba(251, 191, 36, 0.1)' }}
+                                            style={{ color: 'var(--color-warning)', borderColor: 'rgba(251, 191, 36, 0.4)', background: 'rgba(251, 191, 36, 0.1)' }}
                                             title="Edytuj"
                                         >
                                             <i className="fas fa-pen" style={{ margin: 0 }} />
