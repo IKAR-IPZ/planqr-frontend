@@ -1221,24 +1221,36 @@ button:focus-visible {
 }
 
 .lecturer-plan__close-btn {
-  background: rgba(0, 0, 0, 0.3);
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  color: var(--text-muted);
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lecturer-plan__close-btn svg {
+  fill: currentColor;
 }
 
 .lecturer-plan__close-btn:hover {
-  background: #e2e8f0;
+  background: rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
-  transform: rotate(90deg);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.lecturer-plan__close-btn:active {
+  transform: scale(0.92);
 }
 
 .lecturer-plan__sidebar-content {
@@ -1395,6 +1407,7 @@ button:focus-visible {
 .lecturer-plan__chat-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1415,7 +1428,7 @@ button:focus-visible {
   border-radius: var(--radius-md);
   font-size: 0.95rem;
   position: relative;
-  word-wrap: break-word;
+  word-break: break-word; /* Prawidlowe lamanie dlugich slow bez spacji */
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
@@ -1473,28 +1486,35 @@ button:focus-visible {
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 .lecturer-plan__chat-send {
-  background: linear-gradient(
-    135deg,
-    var(--color-indigo) 0%,
-    var(--color-indigo-glow) 100%
-  );
-  color: white;
-  border: none;
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-full);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 1.2rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  border: 1px solid transparent;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
+
+.lecturer-plan__chat-send svg {
+  fill: currentColor;
+  margin-left: -2px; /* slight visual optical alignment for paper plane */
+}
+
 .lecturer-plan__chat-send:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
 }
+
 .lecturer-plan__chat-send:hover {
-  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.4);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+  filter: brightness(1.1);
   transform: translateY(-2px);
 }
 
@@ -1566,26 +1586,49 @@ button:focus-visible {
 }
 
 .lecturer-plan__delete-msg {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  background: var(--color-danger);
-  color: white;
-  border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  border-radius: var(--radius-full);
   cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  position: absolute;
+  top: 50%;
+  left: -40px; /* Floating on the left side of outgoing messages */
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 1rem;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
   opacity: 0;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  visibility: hidden;
+  transform: translateY(-50%) translateX(6px) scale(0.95);
+  box-shadow: none;
 }
+
+.lecturer-plan__delete-msg svg {
+  fill: currentColor;
+}
+
 .lecturer-plan__message:hover .lecturer-plan__delete-msg {
   opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0) scale(1);
+}
+
+.lecturer-plan__delete-msg:hover {
+  background: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-50%) translateX(0) scale(1.05);
+}
+
+.lecturer-plan__delete-msg:active {
+  transform: translateY(-50%) translateX(0) scale(0.92) !important;
 }
 
 @media (max-width: 1024px) {
