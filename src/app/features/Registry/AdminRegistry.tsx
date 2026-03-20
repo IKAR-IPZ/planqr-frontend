@@ -16,7 +16,6 @@ interface Device {
 }
 
 const AdminRegistry = () => {
-    const siteUrl = import.meta.env.VITE_SITE_URL || 'http://localhost:5000';
     const [devices, setDevices] = useState<Device[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -74,7 +73,7 @@ const AdminRegistry = () => {
     const fetchDevices = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${siteUrl}/api/devices`);
+            const response = await fetch('/api/devices');
             if (response.ok) {
                 const data = await response.json();
                 setDevices(data);
@@ -125,7 +124,7 @@ const AdminRegistry = () => {
         }
 
         try {
-            const response = await fetch(`${siteUrl}/api/devices/${selectedDevice.id}`, {
+            const response = await fetch(`/api/devices/${selectedDevice.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -152,7 +151,7 @@ const AdminRegistry = () => {
     const handleDelete = async () => {
         if (deleteId === null) return;
         try {
-            const response = await fetch(`${siteUrl}/api/devices/${deleteId}`, { method: 'DELETE' });
+            const response = await fetch(`/api/devices/${deleteId}`, { method: 'DELETE' });
             if (response.ok) {
                 fetchDevices();
             } else {
@@ -455,7 +454,7 @@ const AdminRegistry = () => {
                                                 setDeleteId(selectedDevice.id);
                                                 // We need to wait for state/effect? No, just call fetch.
                                                 // Refactored logic below to be cleaner.
-                                                fetch(`${siteUrl}/api/devices/${selectedDevice.id}`, { method: 'DELETE' })
+                                                fetch(`/api/devices/${selectedDevice.id}`, { method: 'DELETE' })
                                                     .then(() => {
                                                         setRegisterModalOpen(false);
                                                         fetchDevices();

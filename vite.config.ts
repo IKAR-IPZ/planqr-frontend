@@ -7,52 +7,90 @@ import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+const rootEnvDir = path.resolve(__dirname, '..')
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+const getRequiredEnv = (env: Record<string, string>, key: string) => {
+  const value = env[key]
 
-  let siteUrl = env.VITE_SITE_URL || 'https://localhost:9099'
-  if (!siteUrl.startsWith('http://') && !siteUrl.startsWith('https://')) {
-    siteUrl = 'http://' + siteUrl
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`)
   }
 
+  return value
+}
 
+const normalizeUrl = (value: string) => {
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value
+  }
+
+  return `http://${value}`
+}
+
+const toProxyConfig = (value: string) => {
+  const url = new URL(normalizeUrl(value))
+
+  return {
+    origin: `${url.protocol}//${url.host}`,
+    path: `${url.pathname}${url.search}`,
+  }
+}
+
+export default defineConfig(({ mode, command }) => {
+  const env = loadEnv(mode, rootEnvDir, '')
   const certKeyPath = path.resolve(__dirname, '../certs/cert.key')
   const certPemPath = path.resolve(__dirname, '../certs/cert.pem')
   const hasCerts = fs.existsSync(certKeyPath) && fs.existsSync(certPemPath)
 
+  const config = {
+    envDir: rootEnvDir,
+    envPrefix: ['VITE_', 'ZUT_'],
+    plugins: [react()],
+  }
+
+  if (command !== 'serve') {
+    return config
+  }
+
+  const frontendUrl = new URL(normalizeUrl(getRequiredEnv(env, 'FRONTEND_PUBLIC_URL')))
+  const backendUrl = normalizeUrl(getRequiredEnv(env, 'BACKEND_PUBLIC_URL'))
+  const studentScheduleProxy = toProxyConfig(getRequiredEnv(env, 'ZUT_SCHEDULE_STUDENT_URL'))
+  const roomScheduleProxy = toProxyConfig(getRequiredEnv(env, 'ZUT_SCHEDULE_URL'))
+  const frontendDevPort = Number(getRequiredEnv(env, 'FRONTEND_DEV_PORT'))
+
   return {
+    ...config,
     server: {
       https: hasCerts ? {
         key: fs.readFileSync(certKeyPath),
         cert: fs.readFileSync(certPemPath),
       } : undefined,
-      port: mode === 'development' ? 3000 : 443,
+      port: frontendDevPort,
       host: true,
       proxy: {
         '/schedule_student.php': {
-          target: 'https://plan.zut.edu.pl', // Możesz dodać też to do .env, jeśli chcesz
+          target: studentScheduleProxy.origin,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/schedule_student.php/, '/schedule_student.php'),
+          rewrite: () => studentScheduleProxy.path,
         },
         '/schedule.php': {
-          target: 'https://plan.zut.edu.pl',
+          target: roomScheduleProxy.origin,
           changeOrigin: true,
           secure: false,
+          rewrite: () => roomScheduleProxy.path,
         },
         '/api': {
-          target: siteUrl,
+          target: backendUrl,
           changeOrigin: true,
           secure: false,
-          // rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },
       hmr: {
-        host: new URL(siteUrl).hostname, // Używa samej domeny np. planqr.wi.zut.edu.pl
-        protocol: 'wss',
+        host: frontendUrl.hostname,
+        protocol: frontendUrl.protocol === 'https:' ? 'wss' : 'ws',
+        clientPort: frontendUrl.port ? Number(frontendUrl.port) : frontendDevPort,
       },
     },
-    plugins: [react()],
   }
 })

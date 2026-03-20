@@ -1,4 +1,3 @@
-// const siteUrl = import.meta.env.VITE_SITE_URL;
 const API_URL = "/api/messages";
 
 export const fetchMessages = async (lessonId: string | number) => {

@@ -12,5 +12,21 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  frontend:
+    build:
+      context: ./planqr-frontend
+    environment:
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL}
+      ZUT_SCHEDULE_STUDENT_URL: ${ZUT_SCHEDULE_STUDENT_URL}
+      ZUT_SCHEDULE_URL: ${ZUT_SCHEDULE_URL}
+      ZUT_PLAN_BASE_URL: ${ZUT_PLAN_BASE_URL}
+    ports:
+      - "${FRONTEND_PORT:-443}:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
