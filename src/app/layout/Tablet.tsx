@@ -183,31 +183,22 @@ export default function Tablet() {
         });
      });
      return msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [scheduleItems]);
+   }, [scheduleItems]);
 
-  // Auto-scroll messages (touch is disabled on tablet)
-  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  // Handle seamless marquee scroll
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
   useEffect(() => {
-    const el = messagesScrollRef.current;
-    if (!el || allMessages.length === 0) return;
-    let scrollDir = 1;
-    let animId: ReturnType<typeof setInterval>;
-    let pauseId: ReturnType<typeof setTimeout>;
-    const step = () => {
-      if (!el) return;
-      el.scrollTop += scrollDir;
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
-        scrollDir = -1;
-        clearInterval(animId);
-        pauseId = setTimeout(() => { animId = setInterval(step, 30); }, 2000);
-      } else if (el.scrollTop <= 0) {
-        scrollDir = 1;
-        clearInterval(animId);
-        pauseId = setTimeout(() => { animId = setInterval(step, 30); }, 2000);
-      }
-    };
-    const startId = setTimeout(() => { animId = setInterval(step, 30); }, 2000);
-    return () => { clearTimeout(startId); clearTimeout(pauseId); clearInterval(animId); };
+     if (viewportRef.current && contentRef.current) {
+        // Evaluate if the original list is taller than the viewport
+        if (contentRef.current.scrollHeight > viewportRef.current.clientHeight) {
+           setIsOverflowing(true);
+        } else {
+           setIsOverflowing(false);
+        }
+     }
   }, [allMessages]);
 
   // Layout calculations for right panel
@@ -215,6 +206,25 @@ export default function Tablet() {
   const getCurrentTimeTop = () => (nowVal - calendarStartHour) * slotHeight;
 
   if (isLoading) return <div className="fullscreen-msg">Wczytywanie systemu...</div>;
+
+  const renderMessages = (messages: typeof allMessages, keyPrefix: string) => (
+    <>
+      {messages.map((msg, i) => (
+        <div key={`${keyPrefix}-${i}`} className="tablet-message-item">
+          <div className="tablet-message-meta">
+            <span className="tablet-message-lecturer">{msg.lecturer}</span>
+            <span className="tablet-message-event">• {msg.eventTitle}</span>
+          </div>
+          <div className="tablet-message-body">{msg.body}</div>
+          {msg.createdAt && (
+            <div className="tablet-message-time">
+              {new Date(msg.createdAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+        </div>
+      ))}
+    </>
+  );
 
   return (
     <div className="tablet-wrapper">
@@ -244,21 +254,17 @@ export default function Tablet() {
          <div className="tablet-messages-section">
             <div className="tablet-messages-header">📢 Wiadomości od wykładowcy</div>
             {allMessages.length > 0 ? (
-               <div className="tablet-messages-list" ref={messagesScrollRef}>
-                  {allMessages.map((msg, i) => (
-                     <div key={i} className="tablet-message-item">
-                        <div className="tablet-message-meta">
-                           <span className="tablet-message-lecturer">{msg.lecturer}</span>
-                           <span className="tablet-message-event">• {msg.eventTitle}</span>
-                        </div>
-                        <div className="tablet-message-body">{msg.body}</div>
-                        {msg.createdAt && (
-                           <div className="tablet-message-time">
-                              {new Date(msg.createdAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-                           </div>
-                        )}
+               <div className="tablet-messages-viewport" ref={viewportRef}>
+                  <div className={`tablet-messages-scroller ${isOverflowing ? 'is-overflowing' : ''}`}>
+                     <div className="tablet-messages-list" ref={contentRef}>
+                        {renderMessages(allMessages, 'orig')}
                      </div>
-                  ))}
+                     {isOverflowing && (
+                        <div className="tablet-messages-list" aria-hidden="true">
+                           {renderMessages(allMessages, 'dup')}
+                        </div>
+                     )}
+                  </div>
                </div>
             ) : (
                <div className="tablet-message-empty">Brak wiadomości</div>

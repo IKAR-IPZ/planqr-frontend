@@ -87,7 +87,7 @@
     color: #f8fafc;
   }
 
-  /* =============================================================================
+/* =============================================================================
     MESSAGES SECTION (Left Panel)
     ============================================================================= */
   .tablet-messages-section {
@@ -98,8 +98,12 @@
     padding: 1.5rem 1.8rem;
     margin-bottom: 1.5rem;
     flex: 1;
-    overflow-y: auto;
     min-height: 100px;
+    
+    /* DODANE ZAMIAST overflow-y: auto */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
   }
 
   .tablet-messages-header {
@@ -108,12 +112,41 @@
     color: #fbbf24;
     margin-bottom: 1rem;
     letter-spacing: 0.02em;
+    z-index: 2; /* Trzyma nagłówek na wierzchu */
+  }
+
+  /* NOWA KLASA: Viewport do przycinania animacji w pionie */
+  .tablet-messages-viewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    /* Lekkie rozmycie tekstu na dole i u góry - wygląda super profesjonalnie */
+    mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
+  }
+
+  .tablet-messages-scroller {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    position: relative;
+    width: 100%;
+  }
+
+  .tablet-messages-scroller.is-overflowing {
+    animation: seamless-scroll 20s linear infinite;
   }
 
   .tablet-messages-list {
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
+  }
+
+  /* Animacja plynna bez pustej przestrzeni na poczatku */
+  @keyframes seamless-scroll {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(calc(-50% - 0.4rem)); }
   }
 
   .tablet-message-item {
