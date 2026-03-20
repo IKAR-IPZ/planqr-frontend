@@ -1,5 +1,6 @@
 import { NavLink, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import ThemeToggle from './ThemeToggle';
 
 export default function NavBar() {
   const { room, teacher } = useParams();
@@ -53,6 +54,7 @@ export default function NavBar() {
       </div>
 
       <div className="navbar__actions">
+        <ThemeToggle />
         {room ? null : (
           isLoggedIn ? (
             <button onClick={handleLogout} className="btn btn--danger navbar__btn">

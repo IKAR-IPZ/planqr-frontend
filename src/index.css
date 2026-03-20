@@ -46,10 +46,10 @@
 }
 
 [data-theme='light'] {
-  --bg-main: #f8fafc;
+  --bg-main: #f1f5f9;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
-  --bg-input: #f1f5f9;
+  --bg-input: #f8fafc;
 
   --text-primary: #0f172a;
   --text-secondary: #475569;
@@ -57,8 +57,28 @@
 
   --border-color: rgba(0, 0, 0, 0.08);
   --border-color-light: rgba(0, 0, 0, 0.04);
-
+  
+  --fc-page-bg-color: #ffffff;
+  --fc-neutral-bg-color: #f8fafc;
+  --fc-border-color: #e2e8f0;
+  
   color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg-main: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-card: #1e293b;
+  --bg-input: rgba(0, 0, 0, 0.3);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-color-light: rgba(255, 255, 255, 0.05);
+
+  color-scheme: dark;
 }
 
 html, body {
@@ -130,7 +150,7 @@ button:focus-visible {
     var(--bg-main) 0%,
     var(--bg-surface) 100%
   );
-  color: #fff;
+  color: var(--text-primary);
   font-family: var(--font-base);
   display: flex;
   flex-direction: row;
@@ -138,6 +158,14 @@ button:focus-visible {
   align-items: center;
   padding: 4rem;
   gap: 4rem;
+  position: relative;
+}
+
+.registry__theme-toggle {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  z-index: 10;
 }
 
 .registry__header {
@@ -160,13 +188,13 @@ button:focus-visible {
 
 .registry__status-card {
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
   padding: 4rem;
   max-width: 600px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
   animation: fadeInRight 0.8s ease-out backwards;
   display: flex;
   flex-direction: column;
@@ -178,8 +206,8 @@ button:focus-visible {
 .registry__uuid-display {
   font-family: var(--font-mono);
   font-size: 4rem;
-  color: #fca5a5;
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--color-blue);
+  background: var(--bg-input);
   padding: 1.5rem 2rem;
   border-radius: var(--radius-md);
   margin: 2rem 0;
@@ -225,11 +253,22 @@ button:focus-visible {
 .loading-spinner {
   width: 64px;
   height: 64px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
+  border: 4px solid var(--border-color);
   border-radius: 50%;
-  border-top-color: #60a5fa;
+  border-top-color: var(--color-blue);
   animation: spin 1s linear infinite;
   margin: 0 auto;
+}
+
+.error-message {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 1rem 2rem;
+  border-radius: var(--radius-md);
+  margin-top: 1.5rem;
+  text-align: center;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  font-weight: 600;
 }
 
 /* Animations */
@@ -292,13 +331,20 @@ button:focus-visible {
 }
 
 .admin-panel__sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 3rem;
+}
+
+.admin-panel__theme-toggle-wrapper {
+  flex-shrink: 0;
 }
 
 .admin-panel__sidebar-brand {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -318,7 +364,7 @@ button:focus-visible {
   width: 100%;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  color: white;
+  color: var(--text-primary);
   padding: 0.75rem;
   border-radius: var(--radius-sm);
   transition: all 0.2s;
@@ -327,7 +373,8 @@ button:focus-visible {
 .admin-panel__sidebar-input:focus {
   outline: none;
   border-color: var(--color-blue-glow);
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--bg-input);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 /* Vertical Stat Cards in Sidebar */
@@ -338,13 +385,13 @@ button:focus-visible {
 }
 
 .admin-panel__stat-item {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border-radius: var(--radius-md);
   padding: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color-light);
 }
 
 .admin-panel__stat-item--active {
@@ -366,7 +413,7 @@ button:focus-visible {
 .admin-panel__stat-value {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 /* Admin Content Area (BEM Refactored) */
@@ -389,7 +436,7 @@ button:focus-visible {
 .admin-panel__page-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 .admin-panel__section {
@@ -423,10 +470,22 @@ button:focus-visible {
   position: relative;
 }
 
+.admin-panel__device-id {
+  background: var(--bg-input);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color-light);
+  font-family: monospace;
+  font-weight: 600;
+  display: inline-block;
+}
+
 .admin-panel__device-card:hover {
   transform: translateY(-2px);
-  background: #253349;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+  background: var(--bg-input);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15);
 }
 
 .admin-panel__status-badge {
@@ -440,12 +499,12 @@ button:focus-visible {
 }
 
 .admin-panel__status-badge--online {
-  background: rgba(34, 197, 94, 0.15);
+  background: var(--color-success-light, rgba(34, 197, 94, 0.15));
   color: var(--color-success);
 }
 
 .admin-panel__status-badge--pending {
-  background: rgba(234, 179, 8, 0.15);
+  background: var(--color-warning-light, rgba(234, 179, 8, 0.15));
   color: var(--color-warning);
 }
 
@@ -479,7 +538,7 @@ button:focus-visible {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--color-blue);
   color: white;
   box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
 }
@@ -511,16 +570,16 @@ button:focus-visible {
 }
 
 .btn-ghost {
-  background: rgba(255, 255, 255, 0.05);
-  color: #cbd5e1;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
   backdrop-filter: blur(4px);
 }
 
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--color-blue);
 }
 
 .btn-full {
@@ -538,8 +597,7 @@ button:focus-visible {
 
 .action-view {
   flex: 1;
-  background: linear-gradient(to right, #3b82f6, #60a5fa);
-  /* Blue gradient */
+  background: var(--color-blue);
   color: white !important;
   border: none;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
@@ -591,21 +649,22 @@ button:focus-visible {
 }
 
 .custom-modal {
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   border-radius: 24px;
   padding: 2.5rem;
   width: 100%;
   max-width: 480px;
   animation: slideUp 0.3s ease-out;
+  color: var(--text-primary);
 }
 
 .modal-header {
   font-size: 1.5rem;
   font-weight: 700;
   margin-bottom: 2rem;
-  color: #fff;
+  color: var(--text-primary);
   text-align: center;
 }
 
@@ -615,7 +674,7 @@ button:focus-visible {
 
 .modal-label {
   display: block;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
@@ -624,11 +683,11 @@ button:focus-visible {
 
 .modal-input {
   width: 100%;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1rem;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1.1rem;
   outline: none;
   font-family: inherit;
@@ -656,8 +715,8 @@ button:focus-visible {
 /* Autocomplete Suggestions */
 .suggestions-list {
   position: absolute;
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   max-height: 200px;
   overflow-y: auto;
@@ -671,9 +730,9 @@ button:focus-visible {
 .suggestion-item {
   padding: 0.75rem 1rem;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-color-light);
   transition: background 0.2s;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .suggestion-item:last-child {
@@ -681,8 +740,8 @@ button:focus-visible {
 }
 
 .suggestion-item:hover {
-  background: rgba(96, 165, 250, 0.2);
-  color: #fff;
+  background: var(--bg-input);
+  color: var(--color-blue);
 }
 
 @keyframes slideUp {
@@ -699,12 +758,12 @@ button:focus-visible {
 
 /* Empty States */
 .empty-state-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 2px dashed rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface);
+  border: 2px dashed var(--border-color);
   border-radius: 16px;
   padding: 4rem;
   text-align: center;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 /* Custom Scrollbar specifically for this page */
@@ -1049,30 +1108,30 @@ button:focus-visible {
   --fc-button-text-color: var(--text-primary) !important;
   --fc-button-bg-color: var(--bg-surface) !important;
   --fc-button-border-color: var(--border-color) !important;
-  --fc-button-hover-bg-color: #334155 !important;
+  --fc-button-hover-bg-color: var(--bg-input) !important;
   --fc-button-hover-border-color: var(--border-color-light) !important;
-  --fc-button-active-bg-color: #475569 !important;
-  --fc-button-active-border-color: rgba(255, 255, 255, 0.3) !important;
+  --fc-button-active-bg-color: var(--bg-input) !important;
+  --fc-button-active-border-color: var(--color-blue) !important;
   --fc-event-bg-color: var(--color-blue-glow) !important;
   --fc-event-border-color: var(--color-indigo) !important;
   --fc-event-text-color: #ffffff !important;
-  --fc-event-selected-overlay-color: rgba(0, 0, 0, 0.25) !important;
+  --fc-event-selected-overlay-color: rgba(0, 0, 0, 0.1) !important;
   --fc-more-link-bg-color: var(--bg-surface) !important;
   --fc-more-link-text-color: inherit !important;
   --fc-theme-standard-border-color: var(--border-color) !important;
-  --fc-non-business-color: rgba(255, 255, 255, 0.05) !important;
+  --fc-non-business-color: var(--bg-input) !important;
   --fc-bg-event-color: rgba(59, 130, 246, 0.2) !important;
   --fc-bg-event-opacity: 0.3 !important;
   --fc-highlight-color: rgba(59, 130, 246, 0.1) !important;
   --fc-today-bg-color: rgba(59, 130, 246, 0.05) !important;
   --fc-now-indicator-color: #ef4444 !important;
-  --fc-list-event-hover-bg-color: rgba(255, 255, 255, 0.05) !important;
+  --fc-list-event-hover-bg-color: var(--bg-input) !important;
 }
 
 .fc,
 .fc-theme-standard {
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Hyper-Aggressive Overrides for stray bright elements */
@@ -1091,7 +1150,7 @@ button:focus-visible {
 .fc-timegrid-body,
 .fc-scrollgrid-section > td,
 .fc-scrollgrid-section > th {
-  background-color: #0f172a !important;
+  background-color: var(--bg-main) !important;
 }
 .fc-timegrid-col.fc-day-today {
   background-color: rgba(59, 130, 246, 0.05) !important;
@@ -1100,20 +1159,20 @@ button:focus-visible {
   border-bottom-color: rgba(255, 255, 255, 0.05) !important;
 }
 .fc .fc-list-empty {
-  background-color: #0f172a !important;
-  color: #94a3b8 !important;
+  background-color: var(--bg-main) !important;
+  color: var(--text-secondary) !important;
 }
 
 /* Structural Overrides */
 .fc .fc-toolbar-title {
   font-size: 1.5rem !important;
   font-weight: 700;
-  color: #f8fafc !important;
+  color: var(--text-primary) !important;
 }
 .fc .fc-button-primary {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
   text-transform: capitalize;
   font-weight: 500;
   border-radius: 8px !important;
@@ -1122,14 +1181,14 @@ button:focus-visible {
   padding: 8px 16px !important;
 }
 .fc .fc-button-primary:not(:disabled):hover {
-  background-color: #334155 !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  color: #ffffff !important;
+  background-color: var(--bg-input) !important;
+  border-color: var(--color-blue) !important;
+  color: var(--text-primary) !important;
 }
 .fc .fc-button-active {
-  background-color: #475569 !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
+  background-color: var(--bg-input) !important;
+  color: var(--color-blue) !important;
+  border-color: var(--color-blue) !important;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 .fc-theme-standard th {
@@ -1166,18 +1225,18 @@ button:focus-visible {
 /* Day/Time Grid Specific overrides */
 .fc-timegrid-slot-label-cushion,
 .fc-timegrid-axis-cushion {
-  color: #94a3b8 !important;
+  color: var(--text-secondary) !important;
 }
 .fc-day-today {
   background-color: rgba(59, 130, 246, 0.05) !important;
 }
 .fc-list-day-cushion {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
 }
 .fc-list-event-title,
 .fc-list-event-time {
-  color: #f8fafc !important;
+  color: var(--text-primary) !important;
 }
 .fc-list-event:hover td {
   background-color: rgba(255, 255, 255, 0.05) !important;
@@ -1186,7 +1245,7 @@ button:focus-visible {
 /* Sidebar (BEM Refactored) */
 .lecturer-plan__sidebar {
   width: 420px;
-  background: rgba(30, 41, 59, 0.95);
+  background: var(--bg-surface);
   backdrop-filter: blur(20px);
   border-left: 1px solid var(--border-color);
   box-shadow: -15px 0 30px rgba(0, 0, 0, 0.05);
@@ -1375,10 +1434,10 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #0f172a;
+  background: var(--bg-surface);
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color-light);
   transition: background 0.2s;
   cursor: pointer;
 }
@@ -1434,16 +1493,28 @@ button:focus-visible {
 
 .lecturer-plan__message--incoming {
   align-self: flex-start;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-input);
   color: var(--text-primary);
   border-bottom-left-radius: 4px;
 }
 
 .lecturer-plan__message--outgoing {
   align-self: flex-end;
-  background: rgba(79, 70, 229, 0.2);
-  color: #bfdbfe;
+  background: var(--color-blue);
+  color: white;
   border-bottom-right-radius: 4px;
+}
+
+.lecturer-plan__message--room-change {
+  align-self: center;
+  width: 95% !important;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.lecturer-plan__message--room-change .lecturer-plan__message-header {
+  color: #ef4444;
 }
 
 .lecturer-plan__message-header {
@@ -1689,7 +1760,7 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 0.95rem;
   background: none;
@@ -1700,7 +1771,7 @@ button:focus-visible {
   transition: color 0.2s;
 }
 .attendance__back-btn:hover {
-  color: var(--text-primary);
+  color: var(--color-indigo);
 }
 
 .attendance__title {
@@ -1749,11 +1820,11 @@ button:focus-visible {
 
 .attendance__btn--secondary {
   background: var(--bg-surface);
-  color: #cbd5e1;
+  color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
 .attendance__btn--secondary:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-input);
   border-color: var(--text-secondary);
 }
 
@@ -1881,15 +1952,15 @@ button:focus-visible {
   color: #b45309;
 }
 .attendance__badge--unknown {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-input);
   color: var(--text-secondary);
 }
 
 .attendance__time {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.9rem;
-  color: var(--text-muted);
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-secondary);
+  background: var(--bg-input);
   padding: 4px 8px;
   border-radius: 4px;
 }
@@ -1961,6 +2032,41 @@ button:focus-visible {
   transform: translateY(-1px);
 }
 
+.theme-toggle {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 1.25rem; /* Larger icon */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 0;
+}
+
+.theme-toggle svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  stroke: none;
+}
+
+.theme-toggle:hover {
+  background: var(--bg-input);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.theme-toggle:active {
+  transform: scale(0.92);
+}
+
 /* LOGIN PANEL (BEM Refactored) */
 .login-panel {
   display: flex;
@@ -1969,16 +2075,23 @@ button:focus-visible {
   min-height: 100vh;
   background-color: var(--bg-main);
   padding: var(--spacing-lg);
+  position: relative;
+}
+
+.login-panel__theme-toggle {
+  position: absolute;
+  top: 32px;
+  right: 32px;
 }
 
 .login-panel__form {
-  background: rgba(30, 41, 59, 0.8);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: var(--text-primary);
   padding: 48px;
   border-radius: var(--radius-xl);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1986,7 +2099,7 @@ button:focus-visible {
   box-sizing: border-box;
   width: 100%;
   max-width: 420px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-color);
 }
 
 .login-panel__header {
@@ -1999,11 +2112,12 @@ button:focus-visible {
 }
 
 .login-panel__logo {
-  height: 48px; /* Slightly smaller */
+  height: 52px;
   width: auto;
   max-width: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+  /* subtle shadow to help logo visibility in both themes */
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .login-panel__input-group-wrapper {
@@ -2100,12 +2214,14 @@ button:focus-visible {
     align-items: center;
     justify-content: flex-start;
     padding: 1.5rem;
-    background: white;
+    background: var(--bg-surface);
     border-radius: 12px;
     width: 25%;
     box-sizing: border-box;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     align-self: stretch;
+    border: 1px solid var(--border-color-light);
+    color: var(--text-primary);
 }
 
 .plan-header-logos {
@@ -2155,7 +2271,7 @@ button:focus-visible {
 .plan-faculty-name {
     font-size: 1.5rem;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--text-primary);
     margin: 0;
     letter-spacing: 0.3px;
 }
@@ -2205,10 +2321,12 @@ button:focus-visible {
     margin-right: auto;
     padding: 0 2.5rem;
     box-sizing: border-box;
+    background-color: var(--bg-main); /* Ensure the whole calendar inherits theme bg */
+    color: var(--text-primary);
 }
 
 .fc-view-harness {
-    background-color: var(--bg-main) !important;
+    background-color: var(--bg-surface) !important;
     border-radius: 12px;
     padding: 0;
     width: 100%;
@@ -2273,7 +2391,7 @@ button:focus-visible {
 
 .fc-toolbar-title {
     font-size: 1.5rem !important;
-    color: rgb(68, 68, 68);
+    color: var(--text-primary) !important;
     font-weight: 600 !important;
     letter-spacing: 0.3px;
 }
@@ -2289,16 +2407,28 @@ button:focus-visible {
 .fc-button:hover {
     transform: translateY(-1px) !important;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    background-color: var(--bg-main) !important;
+}
+
+.fc-popover {
+  background-color: var(--bg-main) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.fc-popover-header {
+  background-color: var(--bg-main) !important;
 }
 
 .fc-button-primary {
-    background-color: #3b82f6 !important;
-    border-color: #3b82f6 !important;
+    background-color: var(--color-blue) !important;
+    border-color: var(--color-blue) !important;
+    color: white !important;
 }
 
 .fc-button-primary:hover {
-    background-color: #2563eb !important;
-    border-color: #2563eb !important;
+    background-color: var(--color-blue-glow) !important;
+    border-color: var(--color-blue-glow) !important;
+    transform: translateY(-1px);
 }
 
 .fc-daygrid-day-number {
@@ -2845,10 +2975,13 @@ button.sidebarChatButton:active {
     .fc-toolbar-chunk:last-child {
         margin-left: 0 !important;
     }
-}body {
+}
+
+body {
     height: 100%;
     margin: 0;
-    background: linear-gradient(135deg, #00c344 0%, rgb(33,138,174) 69%, rgb(32,167,172) 89%); /* Фон */
+    background-color: var(--bg-main);
+    color: var(--text-primary);
     background-repeat: no-repeat;
     background-attachment: fixed;
 }

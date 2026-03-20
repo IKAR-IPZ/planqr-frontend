@@ -1,6 +1,6 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../../layout/ThemeToggle';
 
 const Registry = () => {
     const siteUrl = import.meta.env.VITE_SITE_URL || 'http://localhost:5000';
@@ -83,6 +83,9 @@ const Registry = () => {
 
     return (
         <div className="registry">
+            <div className="registry__theme-toggle">
+                <ThemeToggle />
+            </div>
             <header className="registry__header">
                 <h1 className="registry__title">Device Registration</h1>
             </header>

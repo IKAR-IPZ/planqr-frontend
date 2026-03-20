@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/ZUT_Logo.png";
-
+import ThemeToggle from "./ThemeToggle";
 
 
 export default function LoginPanel() {
@@ -63,6 +63,9 @@ export default function LoginPanel() {
 
   return (
     <div className="login-panel">
+      <div className="login-panel__theme-toggle">
+        <ThemeToggle />
+      </div>
       <form className="login-panel__form" onSubmit={handleSubmit}>
         <div className="login-panel__header">
           <img src={logo} alt="ZUT Logo" className="login-panel__logo" />
@@ -88,7 +91,7 @@ export default function LoginPanel() {
             <input
               type="password"
               className="login-panel__input"
-              placeholder="Twoje hasło"
+              placeholder="Hasło"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}

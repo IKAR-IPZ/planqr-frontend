@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from 'react';
+import ThemeToggle from '../../layout/ThemeToggle';
 // Removed semantic-ui-react imports
 
 interface Device {
@@ -182,7 +182,10 @@ const AdminRegistry = () => {
                 <div className="admin-panel__sidebar-header">
                     <div className="admin-panel__sidebar-brand">
                         <i className="fas fa-shield-alt" style={{ color: 'var(--color-blue-glow)', marginRight: '0.75rem' }}></i>
-                        <span>Rejestr Urządzeń</span>
+                        <span>Admin Panel</span>
+                    </div>
+                    <div className="admin-panel__theme-toggle-wrapper">
+                      <ThemeToggle />
                     </div>
                 </div>
 
@@ -218,7 +221,7 @@ const AdminRegistry = () => {
 
                 <div className="admin-panel__sidebar-actions">
                     <button
-                        className={`btn btn--primary btn--full ${loading ? 'loading' : ''}`}
+                        className={`btn btn-primary btn-full ${loading ? 'loading' : ''}`}
                         onClick={fetchDevices}
                         disabled={loading}
                     >
@@ -269,15 +272,15 @@ const AdminRegistry = () => {
                                             <i className="fas fa-tablet-alt" style={{ opacity: 0.5, fontSize: '1.5em' }} />
                                         </div>
                                     </div>
-                                    <h3 style={{ margin: '0 0 0.5rem 0' }}>{device.deviceId}</h3>
+                                    <h3 style={{ margin: '0 0 0.5rem 0' }} className="admin-panel__device-id">{device.deviceId}</h3>
                                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
                                         Urządzenie czeka na przypisanie sali.
                                     </p>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                        <button className="btn btn--success" onClick={() => openRegisterModal(device)}>
+                                        <button className="btn btn-success" onClick={() => openRegisterModal(device)}>
                                             Autoryzuj
                                         </button>
-                                        <button className="btn btn--danger" onClick={() => { setDeleteId(device.id); setConfirmOpen(true); }}>
+                                        <button className="btn btn-danger" onClick={() => { setDeleteId(device.id); setConfirmOpen(true); }}>
                                             Odrzuć
                                         </button>
                                     </div>
@@ -306,7 +309,7 @@ const AdminRegistry = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                                         <div>
                                             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem' }}>{device.deviceClassroom}</h3>
-                                            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                                            <code className="admin-panel__device-id">
                                                 {device.deviceId}
                                             </code>
                                         </div>

@@ -109,7 +109,7 @@ export default function LecturerCalendar() {
 
 
   useEffect(() => {
-    if (activeTeacher) document.title = `Kokpit - ${activeTeacher}`;
+    if (activeTeacher) document.title = `Panel Dydaktyka - ${activeTeacher}`;
   }, [activeTeacher]);
 
   const fetchEvents = async (startDate: string, endDate: string, targetTeacher: string) => {
@@ -395,8 +395,8 @@ export default function LecturerCalendar() {
 
                         if (msg.isRoomChange) {
                           return (
-                            <div key={msg.id} className="lecturer-plan__message" style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', alignSelf: 'center', width: '95%' }}>
-                              <div className="lecturer-plan__message-header" style={{ color: '#ef4444' }}>
+                            <div key={msg.id} className="lecturer-plan__message lecturer-plan__message--room-change">
+                              <div className="lecturer-plan__message-header">
                                 <span style={{ fontWeight: 800 }}>⚠️ ZMIANA SALI</span>
                                 <span className="lecturer-plan__message-time">{new Date(msg.createdAt).toLocaleTimeString('pl-PL', {hour: '2-digit', minute:'2-digit'})}</span>
                               </div>
