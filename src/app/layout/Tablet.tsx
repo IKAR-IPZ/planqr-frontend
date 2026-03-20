@@ -154,36 +154,42 @@ export default function Tablet() {
 
   const nowVal = new Date().getHours() + new Date().getMinutes() / 60;
 
-  // Check for Room Change Alert
-  const roomChangeAlert = useMemo(() => {
-     let alertMessage: any = null;
-     scheduleItems.forEach(ev => {
-        ev.notifications?.forEach(msg => {
-           if (msg.isRoomChange) {
-              alertMessage = msg;
-           }
-        });
-     });
-     return alertMessage;
-  }, [scheduleItems]);
+  const SHOW_MESSAGES_ALL_DAY = true; // 🛠️ TRYB DEWELOPERSKI (zmień na false na produkcji)
 
-  // Aggregate all non-room-change messages from all today's events
+  // Aggregate all messages from all today's events (including room changes)
   const allMessages = useMemo(() => {
-     const msgs: { body: string; lecturer: string; createdAt: string; eventTitle: string }[] = [];
+     const msgs: any[] = [];
+     const now = new Date();
+
      scheduleItems.forEach(ev => {
-        ev.notifications?.forEach(msg => {
-           if (!msg.isRoomChange) {
+        let isRelevant = SHOW_MESSAGES_ALL_DAY;
+        if (!isRelevant) {
+           const eventStart = new Date(ev.startTime);
+           const eventEnd = new Date(ev.endTime);
+           // Pokaż na 15 minut przed rozpoczęciem i przez cały czas trwania
+           const fifteenMinsBefore = new Date(eventStart.getTime() - 15 * 60000);
+           
+           if (now >= fifteenMinsBefore && now <= eventEnd) {
+              isRelevant = true;
+           }
+        }
+
+        if (isRelevant) {
+           ev.notifications?.forEach(msg => {
               msgs.push({
                  body: msg.body,
                  lecturer: msg.lecturer || 'Wykładowca',
                  createdAt: msg.createdAt || '',
                  eventTitle: ev.description,
+                 isRoomChange: msg.isRoomChange,
+                 newRoom: msg.newRoom
               });
-           }
-        });
+           });
+        }
      });
      return msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-   }, [scheduleItems]);
+   // Odświeżaj gdy zmienia się plan, lub po prostu z upływem minut (nowVal)
+   }, [scheduleItems, nowVal]);
 
   // Handle seamless marquee scroll
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -210,12 +216,23 @@ export default function Tablet() {
   const renderMessages = (messages: typeof allMessages, keyPrefix: string) => (
     <>
       {messages.map((msg, i) => (
-        <div key={`${keyPrefix}-${i}`} className="tablet-message-item">
+        <div 
+          key={`${keyPrefix}-${i}`} 
+          className="tablet-message-item"
+          style={msg.isRoomChange ? { background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' } : {}}
+        >
           <div className="tablet-message-meta">
-            <span className="tablet-message-lecturer">{msg.lecturer}</span>
+            {msg.isRoomChange ? (
+              <span className="tablet-message-lecturer" style={{color: '#fca5a5', fontWeight: 800}}>⚠️ ZMIANA SALI</span>
+            ) : (
+              <span className="tablet-message-lecturer">{msg.lecturer}</span>
+            )}
             <span className="tablet-message-event">• {msg.eventTitle}</span>
           </div>
-          <div className="tablet-message-body">{msg.body}</div>
+          <div className="tablet-message-body" style={msg.isRoomChange ? { color: '#fca5a5', fontWeight: 600 } : {}}>
+             {msg.isRoomChange ? `Zajęcia przeniesione do: ${msg.newRoom}` : msg.body}
+             {msg.isRoomChange && msg.body && msg.body.indexOf('Zajęcia przeniesione do') === -1 && <div style={{marginTop: '4px', fontWeight: 400, color: '#f87171'}}>{msg.body}</div>}
+          </div>
           {msg.createdAt && (
             <div className="tablet-message-time">
               {new Date(msg.createdAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
@@ -229,14 +246,7 @@ export default function Tablet() {
   return (
     <div className="tablet-wrapper">
       
-      {/* 🚨 Fullscreen Room Change Alert Overlay 🚨 */}
-      {roomChangeAlert && (
-          <div className="room-change-overlay">
-              <h1>⚠️ Zmiana Sali</h1>
-              <h2>Zajęcia zostały przeniesione do: {roomChangeAlert.newRoom}</h2>
-              {roomChangeAlert.body && <p>{roomChangeAlert.body}</p>}
-          </div>
-      )}
+
 
       {/* LEFT PANEL */}
       <div className="tablet-left">
@@ -250,10 +260,10 @@ export default function Tablet() {
             <div className="tablet-room-name">Sala {roomInfo.building}-{roomInfo.room}</div>
          </div>
 
-         {/* Messages Section - always visible, auto-scrolling */}
-         <div className="tablet-messages-section">
-            <div className="tablet-messages-header">📢 Wiadomości od wykładowcy</div>
-            {allMessages.length > 0 ? (
+         {/* Messages Section - widoczne tylko gdy są wiadomości */}
+         {allMessages.length > 0 && (
+            <div className="tablet-messages-section">
+               <div className="tablet-messages-header">📢 Wiadomości od prowadzącego</div>
                <div className="tablet-messages-viewport" ref={viewportRef}>
                   <div className={`tablet-messages-scroller ${isOverflowing ? 'is-overflowing' : ''}`}>
                      <div className="tablet-messages-list" ref={contentRef}>
@@ -266,10 +276,8 @@ export default function Tablet() {
                      )}
                   </div>
                </div>
-            ) : (
-               <div className="tablet-message-empty">Brak wiadomości</div>
-            )}
-         </div>
+            </div>
+         )}
 
          {/* QR Code Location */}
          <div className="tablet-qr-section">

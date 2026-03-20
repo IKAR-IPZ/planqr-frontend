@@ -395,10 +395,10 @@ export default function LecturerCalendar() {
 
                         if (msg.isRoomChange) {
                           return (
-                            <div key={msg.id} className="lecturer-plan__message" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', alignSelf: 'center', width: '100%' }}>
-                              <div className="lecturer-plan__message-header" style={{ color: '#7f1d1d' }}>
-                                <span>⚠️ ZMIANA SALI ⚠️</span>
-                                <span className="lecturer-plan__message-time">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            <div key={msg.id} className="lecturer-plan__message" style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', alignSelf: 'center', width: '95%' }}>
+                              <div className="lecturer-plan__message-header" style={{ color: '#ef4444' }}>
+                                <span style={{ fontWeight: 800 }}>⚠️ ZMIANA SALI</span>
+                                <span className="lecturer-plan__message-time">{new Date(msg.createdAt).toLocaleTimeString('pl-PL', {hour: '2-digit', minute:'2-digit'})}</span>
                               </div>
                               <div style={{ fontWeight: 600 }}>{msg.body}</div>
                               {isOutgoing && (
@@ -412,7 +412,7 @@ export default function LecturerCalendar() {
                           <div key={msg.id} className={`lecturer-plan__message ${isOutgoing ? 'lecturer-plan__message--outgoing' : 'lecturer-plan__message--incoming'}`}>
                             <div className="lecturer-plan__message-header">
                               <span>{msg.lecturer}</span>
-                              <span className="lecturer-plan__message-time">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              <span className="lecturer-plan__message-time">{new Date(msg.createdAt).toLocaleTimeString('pl-PL', {hour: '2-digit', minute:'2-digit'})}</span>
                             </div>
                             <div>{msg.body}</div>
                             {isOutgoing && (

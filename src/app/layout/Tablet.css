@@ -362,49 +362,62 @@
     ============================================================================= */
   .room-change-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 60%;
+    max-width: 90%;
     background: rgba(220, 38, 38, 0.95);
     backdrop-filter: blur(10px);
-    z-index: 9999;
+    z-index: 2000;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     color: white;
     text-align: center;
-    padding: 4rem;
-    animation: pulseBg 2s infinite alternate;
+    padding: 1.5rem 3rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(220, 38, 38, 0.5);
+    border: 2px solid rgba(255, 100, 100, 0.4);
+    animation: slideDownFade 0.5s ease-out, pulseShadow 2s infinite alternate;
   }
 
   .room-change-overlay h1 {
-    font-size: 5rem;
+    font-size: 2.2rem;
     font-weight: 900;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
   }
 
   .room-change-overlay h2 {
-    font-size: 3rem;
+    font-size: 1.6rem;
     font-weight: 700;
-    margin-bottom: 2rem;
+    margin-bottom: 0.5rem;
   }
 
   .room-change-overlay p {
-    font-size: 1.8rem;
-    background: rgba(0,0,0,0.3);
-    padding: 1.5rem 3rem;
-    border-radius: 16px;
-    max-width: 80%;
-    line-height: 1.5;
+    font-size: 1.2rem;
+    background: rgba(0,0,0,0.2);
+    padding: 0.8rem 1.5rem;
+    border-radius: 12px;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+    max-width: 100%;
   }
 
-  @keyframes pulseBg {
-    0% { background: rgba(220, 38, 38, 0.95); }
-    100% { background: rgba(185, 28, 28, 0.98); }
+  @keyframes slideDownFade {
+    from { top: -100px; opacity: 0; transform: translateX(-50%) scale(0.9); }
+    to { top: 2rem; opacity: 1; transform: translateX(-50%) scale(1); }
+  }
+
+  @keyframes pulseShadow {
+    0% { box-shadow: 0 10px 30px rgba(220, 38, 38, 0.4); }
+    100% { box-shadow: 0 15px 50px rgba(220, 38, 38, 0.7); }
   }
 
   /* Global Loading & Error */
