@@ -1,443 +1,387 @@
-/* =============================================================================
-   TABLET.CSS - DIGITAL SIGNAGE THEME
-   ============================================================================= */
+  /* =============================================================================
+    TABLET.CSS - DIGITAL SIGNAGE THEME
+    ============================================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  user-select: none; /* Non-touch */
-  cursor: default !important; /* No pointer cursors */
-}
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none; /* Non-touch */
+    cursor: default !important; /* No pointer cursors */
+  }
 
-::-webkit-scrollbar {
-  display: none !important;
-}
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
 
-body, html {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background-color: #0b0f19;
-  font-family: 'Outfit', sans-serif;
-  color: #ffffff;
-}
+  body, html {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #0b0f19;
+    font-family: 'Outfit', sans-serif;
+    color: #ffffff;
+  }
 
-.tablet-wrapper {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  background-color: #0b0f19;
-  position: relative;
-  border: 4px solid #14b8a6; /* Subtle accent border around the whole screen like the mockup */
-  border-radius: 20px;
-  overflow: hidden;
-}
+  .tablet-wrapper {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    background-color: #0b0f19;
+    position: relative;
+    border: 4px solid #14b8a6; /* Subtle accent border around the whole screen like the mockup */
+    border-radius: 20px;
+    overflow: hidden;
+  }
 
-/* =============================================================================
-   LEFT PANEL (INFO & QR)
-   ============================================================================= */
-.tablet-left {
-  width: 45%;
-  height: 100%;
-  padding: 3rem;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, #0f172a 0%, #0b0f19 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-}
+  /* =============================================================================
+    LEFT PANEL (INFO & QR)
+    ============================================================================= */
+  .tablet-left {
+    width: 45%;
+    height: 100%;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, #0f172a 0%, #0b0f19 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
 
-.tablet-clock {
-  margin-bottom: 2rem;
-}
+  .tablet-clock {
+    margin-bottom: 2rem;
+  }
 
-.tablet-time {
-  font-size: 5.5rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
+  .tablet-time {
+    font-size: 5.5rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
 
-.tablet-date {
-  font-size: 1.2rem;
-  font-weight: 300;
-  color: #94a3b8;
-  margin-top: 0.5rem;
-  letter-spacing: 0.02em;
-}
+  .tablet-date {
+    font-size: 1.2rem;
+    font-weight: 300;
+    color: #94a3b8;
+    margin-top: 0.5rem;
+    letter-spacing: 0.02em;
+  }
 
-.tablet-room-info {
-  margin-bottom: 3rem;
-}
+  .tablet-room-info {
+    margin-bottom: 3rem;
+  }
 
-.tablet-room-capacity {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #94a3b8;
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
-}
+  .tablet-room-capacity {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
 
-.tablet-room-name {
-  font-size: 2.2rem;
-  font-weight: 600;
-  color: #f8fafc;
-}
+  .tablet-room-name {
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #f8fafc;
+  }
 
-/* Status Box */
-.tablet-status-box {
-  border: 2px solid #14b8a6; /* teal default */
-  border-radius: 24px;
-  padding: 2rem;
-  background: rgba(20, 184, 166, 0.05);
-  margin-bottom: 3rem;
-  transition: all 0.5s ease;
-}
+  /* =============================================================================
+    MESSAGES SECTION (Left Panel)
+    ============================================================================= */
+  .tablet-messages-section {
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.25);
+    border-left: 4px solid #fbbf24;
+    border-radius: 16px;
+    padding: 1.5rem 1.8rem;
+    margin-bottom: 1.5rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 100px;
+  }
 
-.tablet-status-box.occupied {
-  border-color: #f43f5e; /* Rose / Red for occupied */
-  background: rgba(244, 63, 94, 0.05);
-}
+  .tablet-messages-header {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fbbf24;
+    margin-bottom: 1rem;
+    letter-spacing: 0.02em;
+  }
 
-.tablet-status-box.available {
-  border-color: #14b8a6; /* Teal / Green for available */
-  background: rgba(20, 184, 166, 0.05);
-}
+  .tablet-messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
 
-.status-heading {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin-bottom: 0.5rem;
-}
+  .tablet-message-item {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1rem 1.2rem;
+    border-radius: 12px;
+  }
 
-.occupied .status-heading { color: #f43f5e; }
-.available .status-heading { color: #14b8a6; }
+  .tablet-message-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
 
-.status-sub {
-  font-size: 1.2rem;
-  color: #cbd5e1;
-  font-weight: 300;
-}
+  .tablet-message-lecturer {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+  }
 
-.status-details {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
+  .tablet-message-event {
+    font-size: 0.95rem;
+    color: #64748b;
+  }
 
-.status-detail-item {
-  font-size: 1.1rem;
-  color: #f8fafc;
-  margin-bottom: 0.5rem;
-  font-weight: 400;
-}
+  .tablet-message-body {
+    font-size: 1.2rem;
+    color: #f8fafc;
+    font-weight: 400;
+    line-height: 1.5;
+  }
 
-/* Notifications in Status Box */
-.status-notifications {
-  margin-top: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1rem;
-  border-radius: 12px;
-  border-left: 4px solid #fbbf24;
-}
+  .tablet-message-time {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-top: 0.3rem;
+    text-align: right;
+  }
 
-.status-notif-item {
-  color: #fbbf24;
-  font-size: 1rem;
-  font-weight: 600;
-}
+  .tablet-message-empty {
+    font-size: 1.1rem;
+    color: #64748b;
+    font-style: italic;
+  }
 
-/* =============================================================================
-   MESSAGES SECTION (Left Panel)
-   ============================================================================= */
-.tablet-messages-section {
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.25);
-  border-left: 4px solid #fbbf24;
-  border-radius: 16px;
-  padding: 1.2rem 1.5rem;
-  margin-bottom: 1.5rem;
-  max-height: 220px;
-  overflow-y: auto;
-}
+  /* QR Code Section (The Red Area from Mockup) */
+  .tablet-qr-section {
+    margin-top: auto; /* Pushes to bottom */
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
 
-.tablet-messages-header {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #fbbf24;
-  margin-bottom: 0.8rem;
-  letter-spacing: 0.02em;
-}
+  .qr-wrapper {
+    background: white;
+    padding: 1rem;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 30px rgba(20, 184, 166, 0.2);
+  }
 
-.tablet-messages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
+  .qr-text {
+    flex: 1;
+  }
 
-.tablet-message-item {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.8rem 1rem;
-  border-radius: 10px;
-}
+  .qr-text h3 {
+    font-size: 1.4rem;
+    color: #f8fafc;
+    margin-bottom: 0.5rem;
+  }
 
-.tablet-message-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.3rem;
-}
+  .qr-text p {
+    font-size: 0.95rem;
+    color: #94a3b8;
+    line-height: 1.4;
+  }
 
-.tablet-message-lecturer {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #e2e8f0;
-}
+  /* =============================================================================
+    RIGHT PANEL (TIMELINE CALENDAR)
+    ============================================================================= */
+  .tablet-right {
+    width: 55%;
+    height: 100%;
+    background-color: #111827; /* Slightly lighter/different dark */
+    position: relative;
+    overflow: hidden;
+  }
 
-.tablet-message-event {
-  font-size: 0.8rem;
-  color: #64748b;
-}
+  .timeline-container {
+    height: 100%;
+    width: 100%;
+    position: relative;
+    padding: 2rem 0;
+  }
 
-.tablet-message-body {
-  font-size: 1.05rem;
-  color: #f8fafc;
-  font-weight: 400;
-  line-height: 1.4;
-}
+  .time-slot {
+    height: 120px; /* Base height for 1 hour */
+    display: flex;
+    position: relative;
+  }
 
-.tablet-message-time {
-  font-size: 0.75rem;
-  color: #64748b;
-  margin-top: 0.3rem;
-  text-align: right;
-}
+  .time-label {
+    width: 100px;
+    font-size: 1rem;
+    color: #94a3b8;
+    text-align: right;
+    padding-right: 1.5rem;
+    transform: translateY(-50%); /* Center on the line */
+    font-weight: 300;
+  }
 
-/* QR Code Section (The Red Area from Mockup) */
-.tablet-qr-section {
-  margin-top: auto; /* Pushes to bottom */
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-}
+  .time-line {
+    flex: 1;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+  }
 
-.qr-wrapper {
-  background: white;
-  padding: 1rem;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 30px rgba(20, 184, 166, 0.2);
-}
+  /* Current Time Indicator */
+  .current-time-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #14b8a6;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+  }
 
-.qr-text {
-  flex: 1;
-}
+  .current-time-label {
+    width: 100px;
+    color: #14b8a6;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-align: right;
+    padding-right: 1rem;
+  }
 
-.qr-text h3 {
-  font-size: 1.4rem;
-  color: #f8fafc;
-  margin-bottom: 0.5rem;
-}
+  .current-time-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #14b8a6;
+    position: absolute;
+    left: 95px;
+    box-shadow: 0 0 10px #14b8a6;
+  }
 
-.qr-text p {
-  font-size: 0.95rem;
-  color: #94a3b8;
-  line-height: 1.4;
-}
+  /* Events */
+  .timeline-event {
+    position: absolute;
+    left: 120px; /* Past the time labels */
+    right: 2rem;
+    background-color: #f8fafc; /* White blocks like in the mockup */
+    color: #0f172a;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    z-index: 5;
+    overflow: hidden;
+  }
 
-/* =============================================================================
-   RIGHT PANEL (TIMELINE CALENDAR)
-   ============================================================================= */
-.tablet-right {
-  width: 55%;
-  height: 100%;
-  background-color: #111827; /* Slightly lighter/different dark */
-  position: relative;
-  overflow: hidden;
-}
+  /* Past events fade out */
+  .timeline-event.past {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    box-shadow: none;
+  }
+  .timeline-event.past .event-time { color: #64748b; }
 
-.timeline-container {
-  height: 100%;
-  width: 100%;
-  position: relative;
-  padding: 2rem 0;
-}
+  .event-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-.time-slot {
-  height: 120px; /* Base height for 1 hour */
-  display: flex;
-  position: relative;
-}
+  .event-time {
+    font-size: 0.9rem;
+    color: #475569;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
 
-.time-label {
-  width: 100px;
-  font-size: 1rem;
-  color: #94a3b8;
-  text-align: right;
-  padding-right: 1.5rem;
-  transform: translateY(-50%); /* Center on the line */
-  font-weight: 300;
-}
+  .event-instructor {
+    font-size: 0.95rem;
+    color: #64748b;
+  }
 
-.time-line {
-  flex: 1;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  position: relative;
-}
+  .event-message-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.7rem;
+    background: #fbbf24;
+    color: #0f172a;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
+  }
 
-/* Current Time Indicator */
-.current-time-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: #14b8a6;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-}
+  /* =============================================================================
+    FULLSCREEN ROOM CHANGE OVERLAY
+    ============================================================================= */
+  .room-change-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(220, 38, 38, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-align: center;
+    padding: 4rem;
+    animation: pulseBg 2s infinite alternate;
+  }
 
-.current-time-label {
-  width: 100px;
-  color: #14b8a6;
-  font-weight: 600;
-  font-size: 0.95rem;
-  text-align: right;
-  padding-right: 1rem;
-}
+  .room-change-overlay h1 {
+    font-size: 5rem;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
 
-.current-time-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: #14b8a6;
-  position: absolute;
-  left: 95px;
-  box-shadow: 0 0 10px #14b8a6;
-}
+  .room-change-overlay h2 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+  }
 
-/* Events */
-.timeline-event {
-  position: absolute;
-  left: 120px; /* Past the time labels */
-  right: 2rem;
-  background-color: #f8fafc; /* White blocks like in the mockup */
-  color: #0f172a;
-  border-radius: 12px;
-  padding: 1rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-  z-index: 5;
-  overflow: hidden;
-}
+  .room-change-overlay p {
+    font-size: 1.8rem;
+    background: rgba(0,0,0,0.3);
+    padding: 1.5rem 3rem;
+    border-radius: 16px;
+    max-width: 80%;
+    line-height: 1.5;
+  }
 
-/* Past events fade out */
-.timeline-event.past {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-  box-shadow: none;
-}
-.timeline-event.past .event-time { color: #64748b; }
+  @keyframes pulseBg {
+    0% { background: rgba(220, 38, 38, 0.95); }
+    100% { background: rgba(185, 28, 28, 0.98); }
+  }
 
-.event-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.event-time {
-  font-size: 0.9rem;
-  color: #475569;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.event-instructor {
-  font-size: 0.95rem;
-  color: #64748b;
-}
-
-.event-message-badge {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.7rem;
-  background: #fbbf24;
-  color: #0f172a;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.2rem 0.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
-}
-
-/* =============================================================================
-   FULLSCREEN ROOM CHANGE OVERLAY
-   ============================================================================= */
-.room-change-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(220, 38, 38, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  text-align: center;
-  padding: 4rem;
-  animation: pulseBg 2s infinite alternate;
-}
-
-.room-change-overlay h1 {
-  font-size: 5rem;
-  font-weight: 900;
-  margin-bottom: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-.room-change-overlay h2 {
-  font-size: 3rem;
-  font-weight: 700;
-  margin-bottom: 2rem;
-}
-
-.room-change-overlay p {
-  font-size: 1.8rem;
-  background: rgba(0,0,0,0.3);
-  padding: 1.5rem 3rem;
-  border-radius: 16px;
-  max-width: 80%;
-  line-height: 1.5;
-}
-
-@keyframes pulseBg {
-  0% { background: rgba(220, 38, 38, 0.95); }
-  100% { background: rgba(185, 28, 28, 0.98); }
-}
-
-/* Global Loading & Error */
-.fullscreen-msg {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  color: #94a3b8;
-  background: #0b0f19;
-}
+  /* Global Loading & Error */
+  .fullscreen-msg {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #94a3b8;
+    background: #0b0f19;
+  }

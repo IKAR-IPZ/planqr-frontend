@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
@@ -58,7 +58,7 @@ export default function Tablet() {
       setCurrentDateTime({
         date: now.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' }),
         time: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        dayName: now.toLocaleDateString('en-US', { weekday: 'long' }),
+        dayName: now.toLocaleDateString('pl-PL', { weekday: 'long' }),
         dayNumber: now.getDate()
       });
     };
@@ -140,7 +140,8 @@ export default function Tablet() {
 
     if (roomInfo.room) {
       fetchSchedule();
-      const intervalId = setInterval(fetchSchedule, 30000); // 30s check for fast message sync
+      // TODO: [PROD] Change interval to 60000ms (1 min) or higher for production
+      const intervalId = setInterval(fetchSchedule, 2000); // 2s for dev — fast message sync
       return () => clearInterval(intervalId);
     }
   }, [roomInfo]);
@@ -152,16 +153,6 @@ export default function Tablet() {
   };
 
   const nowVal = new Date().getHours() + new Date().getMinutes() / 60;
-
-  const currentEvent = scheduleItems.find(e => {
-    const start = parseTime(e.startTime);
-    const end = parseTime(e.endTime);
-    return nowVal >= start && nowVal < end;
-  });
-
-  const nextEvent = !currentEvent ? scheduleItems.find(e => {
-    return parseTime(e.startTime) > nowVal;
-  }) : null;
 
   // Check for Room Change Alert
   const roomChangeAlert = useMemo(() => {
@@ -194,6 +185,31 @@ export default function Tablet() {
      return msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [scheduleItems]);
 
+  // Auto-scroll messages (touch is disabled on tablet)
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = messagesScrollRef.current;
+    if (!el || allMessages.length === 0) return;
+    let scrollDir = 1;
+    let animId: ReturnType<typeof setInterval>;
+    let pauseId: ReturnType<typeof setTimeout>;
+    const step = () => {
+      if (!el) return;
+      el.scrollTop += scrollDir;
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+        scrollDir = -1;
+        clearInterval(animId);
+        pauseId = setTimeout(() => { animId = setInterval(step, 30); }, 2000);
+      } else if (el.scrollTop <= 0) {
+        scrollDir = 1;
+        clearInterval(animId);
+        pauseId = setTimeout(() => { animId = setInterval(step, 30); }, 2000);
+      }
+    };
+    const startId = setTimeout(() => { animId = setInterval(step, 30); }, 2000);
+    return () => { clearTimeout(startId); clearTimeout(pauseId); clearInterval(animId); };
+  }, [allMessages]);
+
   // Layout calculations for right panel
   const slotHeight = 120; // 120px per hour
   const getCurrentTimeTop = () => (nowVal - calendarStartHour) * slotHeight;
@@ -224,51 +240,11 @@ export default function Tablet() {
             <div className="tablet-room-name">Sala {roomInfo.building}-{roomInfo.room}</div>
          </div>
 
-         <div className={`tablet-status-box ${currentEvent ? 'occupied' : 'available'}`}>
-            {currentEvent ? (
-               <>
-                  <div className="status-heading">Trwają zajęcia</div>
-                  <div className="status-sub">pozostało ok. {Math.round((parseTime(currentEvent.endTime) - nowVal) * 60)} min</div>
-                  
-                  <div className="status-details">
-                     <div className="status-detail-item"><strong>Przedmiot:</strong> {currentEvent.description} ({currentEvent.form})</div>
-                     <div className="status-detail-item"><strong>Prowadzący:</strong> {currentEvent.instructor}</div>
-                     <div className="status-detail-item"><strong>Godziny:</strong> {currentEvent.startTime} - {currentEvent.endTime}</div>
-                     {currentEvent.group_name && <div className="status-detail-item"><strong>Grupa:</strong> {currentEvent.group_name}</div>}
-                  </div>
-
-                  {currentEvent.notifications?.filter(n => !n.isRoomChange).length > 0 && (
-                     <div className="status-notifications">
-                        {currentEvent.notifications.filter(n => !n.isRoomChange).map((n, i) => (
-                           <div key={i} className="status-notif-item">📢 {n.body}</div>
-                        ))}
-                     </div>
-                  )}
-               </>
-            ) : (
-               <>
-                  <div className="status-heading">Dostępna</div>
-                  {nextEvent ? (
-                     <div className="status-sub">do {nextEvent.startTime} ({(Math.round((parseTime(nextEvent.startTime) - nowVal) * 60))} min)</div>
-                  ) : (
-                     <div className="status-sub">do końca dnia</div>
-                  )}
-
-                  {nextEvent && (
-                     <div className="status-details">
-                        <div className="status-detail-item"><strong>Następne zajęcia:</strong> {nextEvent.description}</div>
-                        <div className="status-detail-item"><strong>Prowadzący:</strong> {nextEvent.instructor}</div>
-                     </div>
-                  )}
-               </>
-            )}
-         </div>
-
-         {/* Messages Section */}
-         {allMessages.length > 0 && (
-            <div className="tablet-messages-section">
-               <div className="tablet-messages-header">📢 Wiadomości od wykładowcy</div>
-               <div className="tablet-messages-list">
+         {/* Messages Section - always visible, auto-scrolling */}
+         <div className="tablet-messages-section">
+            <div className="tablet-messages-header">📢 Wiadomości od wykładowcy</div>
+            {allMessages.length > 0 ? (
+               <div className="tablet-messages-list" ref={messagesScrollRef}>
                   {allMessages.map((msg, i) => (
                      <div key={i} className="tablet-message-item">
                         <div className="tablet-message-meta">
@@ -284,8 +260,10 @@ export default function Tablet() {
                      </div>
                   ))}
                </div>
-            </div>
-         )}
+            ) : (
+               <div className="tablet-message-empty">Brak wiadomości</div>
+            )}
+         </div>
 
          {/* QR Code Location */}
          <div className="tablet-qr-section">
