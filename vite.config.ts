@@ -9,8 +9,14 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const rootEnvDir = path.resolve(__dirname, '..')
 
-const getRequiredEnv = (env: Record<string, string>, key: string, defaultValue: string) => {
-  return env[key] || defaultValue
+const getRequiredEnv = (env: Record<string, string>, key: string) => {
+  const value = env[key]
+
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`)
+  }
+
+  return value
 }
 
 const normalizeUrl = (value: string) => {
