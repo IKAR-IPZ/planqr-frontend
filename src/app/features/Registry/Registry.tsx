@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../../layout/ThemeToggle';
 
+const buildTabletPath = (room: string, secretUrl: string) =>
+    `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
+
+interface RegistryStatusResponse {
+    status: string;
+    config?: {
+        room: string;
+        secretUrl: string;
+    } | null;
+}
+
 const Registry = () => {
     const navigate = useNavigate();
     const [uuid, setUuid] = useState<string>('');
@@ -22,8 +33,6 @@ const Registry = () => {
     // Handshake and Polling
     useEffect(() => {
         if (!uuid) return;
-
-        let pollInterval: NodeJS.Timeout;
 
         const performHandshake = async () => {
             try {
@@ -57,7 +66,7 @@ const Registry = () => {
             }
         }
 
-        const handleStatus = (data: any) => {
+        const handleStatus = (data: RegistryStatusResponse) => {
             setStatus(data.status);
             if (data.status === 'ACTIVE' && data.config) {
                 // Redirect to tablet view with secret
@@ -70,12 +79,12 @@ const Registry = () => {
                 // Let's assume deviceClassroom is the Room Number. Building is... ? 
                 // In legacy, "department" and "room" were needed. 
                 // Let's use "WI" as default department for now as seen in Tablet.tsx logic
-                navigate(`/tablet/${data.config.room}/${data.config.secretUrl}`);
+                navigate(buildTabletPath(data.config.room, data.config.secretUrl));
             }
         };
 
         performHandshake();
-        pollInterval = setInterval(checkStatus, 5000); // Poll every 5s
+        const pollInterval = setInterval(checkStatus, 5000); // Poll every 5s
 
         return () => clearInterval(pollInterval);
     }, [uuid, navigate]);

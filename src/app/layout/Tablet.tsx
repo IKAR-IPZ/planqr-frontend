@@ -19,11 +19,63 @@ interface ScheduleEvent {
   color: string;
 }
 
+interface DeviceStatusResponse {
+  status: string;
+  config?: {
+    room?: string | null;
+    secretUrl?: string | null;
+  } | null;
+}
+
+interface TabletCommandPayload {
+  type: 'connected' | 'config-updated' | 'reload' | 'registry-reset';
+  hardReload?: boolean;
+  path?: string;
+  config?: DeviceStatusResponse['config'];
+}
+
+const TABLET_RELOAD_PARAM = '_tabletReload';
+
+const buildTabletPath = (room: string, secretUrl: string) =>
+  `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
+
+const forceHardReload = (path?: string) => {
+  const target = path ?? `${window.location.pathname}${window.location.search}`;
+  const url = new URL(target, window.location.origin);
+  url.searchParams.set(TABLET_RELOAD_PARAM, Date.now().toString());
+  window.location.replace(url.toString());
+};
+
+const syncTabletRouteFromConfig = (
+  currentRouteRoom: string,
+  currentRouteSecret: string,
+  config?: DeviceStatusResponse['config'],
+  options?: { forceReload?: boolean; fallbackPath?: string }
+) => {
+  if (!config?.room || !config?.secretUrl) {
+    forceHardReload(options?.fallbackPath ?? '/registry');
+    return;
+  }
+
+  if (config.room !== currentRouteRoom || config.secretUrl !== currentRouteSecret) {
+    forceHardReload(buildTabletPath(config.room, config.secretUrl));
+    return;
+  }
+
+  if (options?.forceReload) {
+    forceHardReload();
+  }
+};
+
 export default function Tablet() {
-  const params = useParams<{ room?: string }>();
+  const params = useParams<{ room?: string; secretUrl?: string }>();
   const location = useLocation();
 
+  const currentRouteRoom = params.room ? decodeURIComponent(params.room) : '';
+  const currentRouteSecret = params.secretUrl ? decodeURIComponent(params.secretUrl) : '';
+
   const [roomInfo, setRoomInfo] = useState({ building: "", room: "" });
+  const [deviceId, setDeviceId] = useState('');
   
   // States
   const [currentDateTime, setCurrentDateTime] = useState({
@@ -35,6 +87,16 @@ export default function Tablet() {
   // Time metrics for calendar view
   const calendarStartHour = 7; // Fixed start hour
   const timeSlotsCount = 13; // 7:00 to 19:00
+
+  useEffect(() => {
+    const storedDeviceId = window.localStorage.getItem('tablet_uuid') || '';
+    if (!storedDeviceId) {
+      forceHardReload('/registry');
+      return;
+    }
+
+    setDeviceId(storedDeviceId);
+  }, []);
 
   // 1. Parse Room Info
   useEffect(() => {
@@ -50,6 +112,92 @@ export default function Tablet() {
       setRoomInfo({ building, room: roomPart });
     }
   }, [location.pathname, params]);
+
+  useEffect(() => {
+    if (!deviceId) return;
+
+    const eventSource = new EventSource(`/api/registry/stream/${encodeURIComponent(deviceId)}`);
+    const handleTabletCommand = (event: MessageEvent<string>) => {
+      try {
+        const payload = JSON.parse(event.data) as TabletCommandPayload;
+
+        if (payload.type === 'connected') {
+          return;
+        }
+
+        if (payload.type === 'registry-reset') {
+          forceHardReload(payload.path || '/registry');
+          return;
+        }
+
+        if (payload.type === 'config-updated') {
+          syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: payload.hardReload });
+          return;
+        }
+
+        if (payload.type === 'reload') {
+          if (payload.config) {
+            syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: true });
+            return;
+          }
+
+          forceHardReload(payload.path);
+        }
+      } catch (error) {
+        console.error('[Tablet] Failed to handle stream payload:', error);
+      }
+    };
+
+    eventSource.addEventListener('tablet-command', handleTabletCommand as EventListener);
+    eventSource.onerror = (error) => {
+      console.error('[Tablet] Device stream error:', error);
+    };
+
+    return () => {
+      eventSource.removeEventListener('tablet-command', handleTabletCommand as EventListener);
+      eventSource.close();
+    };
+  }, [currentRouteRoom, currentRouteSecret, deviceId]);
+
+  useEffect(() => {
+    if (!deviceId) return;
+
+    let cancelled = false;
+
+    const syncDeviceStatus = async () => {
+      try {
+        const response = await fetch(`/api/registry/status/${encodeURIComponent(deviceId)}`);
+        if (!response.ok) {
+          if (response.status === 404 && !cancelled) {
+            forceHardReload('/registry');
+          }
+          return;
+        }
+
+        const data: DeviceStatusResponse = await response.json();
+        if (cancelled) {
+          return;
+        }
+
+        if (data.status !== 'ACTIVE') {
+          forceHardReload('/registry');
+          return;
+        }
+
+        syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, data.config);
+      } catch (error) {
+        console.error('[Tablet] Device status sync error:', error);
+      }
+    };
+
+    syncDeviceStatus();
+    const intervalId = window.setInterval(syncDeviceStatus, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [currentRouteRoom, currentRouteSecret, deviceId]);
 
   // 2. Clock
   useEffect(() => {

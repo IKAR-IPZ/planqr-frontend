@@ -19,6 +19,8 @@ const AdminRegistry = () => {
     const [devices, setDevices] = useState<Device[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [reloadingTablets, setReloadingTablets] = useState(false);
+    const [reloadFeedback, setReloadFeedback] = useState<string | null>(null);
 
     // Modal State
     const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -82,6 +84,33 @@ const AdminRegistry = () => {
             console.error('Error fetching devices:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleReloadAllTablets = async () => {
+        try {
+            setReloadingTablets(true);
+            setReloadFeedback(null);
+
+            const response = await fetch('/api/devices/reload-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reason: 'admin-manual-tablet-reload'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się wysłać komendy reload.');
+            }
+
+            const data = await response.json();
+            setReloadFeedback(`Wysłano sygnał do ${data.delivered} połączeń tabletów.`);
+        } catch (error) {
+            console.error('Error reloading tablets:', error);
+            setReloadFeedback('Nie udało się wysłać sygnału przeładowania.');
+        } finally {
+            setReloadingTablets(false);
         }
     };
 
@@ -227,6 +256,20 @@ const AdminRegistry = () => {
                         <i className={`fas fa-sync ${loading ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
                         Odśwież
                     </button>
+                    <button
+                        className={`btn btn-full ${reloadingTablets ? 'loading' : ''}`}
+                        onClick={handleReloadAllTablets}
+                        disabled={reloadingTablets}
+                        style={{ marginTop: '0.75rem' }}
+                    >
+                        <i className={`fas fa-bolt ${reloadingTablets ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
+                        Przeładuj tablety
+                    </button>
+                    {reloadFeedback && (
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.75rem', lineHeight: 1.4 }}>
+                            {reloadFeedback}
+                        </p>
+                    )}
                     <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                         <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>Powrót do strony głównej</a>
                     </div>
