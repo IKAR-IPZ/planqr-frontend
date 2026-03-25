@@ -20,6 +20,17 @@ const ROOM_SEARCH_MIN_LENGTH = 2;
 
 const sanitizeRoomValue = (value: string) => value.trim().replace(/\s+/g, ' ');
 const normalizeRoomValue = (value: string) => sanitizeRoomValue(value).toUpperCase();
+interface NightModeSettings {
+    enabled: boolean;
+    startTime: string;
+    endTime: string;
+}
+
+const defaultNightModeSettings: NightModeSettings = {
+    enabled: false,
+    startTime: '22:00',
+    endTime: '06:00'
+};
 
 const AdminRegistry = () => {
     const [devices, setDevices] = useState<Device[]>([]);
@@ -27,6 +38,11 @@ const AdminRegistry = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [reloadingTablets, setReloadingTablets] = useState(false);
     const [reloadFeedback, setReloadFeedback] = useState<string | null>(null);
+    const [nightModeSettings, setNightModeSettings] = useState<NightModeSettings>(defaultNightModeSettings);
+    const [nightModeLoading, setNightModeLoading] = useState(false);
+    const [nightModeSaving, setNightModeSaving] = useState(false);
+    const [nightModeFeedback, setNightModeFeedback] = useState<string | null>(null);
+    const [nightModeModalOpen, setNightModeModalOpen] = useState(false);
 
     // Modal State
     const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -172,6 +188,62 @@ const AdminRegistry = () => {
         }
     };
 
+    const fetchNightModeSettings = async () => {
+        try {
+            setNightModeLoading(true);
+            const response = await fetch('/api/devices/display-settings');
+
+            if (!response.ok) {
+                throw new Error('Nie udało się pobrać ustawień trybu nocnego.');
+            }
+
+            const data = await response.json();
+            setNightModeSettings(data.nightMode ?? defaultNightModeSettings);
+        } catch (error) {
+            console.error('Error fetching night mode settings:', error);
+            setNightModeFeedback('Nie udało się pobrać ustawień trybu nocnego.');
+        } finally {
+            setNightModeLoading(false);
+        }
+    };
+
+    const handleNightModeSettingsSave = async () => {
+        if (nightModeSettings.startTime === nightModeSettings.endTime) {
+            setNightModeFeedback('Godzina rozpoczęcia i zakończenia nie mogą być takie same.');
+            return;
+        }
+
+        try {
+            setNightModeSaving(true);
+            setNightModeFeedback(null);
+
+            const response = await fetch('/api/devices/display-settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(nightModeSettings)
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Nie udało się zapisać ustawień trybu nocnego.');
+            }
+
+            setNightModeSettings(data.nightMode ?? nightModeSettings);
+            setNightModeFeedback(`Zapisano. Zmiana została wysłana do ${data.delivered ?? 0} podłączonych ekranów.`);
+        } catch (error) {
+            console.error('Error saving night mode settings:', error);
+            setNightModeFeedback(error instanceof Error ? error.message : 'Nie udało się zapisać ustawień trybu nocnego.');
+        } finally {
+            setNightModeSaving(false);
+        }
+    };
+
+    const openNightModeModal = async () => {
+        setNightModeFeedback(null);
+        setNightModeModalOpen(true);
+        await fetchNightModeSettings();
+    };
+
     const handleReloadAllTablets = async () => {
         try {
             setReloadingTablets(true);
@@ -201,6 +273,7 @@ const AdminRegistry = () => {
 
     useEffect(() => {
         fetchDevices();
+        fetchNightModeSettings();
         const interval = setInterval(fetchDevices, 5000); // Poll for updates
         return () => clearInterval(interval);
     }, []);
@@ -398,6 +471,14 @@ const AdminRegistry = () => {
                             Zarządzaj urządzeniami tabletowymi i przypisuj je do sal
                         </p>
                     </div>
+                    <button
+                        className="btn btn-primary"
+                        onClick={openNightModeModal}
+                        disabled={nightModeLoading}
+                    >
+                        <i className={`fas fa-moon ${nightModeLoading ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
+                        Harmonogram trybu nocnego
+                    </button>
                 </div>
 
                 {/* PENDING SECTION */}
@@ -650,6 +731,99 @@ const AdminRegistry = () => {
                                     Zapisz
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {nightModeModalOpen && (
+                <div className="custom-modal-overlay" onClick={() => setNightModeModalOpen(false)}>
+                    <div className="custom-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            Ustawienia Trybu Nocnego
+                        </div>
+                        <div className="modal-content">
+                            <label className="admin-panel__checkbox-row">
+                                <input
+                                    type="checkbox"
+                                    checked={nightModeSettings.enabled}
+                                    onChange={(e) => {
+                                        setNightModeSettings(current => ({
+                                            ...current,
+                                            enabled: e.target.checked
+                                        }));
+                                        setNightModeFeedback(null);
+                                    }}
+                                    disabled={nightModeLoading || nightModeSaving}
+                                />
+                                <span>Włącz harmonogram czarnego ekranu</span>
+                            </label>
+
+                            <div className="admin-panel__time-grid">
+                                <label className="admin-panel__time-field">
+                                    <span>Od</span>
+                                    <input
+                                        type="time"
+                                        className="modal-input"
+                                        value={nightModeSettings.startTime}
+                                        onChange={(e) => {
+                                            setNightModeSettings(current => ({
+                                                ...current,
+                                                startTime: e.target.value
+                                            }));
+                                            setNightModeFeedback(null);
+                                        }}
+                                        disabled={nightModeLoading || nightModeSaving}
+                                    />
+                                </label>
+
+                                <label className="admin-panel__time-field">
+                                    <span>Do</span>
+                                    <input
+                                        type="time"
+                                        className="modal-input"
+                                        value={nightModeSettings.endTime}
+                                        onChange={(e) => {
+                                            setNightModeSettings(current => ({
+                                                ...current,
+                                                endTime: e.target.value
+                                            }));
+                                            setNightModeFeedback(null);
+                                        }}
+                                        disabled={nightModeLoading || nightModeSaving}
+                                    />
+                                </label>
+                            </div>
+
+                            <p className="admin-panel__sidebar-help">
+                                W podanym przedziale tablet przechodzi na całkowicie czarny ekran i sam wraca po zakończeniu okna.
+                            </p>
+
+                            <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
+                                Z poziomu zwykłej strony WWW nie da się fizycznie wyłączyć podświetlenia ekranu.
+                            </p>
+
+                            {nightModeFeedback && (
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '1rem', lineHeight: 1.4 }}>
+                                    {nightModeFeedback}
+                                </p>
+                            )}
+                        </div>
+                        <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
+                            <button
+                                className="btn btn-ghost"
+                                onClick={() => setNightModeModalOpen(false)}
+                            >
+                                Zamknij
+                            </button>
+                            <button
+                                className={`btn btn-primary ${nightModeSaving ? 'loading' : ''}`}
+                                onClick={handleNightModeSettingsSave}
+                                disabled={nightModeLoading || nightModeSaving}
+                            >
+                                <i className={`fas fa-save ${nightModeSaving ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
+                                Zapisz harmonogram
+                            </button>
                         </div>
                     </div>
                 </div>

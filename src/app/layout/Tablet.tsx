@@ -19,11 +19,18 @@ interface ScheduleEvent {
   color: string;
 }
 
+interface TabletNightModeConfig {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+}
+
 interface DeviceStatusResponse {
   status: string;
   config?: {
     room?: string | null;
     secretUrl?: string | null;
+    nightMode?: TabletNightModeConfig | null;
   } | null;
 }
 
@@ -35,9 +42,91 @@ interface TabletCommandPayload {
 }
 
 const TABLET_RELOAD_PARAM = '_tabletReload';
+const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
+const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
+  enabled: false,
+  startTime: '22:00',
+  endTime: '06:00',
+};
 
 const buildTabletPath = (room: string, secretUrl: string) =>
   `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
+
+const normalizeNightModeConfig = (
+  nightMode?: TabletNightModeConfig | null
+): TabletNightModeConfig => ({
+  enabled:
+    typeof nightMode?.enabled === 'boolean'
+      ? nightMode.enabled
+      : DEFAULT_TABLET_NIGHT_MODE_CONFIG.enabled,
+  startTime:
+    typeof nightMode?.startTime === 'string' && nightMode.startTime
+      ? nightMode.startTime
+      : DEFAULT_TABLET_NIGHT_MODE_CONFIG.startTime,
+  endTime:
+    typeof nightMode?.endTime === 'string' && nightMode.endTime
+      ? nightMode.endTime
+      : DEFAULT_TABLET_NIGHT_MODE_CONFIG.endTime,
+});
+
+const persistNightModeConfig = (nightMode: TabletNightModeConfig) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(TABLET_NIGHT_MODE_STORAGE_KEY, JSON.stringify(nightMode));
+};
+
+const readStoredNightModeConfig = (): TabletNightModeConfig => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_TABLET_NIGHT_MODE_CONFIG;
+  }
+
+  const rawValue = window.localStorage.getItem(TABLET_NIGHT_MODE_STORAGE_KEY);
+  if (!rawValue) {
+    return DEFAULT_TABLET_NIGHT_MODE_CONFIG;
+  }
+
+  try {
+    return normalizeNightModeConfig(JSON.parse(rawValue) as TabletNightModeConfig);
+  } catch {
+    return DEFAULT_TABLET_NIGHT_MODE_CONFIG;
+  }
+};
+
+const clearNightModeConfig = () => {
+  persistNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
+};
+
+const parseNightModeTimeToMinutes = (time: string) => {
+  const match = time.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!match) {
+    return null;
+  }
+
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const isNightModeEnabledAt = (nightMode: TabletNightModeConfig, currentDate: Date) => {
+  if (!nightMode.enabled) {
+    return false;
+  }
+
+  const startMinutes = parseNightModeTimeToMinutes(nightMode.startTime);
+  const endMinutes = parseNightModeTimeToMinutes(nightMode.endTime);
+
+  if (startMinutes === null || endMinutes === null || startMinutes === endMinutes) {
+    return false;
+  }
+
+  const currentMinutes = currentDate.getHours() * 60 + currentDate.getMinutes();
+
+  if (startMinutes < endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+
+  return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+};
 
 const forceHardReload = (path?: string) => {
   const target = path ?? `${window.location.pathname}${window.location.search}`;
@@ -76,6 +165,7 @@ export default function Tablet() {
 
   const [roomInfo, setRoomInfo] = useState({ building: "", room: "" });
   const [deviceId, setDeviceId] = useState('');
+  const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() => readStoredNightModeConfig());
   
   // States
   const [currentDateTime, setCurrentDateTime] = useState({
@@ -97,6 +187,12 @@ export default function Tablet() {
 
     setDeviceId(storedDeviceId);
   }, []);
+
+  const applyNightModeConfig = (config?: DeviceStatusResponse['config']) => {
+    const nextNightModeConfig = normalizeNightModeConfig(config?.nightMode);
+    setNightModeConfig(nextNightModeConfig);
+    persistNightModeConfig(nextNightModeConfig);
+  };
 
   // 1. Parse Room Info
   useEffect(() => {
@@ -126,17 +222,21 @@ export default function Tablet() {
         }
 
         if (payload.type === 'registry-reset') {
+          clearNightModeConfig();
+          setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
           forceHardReload(payload.path || '/registry');
           return;
         }
 
         if (payload.type === 'config-updated') {
+          applyNightModeConfig(payload.config);
           syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: payload.hardReload });
           return;
         }
 
         if (payload.type === 'reload') {
           if (payload.config) {
+            applyNightModeConfig(payload.config);
             syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: true });
             return;
           }
@@ -180,10 +280,13 @@ export default function Tablet() {
         }
 
         if (data.status !== 'ACTIVE') {
+          clearNightModeConfig();
+          setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
           forceHardReload('/registry');
           return;
         }
 
+        applyNightModeConfig(data.config);
         syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, data.config);
       } catch (error) {
         console.error('[Tablet] Device status sync error:', error);
@@ -214,6 +317,11 @@ export default function Tablet() {
     const intervalId = setInterval(updateTime, 1000);
     return () => clearInterval(intervalId);
   }, []);
+
+  const isNightModeActive = useMemo(
+    () => isNightModeEnabledAt(nightModeConfig, new Date()),
+    [nightModeConfig, currentDateTime.date, currentDateTime.time]
+  );
 
   // 3. Fetch Schedule & Messages
   useEffect(() => {
@@ -286,13 +394,13 @@ export default function Tablet() {
       }
     };
 
-    if (roomInfo.room) {
+    if (roomInfo.room && !isNightModeActive) {
       fetchSchedule();
       // TODO: [PROD] Change interval to 60000ms (1 min) or higher for production
       const intervalId = setInterval(fetchSchedule, 2000); // 2s for dev — fast message sync
       return () => clearInterval(intervalId);
     }
-  }, [roomInfo]);
+  }, [isNightModeActive, roomInfo]);
 
   // View Helpers
   const parseTime = (timeStr: string) => {
@@ -402,6 +510,10 @@ export default function Tablet() {
   const timelineOffset = Math.min(Math.max(rawTimelineOffset, 0), maxTimelineOffset);
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
+
+  if (isNightModeActive) {
+    return <div className="tablet-night-screen" aria-label="Tryb nocny aktywny" />;
+  }
 
   if (isLoading) return <div className="fullscreen-msg">Wczytywanie systemu...</div>;
 

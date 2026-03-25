@@ -384,6 +384,14 @@ button:focus-visible {
   gap: 1rem;
 }
 
+.admin-panel__sidebar-card {
+  margin-top: 2rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
 .admin-panel__stat-item {
   background: var(--bg-input);
   border-radius: var(--radius-md);
@@ -414,6 +422,50 @@ button:focus-visible {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.admin-panel__checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.admin-panel__checkbox-row input {
+  accent-color: var(--color-blue);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.admin-panel__time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-panel__time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-panel__time-field .admin-panel__sidebar-input {
+  box-sizing: border-box;
+}
+
+.admin-panel__sidebar-help {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0 0 0.85rem;
 }
 
 /* Admin Content Area (BEM Refactored) */

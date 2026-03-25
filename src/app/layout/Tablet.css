@@ -440,3 +440,9 @@
     color: #94a3b8;
     background: #0b0f19;
   }
+
+  .tablet-night-screen {
+    width: 100vw;
+    height: 100vh;
+    background: #000000;
+  }
