@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ThemeToggle from '../../layout/ThemeToggle';
 // Removed semantic-ui-react imports
 
@@ -14,6 +14,12 @@ interface Device {
     userAgent?: string;
     macAddress?: string;
 }
+
+const ROOM_SEARCH_DEBOUNCE_MS = 350;
+const ROOM_SEARCH_MIN_LENGTH = 2;
+
+const sanitizeRoomValue = (value: string) => value.trim().replace(/\s+/g, ' ');
+const normalizeRoomValue = (value: string) => sanitizeRoomValue(value).toUpperCase();
 
 const AdminRegistry = () => {
     const [devices, setDevices] = useState<Device[]>([]);
@@ -37,38 +43,117 @@ const AdminRegistry = () => {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
+    const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
+
+    const roomSearchAbortRef = useRef<AbortController | null>(null);
+    const roomSearchRequestIdRef = useRef(0);
+    const roomSearchCacheRef = useRef(new Map<string, string[]>());
+    const knownRoomsRef = useRef(new Set<string>());
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            if (formClassroom.length >= 1 && showSuggestions) {
-                searchRooms(formClassroom);
-            } else if (formClassroom.length === 0) {
-                setSuggestions([]);
-            }
-        }, 300);
+        const query = sanitizeRoomValue(formClassroom);
 
-        return () => clearTimeout(timer);
+        if (!showSuggestions) {
+            roomSearchAbortRef.current?.abort();
+            roomSearchAbortRef.current = null;
+            roomSearchRequestIdRef.current += 1;
+            setIsSearching(false);
+            return;
+        }
+
+        if (query.length < ROOM_SEARCH_MIN_LENGTH) {
+            roomSearchAbortRef.current?.abort();
+            roomSearchAbortRef.current = null;
+            roomSearchRequestIdRef.current += 1;
+            setSuggestions([]);
+            setIsSearching(false);
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            void searchRooms(query);
+        }, ROOM_SEARCH_DEBOUNCE_MS);
+
+        return () => window.clearTimeout(timer);
     }, [formClassroom, showSuggestions]);
 
+    useEffect(() => {
+        return () => {
+            roomSearchAbortRef.current?.abort();
+        };
+    }, []);
+
+    const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
+        const sanitizedQuery = sanitizeRoomValue(query);
+        const cacheKey = normalizeRoomValue(sanitizedQuery);
+
+        if (!sanitizedQuery) {
+            return [];
+        }
+
+        const cachedRooms = roomSearchCacheRef.current.get(cacheKey);
+        if (cachedRooms) {
+            return cachedRooms;
+        }
+
+        const response = await fetch(`/schedule.php?kind=room&query=${encodeURIComponent(sanitizedQuery)}`, { signal });
+        if (!response.ok) {
+            return [];
+        }
+
+        const data = await response.json();
+        const rooms = Array.isArray(data)
+            ? Array.from(new Set(
+                data
+                    .filter((item: any) => item && typeof item.item === 'string')
+                    .map((item: any) => sanitizeRoomValue(item.item))
+                    .filter(Boolean)
+            ))
+            : [];
+
+        roomSearchCacheRef.current.set(cacheKey, rooms);
+        rooms.forEach(room => knownRoomsRef.current.add(normalizeRoomValue(room)));
+
+        return rooms;
+    };
+
     const searchRooms = async (query: string) => {
+        const sanitizedQuery = sanitizeRoomValue(query);
+        if (sanitizedQuery.length < ROOM_SEARCH_MIN_LENGTH) {
+            setSuggestions([]);
+            setIsSearching(false);
+            return [];
+        }
+
+        roomSearchAbortRef.current?.abort();
+        const controller = new AbortController();
+        roomSearchAbortRef.current = controller;
+        const requestId = roomSearchRequestIdRef.current + 1;
+        roomSearchRequestIdRef.current = requestId;
+
         setIsSearching(true);
         try {
-            // Using a CORS proxy if needed, but trying direct first as requested or assuming dev proxy
-            // The user provided URL: https://plan.zut.edu.pl/schedule.php?kind=room&query=
-            // Using relative path to use Vite proxy
-            const response = await fetch(`/schedule.php?kind=room&query=${encodeURIComponent(query)}`);
-            if (response.ok) {
-                const data = await response.json();
-                // API returns [ {item: "name"}, false, false... ] or similar mixed types
-                const rooms = data
-                    .filter((item: any) => item && item.item)
-                    .map((item: any) => item.item);
+            const rooms = await fetchRoomMatches(sanitizedQuery, controller.signal);
+
+            if (!controller.signal.aborted && requestId === roomSearchRequestIdRef.current) {
                 setSuggestions(rooms);
             }
+
+            return rooms;
         } catch (error) {
-            console.error("Error searching rooms:", error);
+            if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                console.error("Error searching rooms:", error);
+            }
+
+            if (requestId === roomSearchRequestIdRef.current) {
+                setSuggestions([]);
+            }
+
+            return [];
         } finally {
-            setIsSearching(false);
+            if (requestId === roomSearchRequestIdRef.current) {
+                setIsSearching(false);
+            }
         }
     };
 
@@ -121,32 +206,57 @@ const AdminRegistry = () => {
     }, []);
 
     const openRegisterModal = (device: Device) => {
+        const currentRoom = sanitizeRoomValue(device.deviceClassroom || '');
+
         setSelectedDevice(device);
-        setFormClassroom(device.deviceClassroom || '');
+        setFormClassroom(currentRoom);
+        setSelectedSuggestion(currentRoom || null);
         setRoomError('');
         setSuggestions([]);
+        setShowSuggestions(false);
+        setIsSearching(false);
         setRegisterModalOpen(true);
     }
 
     const validateRoom = async (roomName: string): Promise<boolean> => {
+        const normalizedRoom = normalizeRoomValue(roomName);
+
+        if (!normalizedRoom) {
+            return false;
+        }
+
+        if (knownRoomsRef.current.has(normalizedRoom)) {
+            return true;
+        }
+
         try {
-            const response = await fetch(`/schedule.php?kind=room&query=${encodeURIComponent(roomName)}`);
-            if (!response.ok) return false;
-            const data = await response.json();
-            return data.some((d: any) => d && d.item === roomName);
+            const rooms = await fetchRoomMatches(roomName);
+            return rooms.some(room => normalizeRoomValue(room) === normalizedRoom);
         } catch {
             return false;
         }
     };
 
     const handleRegister = async () => {
-        if (!selectedDevice || !formClassroom) {
+        const sanitizedRoom = sanitizeRoomValue(formClassroom);
+
+        if (!selectedDevice || !sanitizedRoom) {
             setRoomError('Proszę wprowadzić nazwę sali');
             return;
         }
 
-        // Validate room existence
-        const isValid = await validateRoom(formClassroom);
+        roomSearchAbortRef.current?.abort();
+        roomSearchAbortRef.current = null;
+        roomSearchRequestIdRef.current += 1;
+        setIsSearching(false);
+        setShowSuggestions(false);
+
+        const normalizedRoom = normalizeRoomValue(sanitizedRoom);
+        const isValid = (
+            selectedSuggestion !== null &&
+            normalizeRoomValue(selectedSuggestion) === normalizedRoom
+        ) || await validateRoom(sanitizedRoom);
+
         if (!isValid) {
             setRoomError('Wybrana sala nie została znaleziona w systemie planu.');
             return;
@@ -158,13 +268,16 @@ const AdminRegistry = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: selectedDevice.id,
-                    deviceName: formClassroom,
-                    deviceClassroom: formClassroom
+                    deviceName: sanitizedRoom,
+                    deviceClassroom: sanitizedRoom
                 })
             });
             if (response.ok) {
                 setRegisterModalOpen(false);
+                setFormClassroom(sanitizedRoom);
+                setSelectedSuggestion(sanitizedRoom);
                 setRoomError('');
+                setSuggestions([]);
                 fetchDevices();
                 setDeleteId(null); // Clear delete ID if it was set
             } else {
@@ -440,6 +553,7 @@ const AdminRegistry = () => {
                                     value={formClassroom}
                                     onChange={(e) => {
                                         setFormClassroom(e.target.value);
+                                        setSelectedSuggestion(null);
                                         setRoomError('');
                                         setShowSuggestions(true);
                                     }}
@@ -459,8 +573,10 @@ const AdminRegistry = () => {
                                                 className="suggestion-item"
                                                 onClick={() => {
                                                     setFormClassroom(room);
+                                                    setSelectedSuggestion(room);
                                                     setRoomError('');
                                                     setShowSuggestions(false);
+                                                    setSuggestions([]);
                                                 }}
                                             >
                                                 {room}
@@ -514,7 +630,15 @@ const AdminRegistry = () => {
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button
                                     className="btn btn-ghost"
-                                    onClick={() => setRegisterModalOpen(false)}
+                                    onClick={() => {
+                                        roomSearchAbortRef.current?.abort();
+                                        roomSearchAbortRef.current = null;
+                                        roomSearchRequestIdRef.current += 1;
+                                        setShowSuggestions(false);
+                                        setSuggestions([]);
+                                        setIsSearching(false);
+                                        setRegisterModalOpen(false);
+                                    }}
                                 >
                                     Anuluj
                                 </button>
