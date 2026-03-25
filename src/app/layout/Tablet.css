@@ -238,11 +238,18 @@
     overflow: hidden;
   }
 
-  .timeline-container {
+  .timeline-viewport {
+    width: 100%;
     height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .timeline-container {
     width: 100%;
     position: relative;
-    padding: 2rem 0;
+    will-change: transform;
+    transition: transform 0.9s linear;
   }
 
   .time-slot {
@@ -277,6 +284,7 @@
     z-index: 10;
     display: flex;
     align-items: center;
+    pointer-events: none;
   }
 
   .current-time-label {
@@ -286,6 +294,7 @@
     font-size: 0.95rem;
     text-align: right;
     padding-right: 1rem;
+    transform: translateY(-50%);
   }
 
   .current-time-dot {

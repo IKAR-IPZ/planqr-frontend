@@ -8,8 +8,15 @@ import { useEffect } from 'react';
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const shouldManageInactivityLogout =
+    location.pathname.startsWith('/lecturerPlan') ||
+    location.pathname.startsWith('/adminpanel');
 
   useEffect(() => {
+    if (!shouldManageInactivityLogout) {
+      return;
+    }
+
     let timeoutId: number;
 
     const resetTimeout = () => {
@@ -47,7 +54,7 @@ function App() {
       window.removeEventListener("mousemove", resetTimeout);
       window.removeEventListener("keydown", resetTimeout);
     };
-  }, [navigate]);
+  }, [navigate, shouldManageInactivityLogout]);
 
   return (
     <>

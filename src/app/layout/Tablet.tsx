@@ -152,7 +152,8 @@ export default function Tablet() {
     return h + m / 60;
   };
 
-  const nowVal = new Date().getHours() + new Date().getMinutes() / 60;
+  const now = new Date();
+  const nowVal = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
 
   const SHOW_MESSAGES_ALL_DAY = true; // 🛠️ TRYB DEWELOPERSKI (zmień na false na produkcji)
 
@@ -195,6 +196,8 @@ export default function Tablet() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const timelineViewportRef = useRef<HTMLDivElement>(null);
+  const [timelineViewportHeight, setTimelineViewportHeight] = useState(0);
 
   useEffect(() => {
      if (viewportRef.current && contentRef.current) {
@@ -207,9 +210,50 @@ export default function Tablet() {
      }
   }, [allMessages]);
 
+  useEffect(() => {
+    const viewport = timelineViewportRef.current;
+    if (!viewport) return;
+
+    const updateViewportHeight = () => {
+      setTimelineViewportHeight(viewport.clientHeight);
+    };
+
+    updateViewportHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateViewportHeight();
+    });
+
+    resizeObserver.observe(viewport);
+    window.addEventListener('resize', updateViewportHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateViewportHeight);
+    };
+  }, []);
+
   // Layout calculations for right panel
   const slotHeight = 120; // 120px per hour
-  const getCurrentTimeTop = () => (nowVal - calendarStartHour) * slotHeight;
+  const timelineMarkerOffset = 24;
+  const timelineDayHeight = timeSlotsCount * slotHeight;
+  const timelineContentHeight = timelineMarkerOffset + timelineDayHeight + timelineViewportHeight;
+  const currentTimeOffset = (nowVal - calendarStartHour) * slotHeight;
+  const activeTimelineEvent = scheduleItems.find((ev) => {
+    const eventStart = parseTime(ev.startTime);
+    const eventEnd = parseTime(ev.endTime);
+    return nowVal >= eventStart && nowVal <= eventEnd;
+  });
+  const activeTimelineEventStartOffset = activeTimelineEvent
+    ? Math.max(0, (parseTime(activeTimelineEvent.startTime) - calendarStartHour) * slotHeight)
+    : 0;
+  const rawTimelineOffset = activeTimelineEvent
+    ? activeTimelineEventStartOffset
+    : currentTimeOffset;
+  const maxTimelineOffset = Math.max(0, timelineContentHeight - timelineViewportHeight);
+  const timelineOffset = Math.min(Math.max(rawTimelineOffset, 0), maxTimelineOffset);
+  const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
+  const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
 
   if (isLoading) return <div className="fullscreen-msg">Wczytywanie systemu...</div>;
 
@@ -297,23 +341,37 @@ export default function Tablet() {
 
       {/* RIGHT PANEL: TIMELINE */}
       <div className="tablet-right">
-         <div className="timeline-container" style={{ transform: `translateY(0)` }}>
-            
-            {/* Background Grid */}
-            {Array.from({ length: timeSlotsCount }).map((_, i) => (
-               <div key={i} className="time-slot" style={{ top: i * slotHeight + 'px', position: 'absolute', width: '100%' }}>
-                  <div className="time-label">{calendarStartHour + i}:00</div>
-                  <div className="time-line"></div>
-               </div>
-            ))}
-
-            {/* Current Time Line */}
-            {nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount && (
-               <div className="current-time-line" style={{ top: getCurrentTimeTop() + 'px' }}>
+         <div className="timeline-viewport" ref={timelineViewportRef}>
+            {showCurrentTimeLine && (
+               <div className="current-time-line" style={{ top: `${currentTimeLineTop}px` }}>
                   <div className="current-time-label">{currentDateTime.time.substring(0, 5)}</div>
                   <div className="current-time-dot"></div>
                </div>
             )}
+
+            <div
+               className="timeline-container"
+               style={{
+                  height: `${timelineContentHeight}px`,
+                  transform: `translateY(-${timelineOffset}px)`,
+               }}
+            >
+            
+            {/* Background Grid */}
+            {Array.from({ length: timeSlotsCount }).map((_, i) => (
+               <div
+                  key={i}
+                  className="time-slot"
+                  style={{
+                     top: timelineMarkerOffset + i * slotHeight + 'px',
+                     position: 'absolute',
+                     width: '100%',
+                  }}
+               >
+                  <div className="time-label">{calendarStartHour + i}:00</div>
+                  <div className="time-line"></div>
+               </div>
+            ))}
 
             {/* Render Events */}
             {scheduleItems.map((ev, i) => {
@@ -329,7 +387,7 @@ export default function Tablet() {
                      key={i} 
                      className={`timeline-event ${isPast ? 'past' : ''}`}
                      style={{
-                        top: top + 'px',
+                        top: timelineMarkerOffset + top + 'px',
                         height: (height - 4) + 'px', // tiny gap
                      }}
                   >
@@ -345,6 +403,7 @@ export default function Tablet() {
                );
             })}
 
+            </div>
          </div>
       </div>
     </div>
