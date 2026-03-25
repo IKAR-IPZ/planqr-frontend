@@ -33,7 +33,9 @@ export default function AttendancePanel() {
     let currentList = [...initialBase];
 
     try {
-      const response = await fetch(`/api/v1/attendance?door_id=${encodeURIComponent(room)}`);
+      const response = await fetch(`/api/attendance?door_id=${encodeURIComponent(room)}`, {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         
@@ -54,25 +56,10 @@ export default function AttendancePanel() {
               });
             }
           });
-        } else {
-          // Brak logów - wstawiamy MOCK dla prezentacji!
-          currentList[0].status = 'present';
-          currentList[0].time = new Date().toLocaleTimeString();
-          currentList[1].status = 'present';
-          currentList[1].time = new Date(Date.now() - 150000).toLocaleTimeString();
         }
-      } else {
-        // Fallback w razie błędu 4xx/5xx - na te same MOCKI
-        currentList[0].status = 'present';
-        currentList[0].time = new Date().toLocaleTimeString();
-        currentList[1].status = 'present'; 
-        currentList[1].time = new Date(Date.now() - 150000).toLocaleTimeString();
       }
     } catch (e) {
       console.error(e);
-      // Fallback w razie błędu połączenia
-      currentList[3].status = 'present';
-      currentList[3].time = new Date().toLocaleTimeString();
     } finally {
       setStudents([...currentList]);
       setIsLoading(false);

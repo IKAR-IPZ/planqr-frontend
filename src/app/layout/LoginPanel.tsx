@@ -2,39 +2,31 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/ZUT_Logo.png";
 import ThemeToggle from "./ThemeToggle";
+import { fetchSession, getPreferredRoute } from "../services/authService";
 
 
 export default function LoginPanel() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkLoginStatus = async () => {
-      try {
-        // const token = localStorage.getItem("token");
-        // if (!token) {
-        //   // console.log("User is unauthorized (token is NULL)");
-        //   return;
-        // }
-        const response = await fetch('/api/auth/check-login', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (response.ok) {
-          await response.json();
-          navigate(`/lecturerPlan`);
-        }
-      } catch (error) {
-        console.log(error);
+      const session = await fetchSession();
+      const preferredRoute = getPreferredRoute(session);
+
+      if (preferredRoute) {
+        navigate(preferredRoute);
       }
     };
 
-    checkLoginStatus();
+    void checkLoginStatus();
   }, [navigate]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setErrorMessage("");
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -46,18 +38,27 @@ export default function LoginPanel() {
         credentials: "include",
       });
 
+      const data = await response.json().catch(() => null);
+
       if (response.ok) {
-        await response.json();
-        navigate(`/lecturerPlan`);
-      } else {
-        alert("Invalid username or password");
+        const preferredRoute = getPreferredRoute(data);
+        if (preferredRoute) {
+          navigate(preferredRoute);
+          return;
+        }
+
+        setErrorMessage("Konto nie ma przypisanego panelu PlanQR.");
+        return;
       }
 
-
+      if (response.status === 403) {
+        setErrorMessage(data?.message || "To konto nie ma dostepu do PlanQR.");
+      } else {
+        setErrorMessage(data?.message || "Nieprawidlowy login lub haslo.");
+      }
     } catch (error) {
       console.error("Error during login:", error);
-      alert("An error occurred during login. Please try again.");
-      navigate("/");
+      setErrorMessage("Wystapil blad podczas logowania. Sprobuj ponownie.");
     }
   };
 
@@ -99,6 +100,9 @@ export default function LoginPanel() {
           </div>
         </div>
         <button type="submit" className="login-panel__btn">Zaloguj</button>
+        {errorMessage ? (
+          <p style={{ marginTop: '1rem', color: '#dc2626', textAlign: 'center' }}>{errorMessage}</p>
+        ) : null}
       </form>
     </div>
   );

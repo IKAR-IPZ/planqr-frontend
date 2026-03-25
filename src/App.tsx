@@ -10,7 +10,8 @@ function App() {
   const navigate = useNavigate();
   const shouldManageInactivityLogout =
     location.pathname.startsWith('/lecturerPlan') ||
-    location.pathname.startsWith('/adminpanel');
+    location.pathname.startsWith('/adminpanel') ||
+    location.pathname.startsWith('/attendance');
 
   useEffect(() => {
     if (!shouldManageInactivityLogout) {
