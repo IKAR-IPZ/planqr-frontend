@@ -32,6 +32,7 @@ export interface AdminRecord {
 }
 
 export type AdminPanelView = "devices" | "admins" | "schedule";
+export type AdminPanelTheme = "light" | "dark";
 export type DeviceSortOption = "name" | "status" | "lastSeen";
 
 export type Tone = "neutral" | "success" | "warning" | "danger";

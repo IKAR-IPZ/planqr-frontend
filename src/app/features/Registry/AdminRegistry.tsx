@@ -1,17 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import logo from "../../../assets/ZUT_Logo.png";
 import { logout } from "../../services/authService";
 import "./AdminRegistry.css";
 import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
+import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
 import AdminsView from "./adminPanel/AdminsView";
+import DeviceDrawer from "./adminPanel/DeviceDrawer";
 import DevicesView from "./adminPanel/DevicesView";
 import ScheduleView from "./adminPanel/ScheduleView";
 import {
   adminViewMeta,
+  defaultAdminPanelTheme,
   defaultNightModeSettings,
-  formatLastSeen,
-  getConnectionLabel,
-  getConnectionTone,
   matchesDeviceSearch,
   normalizeRoomValue,
   ROOM_SEARCH_DEBOUNCE_MS,
@@ -20,12 +21,16 @@ import {
   sortDevices,
 } from "./adminPanel/helpers";
 import type {
+  AdminPanelTheme,
   AdminPanelView,
   AdminRecord,
   Device,
   DeviceSortOption,
   NightModeSettings,
+  Tone,
 } from "./adminPanel/types";
+
+const ADMIN_THEME_STORAGE_KEY = "admin-theme";
 
 const getActiveView = (value: string | null): AdminPanelView => {
   if (value === "admins" || value === "schedule") {
@@ -35,11 +40,21 @@ const getActiveView = (value: string | null): AdminPanelView => {
   return "devices";
 };
 
+const getStoredAdminTheme = (): AdminPanelTheme => {
+  if (typeof window === "undefined") {
+    return defaultAdminPanelTheme;
+  }
+
+  const storedTheme = window.localStorage.getItem(ADMIN_THEME_STORAGE_KEY);
+  return storedTheme === "dark" ? "dark" : defaultAdminPanelTheme;
+};
+
 const AdminRegistry = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = getActiveView(searchParams.get("view"));
 
+  const [adminTheme, setAdminTheme] = useState<AdminPanelTheme>(getStoredAdminTheme);
   const [devices, setDevices] = useState<Device[]>([]);
   const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,23 +64,22 @@ const AdminRegistry = () => {
   const [deviceSort, setDeviceSort] = useState<DeviceSortOption>("status");
   const [newAdminUsername, setNewAdminUsername] = useState("");
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
+  const [adminFeedbackTone, setAdminFeedbackTone] = useState<Tone>("neutral");
   const [reloadingTablets, setReloadingTablets] = useState(false);
   const [reloadFeedback, setReloadFeedback] = useState<string | null>(null);
+  const [reloadFeedbackTone, setReloadFeedbackTone] = useState<Tone>("neutral");
   const [nightModeSettings, setNightModeSettings] =
     useState<NightModeSettings>(defaultNightModeSettings);
   const [nightModeLoading, setNightModeLoading] = useState(false);
   const [nightModeSaving, setNightModeSaving] = useState(false);
   const [nightModeFeedback, setNightModeFeedback] = useState<string | null>(null);
+  const [nightModeFeedbackTone, setNightModeFeedbackTone] =
+    useState<Tone>("neutral");
 
-  const [registerModalOpen, setRegisterModalOpen] = useState(false);
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [viewDevice, setViewDevice] = useState<Device | null>(null);
+  const [drawerMode, setDrawerMode] = useState<"details" | "edit" | null>(null);
+  const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
   const [formClassroom, setFormClassroom] = useState("");
   const [roomError, setRoomError] = useState("");
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -75,6 +89,25 @@ const AdminRegistry = () => {
   const roomSearchRequestIdRef = useRef(0);
   const roomSearchCacheRef = useRef(new Map<string, string[]>());
   const knownRoomsRef = useRef(new Set<string>());
+
+  const drawerDevice = useMemo(
+    () =>
+      drawerDeviceId === null
+        ? null
+        : devices.find((device) => device.id === drawerDeviceId) ?? null,
+    [devices, drawerDeviceId],
+  );
+
+  useEffect(() => {
+    window.localStorage.setItem(ADMIN_THEME_STORAGE_KEY, adminTheme);
+  }, [adminTheme]);
+
+  useEffect(() => {
+    if (drawerDeviceId !== null && !drawerDevice) {
+      setDrawerMode(null);
+      setDrawerDeviceId(null);
+    }
+  }, [drawerDevice, drawerDeviceId]);
 
   useEffect(() => {
     const query = sanitizeRoomValue(formClassroom);
@@ -135,6 +168,24 @@ const AdminRegistry = () => {
       roomSearchAbortRef.current?.abort();
     };
   }, []);
+
+  const resetRoomSearch = () => {
+    roomSearchAbortRef.current?.abort();
+    roomSearchAbortRef.current = null;
+    roomSearchRequestIdRef.current += 1;
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setIsSearching(false);
+    setSelectedSuggestion(null);
+    setRoomError("");
+  };
+
+  const closeDrawer = () => {
+    resetRoomSearch();
+    setDrawerMode(null);
+    setDrawerDeviceId(null);
+    setFormClassroom("");
+  };
 
   const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
     const sanitizedQuery = sanitizeRoomValue(query);
@@ -206,6 +257,7 @@ const AdminRegistry = () => {
     } catch (error) {
       console.error("Error fetching admins:", error);
       setAdminFeedback("Nie udało się pobrać listy administratorów.");
+      setAdminFeedbackTone("danger");
     } finally {
       setAdminsLoading(false);
     }
@@ -217,14 +269,15 @@ const AdminRegistry = () => {
       const response = await fetch("/api/devices/display-settings");
 
       if (!response.ok) {
-        throw new Error("Nie udało się pobrać ustawień trybu nocnego.");
+        throw new Error("Nie udało się pobrać ustawień.");
       }
 
       const data = await response.json();
       setNightModeSettings(data.nightMode ?? defaultNightModeSettings);
     } catch (error) {
       console.error("Error fetching night mode settings:", error);
-      setNightModeFeedback("Nie udało się pobrać ustawień trybu nocnego.");
+      setNightModeFeedback("Nie udało się pobrać ustawień.");
+      setNightModeFeedbackTone("danger");
     } finally {
       setNightModeLoading(false);
     }
@@ -232,9 +285,8 @@ const AdminRegistry = () => {
 
   const handleNightModeSettingsSave = async () => {
     if (nightModeSettings.startTime === nightModeSettings.endTime) {
-      setNightModeFeedback(
-        "Godzina rozpoczęcia i zakończenia nie mogą być takie same.",
-      );
+      setNightModeFeedback("Godzina startu i końca nie mogą być takie same.");
+      setNightModeFeedbackTone("danger");
       return;
     }
 
@@ -250,22 +302,18 @@ const AdminRegistry = () => {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(
-          data.message || "Nie udało się zapisać ustawień trybu nocnego.",
-        );
+        throw new Error(data.message || "Nie udało się zapisać ustawień.");
       }
 
       setNightModeSettings(data.nightMode ?? nightModeSettings);
-      setNightModeFeedback(
-        `Zapisano. Zmiana została wysłana do ${data.delivered ?? 0} podłączonych ekranów.`,
-      );
+      setNightModeFeedback(`Zapisano. Wysłano do ${data.delivered ?? 0} ekranów.`);
+      setNightModeFeedbackTone("success");
     } catch (error) {
       console.error("Error saving night mode settings:", error);
       setNightModeFeedback(
-        error instanceof Error
-          ? error.message
-          : "Nie udało się zapisać ustawień trybu nocnego.",
+        error instanceof Error ? error.message : "Nie udało się zapisać ustawień.",
       );
+      setNightModeFeedbackTone("danger");
     } finally {
       setNightModeSaving(false);
     }
@@ -285,14 +333,16 @@ const AdminRegistry = () => {
       });
 
       if (!response.ok) {
-        throw new Error("Nie udało się wysłać komendy reload.");
+        throw new Error("Nie udało się wysłać komendy.");
       }
 
       const data = await response.json();
-      setReloadFeedback(`Wysłano sygnał do ${data.delivered} połączeń tabletów.`);
+      setReloadFeedback(`Wysłano sygnał do ${data.delivered} połączeń.`);
+      setReloadFeedbackTone("success");
     } catch (error) {
       console.error("Error reloading tablets:", error);
-      setReloadFeedback("Nie udało się wysłać sygnału przeładowania.");
+      setReloadFeedback("Nie udało się wysłać komendy.");
+      setReloadFeedbackTone("danger");
     } finally {
       setReloadingTablets(false);
     }
@@ -326,7 +376,8 @@ const AdminRegistry = () => {
     const username = newAdminUsername.trim().toLowerCase();
 
     if (!username) {
-      setAdminFeedback("Podaj login LDAP użytkownika.");
+      setAdminFeedback("Podaj login LDAP.");
+      setAdminFeedbackTone("danger");
       return;
     }
 
@@ -343,19 +394,19 @@ const AdminRegistry = () => {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.message || "Nie udało się nadać uprawnień administratora.");
+        throw new Error(data.message || "Nie udało się nadać uprawnień.");
       }
 
       setNewAdminUsername("");
-      setAdminFeedback(data.message || "Nadano uprawnienia administratora.");
+      setAdminFeedback(data.message || "Dodano administratora.");
+      setAdminFeedbackTone("success");
       await fetchAdmins();
     } catch (error) {
       console.error("Error adding admin:", error);
       setAdminFeedback(
-        error instanceof Error
-          ? error.message
-          : "Nie udało się nadać uprawnień administratora.",
+        error instanceof Error ? error.message : "Nie udało się nadać uprawnień.",
       );
+      setAdminFeedbackTone("danger");
     } finally {
       setAdminMutationLoading(false);
     }
@@ -363,14 +414,14 @@ const AdminRegistry = () => {
 
   const handleRemoveAdmin = async (admin: AdminRecord) => {
     if (admin.adminSource !== "panel") {
-      setAdminFeedback(
-        "Administrator dodany z bazy danych może zostać usunięty tylko bezpośrednio w bazie danych.",
-      );
+      setAdminFeedback("To konto można usunąć tylko poza panelem.");
+      setAdminFeedbackTone("danger");
       return;
     }
 
     if (admin.isCurrentUser) {
-      setAdminFeedback("Nie możesz odebrać uprawnień samemu sobie z poziomu panelu.");
+      setAdminFeedback("Nie możesz usunąć własnego konta administratora.");
+      setAdminFeedbackTone("danger");
       return;
     }
 
@@ -397,38 +448,33 @@ const AdminRegistry = () => {
       }
 
       setAdminFeedback(data.message || "Usunięto administratora.");
+      setAdminFeedbackTone("success");
       await fetchAdmins();
     } catch (error) {
       console.error("Error removing admin:", error);
       setAdminFeedback(
         error instanceof Error ? error.message : "Nie udało się usunąć administratora.",
       );
+      setAdminFeedbackTone("danger");
     } finally {
       setAdminMutationLoading(false);
     }
   };
 
-  const closeRegisterModal = () => {
-    roomSearchAbortRef.current?.abort();
-    roomSearchAbortRef.current = null;
-    roomSearchRequestIdRef.current += 1;
-    setShowSuggestions(false);
-    setSuggestions([]);
-    setIsSearching(false);
-    setRegisterModalOpen(false);
+  const openDeviceDetails = (device: Device) => {
+    resetRoomSearch();
+    setDrawerDeviceId(device.id);
+    setDrawerMode("details");
   };
 
-  const openRegisterModal = (device: Device) => {
+  const openDeviceEditor = (device: Device) => {
+    resetRoomSearch();
     const currentRoom = sanitizeRoomValue(device.deviceClassroom || "");
 
-    setSelectedDevice(device);
+    setDrawerDeviceId(device.id);
+    setDrawerMode("edit");
     setFormClassroom(currentRoom);
     setSelectedSuggestion(currentRoom || null);
-    setRoomError("");
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setIsSearching(false);
-    setRegisterModalOpen(true);
   };
 
   const validateRoom = async (roomName: string): Promise<boolean> => {
@@ -451,10 +497,11 @@ const AdminRegistry = () => {
   };
 
   const handleRegister = async () => {
+    const device = drawerDevice;
     const sanitizedRoom = sanitizeRoomValue(formClassroom);
 
-    if (!selectedDevice || !sanitizedRoom) {
-      setRoomError("Proszę wprowadzić nazwę sali.");
+    if (!device || !sanitizedRoom) {
+      setRoomError("Wprowadź nazwę sali.");
       return;
     }
 
@@ -471,61 +518,66 @@ const AdminRegistry = () => {
       (await validateRoom(sanitizedRoom));
 
     if (!isValid) {
-      setRoomError("Wybrana sala nie została znaleziona w systemie planu.");
+      setRoomError("Wybrana sala nie istnieje w planie.");
       return;
     }
 
     try {
-      const response = await fetch(`/api/devices/${selectedDevice.id}`, {
+      const response = await fetch(`/api/devices/${device.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: selectedDevice.id,
+          id: device.id,
           deviceName: sanitizedRoom,
           deviceClassroom: sanitizedRoom,
         }),
       });
 
-      if (response.ok) {
-        closeRegisterModal();
-        setFormClassroom(sanitizedRoom);
-        setSelectedSuggestion(sanitizedRoom);
-        setRoomError("");
-        setDeleteId(null);
-        await fetchDevices();
-      } else {
+      if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        setRoomError(errorData.message || "Nie udało się zaktualizować urządzenia.");
+        setRoomError(errorData.message || "Nie udało się zapisać zmian.");
+        return;
       }
+
+      closeDrawer();
+      await fetchDevices();
     } catch (error) {
       console.error("Error registering device", error);
-      setRoomError("Wystąpił błąd podczas aktualizacji urządzenia.");
+      setRoomError("Nie udało się zapisać zmian.");
     }
   };
 
-  const handleDelete = async () => {
-    if (deleteId === null) {
+  const handleDeleteDevice = async (device: Device) => {
+    const confirmationLabel =
+      device.status === "PENDING"
+        ? "Odrzucić urządzenie z kolejki?"
+        : "Usunąć urządzenie z rejestru?";
+    const shouldDelete = window.confirm(confirmationLabel);
+
+    if (!shouldDelete) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/devices/${deleteId}`, { method: "DELETE" });
-      if (response.ok) {
-        await fetchDevices();
-      } else {
+      const response = await fetch(`/api/devices/${device.id}`, { method: "DELETE" });
+      if (!response.ok) {
         alert("Nie udało się usunąć urządzenia.");
+        return;
       }
+
+      if (drawerDeviceId === device.id) {
+        closeDrawer();
+      }
+      await fetchDevices();
     } catch (error) {
       console.error("Error deleting device:", error);
       alert("Wystąpił błąd podczas usuwania urządzenia.");
-    } finally {
-      setConfirmOpen(false);
-      closeRegisterModal();
-      setDeleteId(null);
     }
   };
 
   const handleViewChange = (view: AdminPanelView) => {
+    closeDrawer();
+
     if (view === "devices") {
       setSearchParams({});
       return;
@@ -550,75 +602,74 @@ const AdminRegistry = () => {
     (device) => device.connectionStatus === "OFFLINE",
   ).length;
 
-  const viewMeta = adminViewMeta[currentView];
   const navigationItems = (Object.keys(adminViewMeta) as AdminPanelView[]).map((key) => ({
     key,
     label: adminViewMeta[key].label,
-    description: adminViewMeta[key].description,
+    icon: adminViewMeta[key].icon,
   }));
-  const summaryItems = [
-    { label: "Wszystkie urządzenia", value: devices.length },
-    { label: "Online", value: onlineDevicesCount, tone: "success" as const },
-    { label: "Offline", value: offlineDevicesCount, tone: "danger" as const },
-    { label: "Oczekujące", value: allPendingDevices.length, tone: "warning" as const },
-    { label: "Administratorzy", value: admins.length },
-  ];
 
   return (
-    <div className="admin-workspace">
-      <AdminPanelSidebar
-        activeView={currentView}
-        navigationItems={navigationItems}
-        summaryItems={summaryItems}
-        loading={loading}
-        reloadingTablets={reloadingTablets}
-        reloadFeedback={reloadFeedback}
-        onRefreshDevices={fetchDevices}
-        onReloadTablets={handleReloadAllTablets}
-        onLogout={handleLogout}
-        onViewChange={handleViewChange}
-      />
-
-      <main className="admin-workspace__main">
-        <header className="admin-workspace__header">
-          <div>
-            <span className="admin-workspace__eyebrow">{viewMeta.label}</span>
-            <h2 className="admin-workspace__header-title">{viewMeta.title}</h2>
-            <p className="admin-workspace__header-description">
-              {viewMeta.description}
-            </p>
+    <div className="admin-console" data-admin-theme={adminTheme}>
+      <header className="admin-console__appbar">
+        <div className="admin-console__brand">
+          <img className="admin-console__brand-logo" src={logo} alt="ZUT" />
+          <div className="admin-console__brand-copy">
+            <span className="admin-console__brand-kicker">ZUT Szczecin</span>
+            <strong>PlanQR Admin</strong>
           </div>
-          <div className="admin-workspace__header-card">
-            <span className="admin-workspace__header-card-label">Widok aktywny</span>
-            <strong>{viewMeta.label}</strong>
-            <span>
-              {currentView === "devices"
-                ? `${activeDevices.length} pozycji w tabeli`
-                : currentView === "admins"
-                  ? `${admins.length} kont z dostępem`
-                  : `Okno ${nightModeSettings.startTime} - ${nightModeSettings.endTime}`}
-            </span>
-          </div>
-        </header>
+        </div>
 
-        <div className="admin-workspace__content">
+        <div className="admin-console__appbar-actions">
+          <AdminPanelThemeToggle theme={adminTheme} onChange={setAdminTheme} />
+          <a className="admin-button admin-button--ghost admin-button--small" href="/">
+            Powrót
+          </a>
+          <button
+            type="button"
+            className="admin-button admin-button--ghost admin-button--small"
+            onClick={handleLogout}
+          >
+            Wyloguj
+          </button>
+        </div>
+      </header>
+
+      <div className="admin-console__body">
+        <AdminPanelSidebar
+          activeView={currentView}
+          navigationItems={navigationItems}
+          onViewChange={handleViewChange}
+        />
+
+        <main className="admin-console__main">
+          {reloadFeedback ? (
+            <div className={`admin-inline-message admin-inline-message--${reloadFeedbackTone}`}>
+              {reloadFeedback}
+            </div>
+          ) : null}
+
           {currentView === "devices" ? (
             <DevicesView
               activeDevices={activeDevices}
               pendingDevices={pendingDevices}
+              counts={{
+                all: devices.length,
+                online: onlineDevicesCount,
+                offline: offlineDevicesCount,
+                pending: allPendingDevices.length,
+              }}
               loading={loading}
+              reloadingTablets={reloadingTablets}
               searchTerm={searchTerm}
               sortBy={deviceSort}
               onSearchTermChange={setSearchTerm}
               onSortChange={setDeviceSort}
               onRefresh={fetchDevices}
-              onViewDevice={setViewDevice}
-              onEditDevice={openRegisterModal}
-              onAuthorizeDevice={openRegisterModal}
-              onRejectDevice={(device) => {
-                setDeleteId(device.id);
-                setConfirmOpen(true);
-              }}
+              onReloadTablets={handleReloadAllTablets}
+              onViewDevice={openDeviceDetails}
+              onEditDevice={openDeviceEditor}
+              onAuthorizeDevice={openDeviceEditor}
+              onDeleteDevice={handleDeleteDevice}
             />
           ) : null}
 
@@ -629,6 +680,7 @@ const AdminRegistry = () => {
               adminMutationLoading={adminMutationLoading}
               newAdminUsername={newAdminUsername}
               adminFeedback={adminFeedback}
+              adminFeedbackTone={adminFeedbackTone}
               onUsernameChange={(value) => {
                 setNewAdminUsername(value);
                 setAdminFeedback(null);
@@ -645,6 +697,7 @@ const AdminRegistry = () => {
               loading={nightModeLoading}
               saving={nightModeSaving}
               feedback={nightModeFeedback}
+              feedbackTone={nightModeFeedbackTone}
               onRefresh={fetchNightModeSettings}
               onSettingChange={(next) => {
                 setNightModeSettings(next);
@@ -653,226 +706,36 @@ const AdminRegistry = () => {
               onSave={handleNightModeSettingsSave}
             />
           ) : null}
-        </div>
-      </main>
+        </main>
+      </div>
 
-      {confirmOpen ? (
-        <div className="admin-modal__overlay">
-          <div className="admin-modal admin-modal--compact">
-            <div className="admin-modal__header">
-              <h3>Usuń urządzenie</h3>
-              <p>
-                Urządzenie zostanie usunięte z rejestru i będzie wymagało ponownego
-                sparowania.
-              </p>
-            </div>
-            <div className="admin-modal__actions">
-              <button
-                type="button"
-                className="admin-button admin-button--ghost"
-                onClick={() => setConfirmOpen(false)}
-              >
-                Anuluj
-              </button>
-              <button
-                type="button"
-                className="admin-button admin-button--danger"
-                onClick={handleDelete}
-              >
-                Usuń dostęp
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {registerModalOpen ? (
-        <div className="admin-modal__overlay" onClick={closeRegisterModal}>
-          <div className="admin-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="admin-modal__header">
-              <h3>
-                {selectedDevice?.status === "ACTIVE"
-                  ? "Edytuj urządzenie"
-                  : "Autoryzuj urządzenie"}
-              </h3>
-              <p>Wybierz poprawną salę z planu i zapisz powiązanie tabletu.</p>
-            </div>
-
-            <div className="admin-modal__content">
-              <label className="admin-form-field">
-                <span className="admin-form-field__label">Sala</span>
-                <div className="admin-autocomplete">
-                  <input
-                    className="admin-form-field__input"
-                    placeholder="np. WI WI1-308"
-                    value={formClassroom}
-                    onChange={(event) => {
-                      setFormClassroom(event.target.value);
-                      setSelectedSuggestion(null);
-                      setRoomError("");
-                      setShowSuggestions(true);
-                    }}
-                    autoFocus
-                  />
-                  {isSearching ? (
-                    <span className="admin-autocomplete__loading">
-                      <i className="fas fa-spinner fa-spin" aria-hidden="true" />
-                    </span>
-                  ) : null}
-                  {showSuggestions && suggestions.length > 0 ? (
-                    <div className="admin-autocomplete__list">
-                      {suggestions.map((room) => (
-                        <button
-                          key={room}
-                          type="button"
-                          className="admin-autocomplete__item"
-                          onClick={() => {
-                            setFormClassroom(room);
-                            setSelectedSuggestion(room);
-                            setRoomError("");
-                            setShowSuggestions(false);
-                            setSuggestions([]);
-                          }}
-                        >
-                          {room}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </label>
-
-              {roomError ? <p className="admin-feedback admin-feedback--error">{roomError}</p> : null}
-
-              <p className="admin-modal__hint">
-                Nazwa wyświetlana na tablecie powinna pochodzić z listy zwróconej przez
-                system planu.
-              </p>
-            </div>
-
-            <div className="admin-modal__actions admin-modal__actions--between">
-              {selectedDevice?.status === "ACTIVE" ? (
-                <button
-                  type="button"
-                  className="admin-button admin-button--danger"
-                  onClick={() => {
-                    setDeleteId(selectedDevice.id);
-                    setConfirmOpen(true);
-                    closeRegisterModal();
-                  }}
-                >
-                  Usuń
-                </button>
-              ) : (
-                <span />
-              )}
-              <div className="admin-modal__actions-group">
-                <button
-                  type="button"
-                  className="admin-button admin-button--ghost"
-                  onClick={closeRegisterModal}
-                >
-                  Anuluj
-                </button>
-                <button
-                  type="button"
-                  className="admin-button admin-button--primary"
-                  onClick={handleRegister}
-                  disabled={!formClassroom.trim()}
-                >
-                  Zapisz
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {viewDevice ? (
-        <div className="admin-modal__overlay" onClick={() => setViewDevice(null)}>
-          <div className="admin-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="admin-modal__header">
-              <h3>Szczegóły urządzenia</h3>
-              <p>Techniczne informacje o tablecie i jego aktualnym stanie połączenia.</p>
-            </div>
-
-            <div className="admin-detail-list">
-              <div className="admin-detail-list__row">
-                <span>ID bazy danych</span>
-                <strong>{viewDevice.id}</strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>Nazwa urządzenia</span>
-                <strong>{viewDevice.deviceName || "-"}</strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>Sala</span>
-                <strong>{viewDevice.deviceClassroom || "-"}</strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>Device ID</span>
-                <strong className="admin-table__meta-code">{viewDevice.deviceId}</strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>Status</span>
-                <strong>
-                  <span
-                    className={`admin-status-pill admin-status-pill--${getConnectionTone(
-                      viewDevice,
-                    )}`}
-                  >
-                    {getConnectionLabel(viewDevice)}
-                  </span>
-                </strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>Model</span>
-                <strong>{viewDevice.deviceModel || "-"}</strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>Adres IP</span>
-                <strong>{viewDevice.ipAddress || "-"}</strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>MAC</span>
-                <strong className="admin-table__meta-code">{viewDevice.macAddress || "-"}</strong>
-              </div>
-              <div className="admin-detail-list__row">
-                <span>Ostatni heartbeat</span>
-                <strong>{formatLastSeen(viewDevice.lastSeen)}</strong>
-              </div>
-              <div className="admin-detail-list__row admin-detail-list__row--stacked">
-                <span>User Agent</span>
-                <strong>{viewDevice.userAgent || "-"}</strong>
-              </div>
-              <div className="admin-detail-list__row admin-detail-list__row--stacked">
-                <span>URL</span>
-                {viewDevice.deviceURL ? (
-                  <a
-                    className="admin-detail-list__link"
-                    href={viewDevice.deviceURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {viewDevice.deviceURL}
-                  </a>
-                ) : (
-                  <strong>-</strong>
-                )}
-              </div>
-            </div>
-
-            <div className="admin-modal__actions">
-              <button
-                type="button"
-                className="admin-button admin-button--primary"
-                onClick={() => setViewDevice(null)}
-              >
-                Zamknij
-              </button>
-            </div>
-          </div>
-        </div>
+      {drawerMode && drawerDevice ? (
+        <DeviceDrawer
+          mode={drawerMode}
+          device={drawerDevice}
+          formClassroom={formClassroom}
+          roomError={roomError}
+          suggestions={suggestions}
+          showSuggestions={showSuggestions}
+          isSearching={isSearching}
+          onClose={closeDrawer}
+          onStartEdit={() => openDeviceEditor(drawerDevice)}
+          onFormChange={(value) => {
+            setFormClassroom(value);
+            setSelectedSuggestion(null);
+            setRoomError("");
+            setShowSuggestions(true);
+          }}
+          onSuggestionSelect={(room) => {
+            setFormClassroom(room);
+            setSelectedSuggestion(room);
+            setRoomError("");
+            setShowSuggestions(false);
+            setSuggestions([]);
+          }}
+          onSave={handleRegister}
+          onDelete={() => void handleDeleteDevice(drawerDevice)}
+        />
       ) : null}
     </div>
   );

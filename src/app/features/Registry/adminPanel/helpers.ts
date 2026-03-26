@@ -1,5 +1,6 @@
 import type {
   AdminPanelView,
+  AdminPanelTheme,
   AdminRecord,
   Device,
   DeviceSortOption,
@@ -22,27 +23,26 @@ export const defaultNightModeSettings: NightModeSettings = {
   endTime: "06:00",
 };
 
+export const defaultAdminPanelTheme: AdminPanelTheme = "light";
+
 export const adminViewMeta: Record<
   AdminPanelView,
-  { label: string; title: string; description: string }
+  { label: string; title: string; icon: string }
 > = {
   devices: {
     label: "Tablety",
-    title: "Zarządzanie tabletami",
-    description:
-      "Przeglądaj, filtruj i aktualizuj urządzenia w uporządkowanej liście operacyjnej.",
+    title: "Tablety",
+    icon: "fas fa-tablet-alt",
   },
   admins: {
     label: "Administratorzy",
-    title: "Zarządzanie administratorami",
-    description:
-      "Nadawaj dostęp do panelu i kontroluj źródła uprawnień dla kont administracyjnych.",
+    title: "Administratorzy",
+    icon: "fas fa-user-shield",
   },
   schedule: {
     label: "Czarny ekran",
-    title: "Harmonogram czarnego ekranu",
-    description:
-      "Ustaw godziny automatycznego wygaszania treści i zarządzaj zachowaniem ekranów poza godzinami pracy.",
+    title: "Czarny ekran",
+    icon: "fas fa-moon",
   },
 };
 
@@ -99,6 +99,22 @@ export const getConnectionTone = (device: Device): Tone => {
 
 export const getDeviceDisplayName = (device: Device) =>
   device.deviceClassroom || device.deviceName || "Nieprzypisany tablet";
+
+export const getDeviceSecondaryName = (device: Device) => {
+  const displayName = getDeviceDisplayName(device);
+  const secondary =
+    device.deviceClassroom && device.deviceClassroom !== displayName
+      ? device.deviceClassroom
+      : device.deviceName && device.deviceName !== displayName
+        ? device.deviceName
+        : null;
+
+  if (!secondary) {
+    return null;
+  }
+
+  return secondary;
+};
 
 const getConnectionRank = (device: Device) => {
   if (device.status !== "ACTIVE") {
