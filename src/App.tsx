@@ -2,6 +2,7 @@ import '../src/app/layout/LoginPanel';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import LoginPanel from '../src/app/layout/LoginPanel';
 import { useEffect } from 'react';
+import { logout } from '../src/app/services/authService';
 
 
 
@@ -29,16 +30,8 @@ function App() {
 
     const handleLogout = async () => {
       try {
-        const response = await fetch("/api/auth/logout", {
-          method: "POST",
-          credentials: "include"
-        });
-
-        if (response.ok) {
-          navigate("/");
-        } else {
-          alert("Logout failed");
-        }
+        await logout();
+        navigate("/");
       } catch (error) {
         console.error("Error during logout:", error);
         alert("An error occurred during logout. Please try again.");

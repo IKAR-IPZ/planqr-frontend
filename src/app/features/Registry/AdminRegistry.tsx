@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../../layout/ThemeToggle';
+import { logout } from '../../services/authService';
 // Removed semantic-ui-react imports
 
 interface Device {
@@ -9,6 +11,9 @@ interface Device {
     deviceURL: string | null;
     deviceId: string;
     status: 'PENDING' | 'ACTIVE';
+    connectionStatus: 'PENDING' | 'ONLINE' | 'OFFLINE';
+    isConnected: boolean;
+    lastSeen: string;
     ipAddress?: string;
     deviceModel?: string;
     userAgent?: string;
@@ -26,16 +31,89 @@ interface NightModeSettings {
     endTime: string;
 }
 
+interface AdminRecord {
+    id: string;
+    username: string;
+    role: string;
+    adminSource: 'database' | 'panel';
+    createdAt: string | null;
+    updatedAt: string | null;
+    isCurrentUser: boolean;
+    canBeRemovedFromPanel: boolean;
+}
+
 const defaultNightModeSettings: NightModeSettings = {
     enabled: false,
     startTime: '22:00',
     endTime: '06:00'
 };
 
+const formatAdminDate = (value?: string | null) => {
+    if (!value) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat('pl-PL', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+    }).format(new Date(value));
+};
+
+const getAdminSourceLabel = (source: AdminRecord['adminSource']) =>
+    source === 'panel' ? 'Panel administracyjny' : 'Baza danych';
+
+const formatLastSeen = (value?: string) => {
+    if (!value) {
+        return 'brak danych';
+    }
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return 'brak danych';
+    }
+
+    return new Intl.DateTimeFormat('pl-PL', {
+        dateStyle: 'short',
+        timeStyle: 'medium'
+    }).format(parsedDate);
+};
+
+const getConnectionBadgeClassName = (device: Device) => {
+    if (device.status !== 'ACTIVE') {
+        return 'admin-panel__status-badge admin-panel__status-badge--pending';
+    }
+
+    return device.connectionStatus === 'ONLINE'
+        ? 'admin-panel__status-badge admin-panel__status-badge--online'
+        : 'admin-panel__status-badge admin-panel__status-badge--offline';
+};
+
+const getConnectionLabel = (device: Device) => {
+    if (device.status !== 'ACTIVE') {
+        return 'Oczekuje na akceptację';
+    }
+
+    return device.connectionStatus === 'ONLINE' ? 'Online' : 'Offline';
+};
+
+const getConnectionTextClassName = (device: Device) => {
+    if (device.status !== 'ACTIVE') {
+        return 'text-yellow';
+    }
+
+    return device.connectionStatus === 'ONLINE' ? 'text-green' : 'text-red';
+};
+
 const AdminRegistry = () => {
+    const navigate = useNavigate();
     const [devices, setDevices] = useState<Device[]>([]);
+    const [admins, setAdmins] = useState<AdminRecord[]>([]);
     const [loading, setLoading] = useState(false);
+    const [adminsLoading, setAdminsLoading] = useState(false);
+    const [adminMutationLoading, setAdminMutationLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [newAdminUsername, setNewAdminUsername] = useState('');
+    const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
     const [reloadingTablets, setReloadingTablets] = useState(false);
     const [reloadFeedback, setReloadFeedback] = useState<string | null>(null);
     const [nightModeSettings, setNightModeSettings] = useState<NightModeSettings>(defaultNightModeSettings);
@@ -188,6 +266,27 @@ const AdminRegistry = () => {
         }
     };
 
+    const fetchAdmins = async () => {
+        try {
+            setAdminsLoading(true);
+            const response = await fetch('/api/admins', {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się pobrać listy administratorów.');
+            }
+
+            const data = await response.json();
+            setAdmins(Array.isArray(data.admins) ? data.admins : []);
+        } catch (error) {
+            console.error('Error fetching admins:', error);
+            setAdminFeedback('Nie udało się pobrać listy administratorów.');
+        } finally {
+            setAdminsLoading(false);
+        }
+    };
+
     const fetchNightModeSettings = async () => {
         try {
             setNightModeLoading(true);
@@ -272,11 +371,97 @@ const AdminRegistry = () => {
     };
 
     useEffect(() => {
-        fetchDevices();
-        fetchNightModeSettings();
+        void fetchDevices();
+        void fetchNightModeSettings();
+        void fetchAdmins();
         const interval = setInterval(fetchDevices, 5000); // Poll for updates
         return () => clearInterval(interval);
     }, []);
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/');
+        } catch (error) {
+            console.error('Error during logout:', error);
+            alert('Nie udało się wylogować. Spróbuj ponownie.');
+        }
+    };
+
+    const handleAddAdmin = async () => {
+        const username = newAdminUsername.trim().toLowerCase();
+
+        if (!username) {
+            setAdminFeedback('Podaj login LDAP użytkownika.');
+            return;
+        }
+
+        try {
+            setAdminMutationLoading(true);
+            setAdminFeedback(null);
+
+            const response = await fetch('/api/admins', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username })
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Nie udało się nadać uprawnień administratora.');
+            }
+
+            setNewAdminUsername('');
+            setAdminFeedback(data.message || 'Nadano uprawnienia administratora.');
+            await fetchAdmins();
+        } catch (error) {
+            console.error('Error adding admin:', error);
+            setAdminFeedback(error instanceof Error ? error.message : 'Nie udało się nadać uprawnień administratora.');
+        } finally {
+            setAdminMutationLoading(false);
+        }
+    };
+
+    const handleRemoveAdmin = async (admin: AdminRecord) => {
+        if (admin.adminSource !== 'panel') {
+            setAdminFeedback('Administrator dodany z bazy danych może zostać usunięty tylko bezpośrednio w bazie danych.');
+            return;
+        }
+
+        if (admin.isCurrentUser) {
+            setAdminFeedback('Nie możesz odebrać uprawnień samemu sobie z poziomu panelu.');
+            return;
+        }
+
+        const shouldDelete = window.confirm(`Usunąć administratora ${admin.username}?`);
+        if (!shouldDelete) {
+            return;
+        }
+
+        try {
+            setAdminMutationLoading(true);
+            setAdminFeedback(null);
+
+            const response = await fetch(`/api/admins/${encodeURIComponent(admin.username)}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Nie udało się usunąć administratora.');
+            }
+
+            setAdminFeedback(data.message || 'Usunięto administratora.');
+            await fetchAdmins();
+        } catch (error) {
+            console.error('Error removing admin:', error);
+            setAdminFeedback(error instanceof Error ? error.message : 'Nie udało się usunąć administratora.');
+        } finally {
+            setAdminMutationLoading(false);
+        }
+    };
 
     const openRegisterModal = (device: Device) => {
         const currentRoom = sanitizeRoomValue(device.deviceClassroom || '');
@@ -382,12 +567,26 @@ const AdminRegistry = () => {
         }
     };
 
-    const pendingDevices = devices.filter(d => d.status === 'PENDING');
-    const activeDevices = devices.filter(d => d.status === 'ACTIVE')
+    const pendingDevices = devices.filter(device => device.status === 'PENDING');
+    const pairedDevices = devices.filter(device => device.status === 'ACTIVE');
+    const onlineDevicesCount = pairedDevices.filter(device => device.connectionStatus === 'ONLINE').length;
+    const offlineDevicesCount = pairedDevices.filter(device => device.connectionStatus === 'OFFLINE').length;
+    const hasSearchFilter = searchTerm.trim().length > 0;
+    const activeDevices = [...pairedDevices]
         .filter(d =>
         (d.deviceClassroom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             d.deviceId.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
+        )
+        .sort((left, right) => {
+            const leftRank = left.connectionStatus === 'ONLINE' ? 0 : 1;
+            const rightRank = right.connectionStatus === 'ONLINE' ? 0 : 1;
+
+            if (leftRank !== rightRank) {
+                return leftRank - rightRank;
+            }
+
+            return new Date(right.lastSeen).getTime() - new Date(left.lastSeen).getTime();
+        });
 
     return (
         <div className="admin-panel">
@@ -423,13 +622,23 @@ const AdminRegistry = () => {
                     </div>
 
                     <div className="admin-panel__stat-item admin-panel__stat-item--active">
-                        <span className="admin-panel__stat-label">Aktywne</span>
-                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-success)' }}>{activeDevices.length}</span>
+                        <span className="admin-panel__stat-label">Online</span>
+                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-success)' }}>{onlineDevicesCount}</span>
+                    </div>
+
+                    <div className="admin-panel__stat-item">
+                        <span className="admin-panel__stat-label">Offline</span>
+                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-danger)' }}>{offlineDevicesCount}</span>
                     </div>
 
                     <div className="admin-panel__stat-item admin-panel__stat-item--pending">
                         <span className="admin-panel__stat-label">Oczekujące</span>
                         <span className="admin-panel__stat-value" style={{ color: 'var(--color-warning)' }}>{pendingDevices.length}</span>
+                    </div>
+
+                    <div className="admin-panel__stat-item">
+                        <span className="admin-panel__stat-label">Admini</span>
+                        <span className="admin-panel__stat-value">{admins.length}</span>
                     </div>
                 </div>
 
@@ -450,6 +659,14 @@ const AdminRegistry = () => {
                     >
                         <i className={`fas fa-bolt ${reloadingTablets ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
                         Przeładuj tablety
+                    </button>
+                    <button
+                        className="btn btn-danger btn-full"
+                        onClick={handleLogout}
+                        style={{ marginTop: '0.75rem' }}
+                    >
+                        <i className="fas fa-sign-out-alt" style={{ marginRight: '0.5rem' }}></i>
+                        Wyloguj
                     </button>
                     {reloadFeedback && (
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.75rem', lineHeight: 1.4 }}>
@@ -479,6 +696,119 @@ const AdminRegistry = () => {
                         <i className={`fas fa-moon ${nightModeLoading ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
                         Harmonogram trybu nocnego
                     </button>
+                </div>
+
+                <div className="admin-panel__section">
+                    <div className="admin-panel__section-label">
+                        Administratorzy
+                    </div>
+
+                    <div className="admin-panel__admin-grid">
+                        <section className="admin-panel__admin-card">
+                            <h3>Dodaj administratora</h3>
+                            <p className="admin-panel__sidebar-help" style={{ marginTop: '0.5rem' }}>
+                                Podaj login LDAP. Konto dostaje dostęp do panelu po zapisaniu rekordu w bazie i przy następnym odświeżeniu sesji.
+                            </p>
+
+                            <div className="admin-panel__admin-form">
+                                <input
+                                    type="text"
+                                    className="admin-panel__sidebar-input"
+                                    placeholder="np. gr55764"
+                                    value={newAdminUsername}
+                                    onChange={(e) => {
+                                        setNewAdminUsername(e.target.value);
+                                        setAdminFeedback(null);
+                                    }}
+                                    autoComplete="off"
+                                />
+                                <button
+                                    className={`btn btn-primary ${adminMutationLoading ? 'loading' : ''}`}
+                                    onClick={handleAddAdmin}
+                                    disabled={adminMutationLoading || !newAdminUsername.trim()}
+                                >
+                                    Dodaj admina
+                                </button>
+                            </div>
+
+                            <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
+                                Flow: wpisujesz login, system zapisuje go w tabeli `User`, a ten użytkownik po zalogowaniu LDAP automatycznie przechodzi do adminpanelu.
+                            </p>
+
+                            {adminFeedback && (
+                                <p className="admin-panel__admin-feedback">
+                                    {adminFeedback}
+                                </p>
+                            )}
+                        </section>
+
+                        <section className="admin-panel__admin-card">
+                            <div className="admin-panel__admin-card-header">
+                                <h3>Aktualni administratorzy</h3>
+                                <button
+                                    className={`btn btn-ghost ${adminsLoading ? 'loading' : ''}`}
+                                    onClick={fetchAdmins}
+                                    disabled={adminsLoading || adminMutationLoading}
+                                >
+                                    Odśwież listę
+                                </button>
+                            </div>
+
+                            {adminsLoading ? (
+                                <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
+                                    Trwa pobieranie listy administratorów...
+                                </p>
+                            ) : admins.length === 0 ? (
+                                <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
+                                    W bazie nie ma jeszcze żadnych administratorów.
+                                </p>
+                            ) : (
+                                <div className="admin-panel__admin-list">
+                                    {admins.map((admin) => (
+                                        <div key={admin.id} className="admin-panel__admin-list-item">
+                                            <div className="admin-panel__admin-summary">
+                                                <div className="admin-panel__admin-username">
+                                                    {admin.username}
+                                                    <span className={`admin-panel__admin-source-badge admin-panel__admin-source-badge--${admin.adminSource}`}>
+                                                        {getAdminSourceLabel(admin.adminSource)}
+                                                    </span>
+                                                    {admin.isCurrentUser && (
+                                                        <span className="admin-panel__admin-badge">To Ty</span>
+                                                    )}
+                                                </div>
+                                                {admin.createdAt && (
+                                                    <div className="admin-panel__admin-meta">
+                                                        Utworzono: {formatAdminDate(admin.createdAt)}
+                                                    </div>
+                                                )}
+                                                {admin.updatedAt && (
+                                                    <div className="admin-panel__admin-meta">
+                                                        Ostatnia zmiana: {formatAdminDate(admin.updatedAt)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {admin.adminSource === 'panel' && (
+                                                <button
+                                                    className="btn btn-danger"
+                                                    onClick={() => handleRemoveAdmin(admin)}
+                                                    disabled={adminMutationLoading || !admin.canBeRemovedFromPanel || admins.length <= 1}
+                                                    title={
+                                                        admin.isCurrentUser
+                                                            ? 'Nie możesz usunąć samemu sobie uprawnień administratora.'
+                                                            : admins.length <= 1
+                                                                ? 'Nie można usunąć ostatniego administratora.'
+                                                                : 'Usuń administratora'
+                                                    }
+                                                >
+                                                    Usuń
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    </div>
                 </div>
 
                 {/* PENDING SECTION */}
@@ -529,14 +859,14 @@ const AdminRegistry = () => {
                 {/* ACTIVE SECTION */}
                 <div className="admin-panel__section">
                     <div className="admin-panel__section-label">
-                        Aktywne Terminale
+                        Sparowane Terminale
                     </div>
 
                     {activeDevices.length === 0 ? (
                         <div className="empty-state-card">
                             <i className="fas fa-search" style={{ fontSize: '3em', marginBottom: '1rem' }} />
-                            <h3>Brak aktywnych urządzeń</h3>
-                            <p>Poczekaj na nowe połączenia systemowe.</p>
+                            <h3>{hasSearchFilter ? 'Brak wyników dla filtra' : 'Brak sparowanych urządzeń'}</h3>
+                            <p>{hasSearchFilter ? 'Wyczyść albo zmień filtr wyszukiwania.' : 'Poczekaj na sparowanie nowego tabletu.'}</p>
                         </div>
                     ) : (
                         <div className="admin-panel__device-grid">
@@ -549,8 +879,8 @@ const AdminRegistry = () => {
                                                 {device.deviceId}
                                             </code>
                                         </div>
-                                        <div className="admin-panel__status-badge admin-panel__status-badge--online">
-                                            <div className="status-dot"></div> Aktywny
+                                        <div className={getConnectionBadgeClassName(device)}>
+                                            <div className="status-dot"></div> {getConnectionLabel(device)}
                                         </div>
                                         <button
                                             className="btn-info-icon"
@@ -563,6 +893,10 @@ const AdminRegistry = () => {
                                             <i className="fas fa-info-circle"></i>
                                         </button>
                                     </div>
+
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                        Ostatni heartbeat: {formatLastSeen(device.lastSeen)}
+                                    </p>
 
                                     <div className="card-actions">
                                         <a
@@ -881,10 +1215,22 @@ const AdminRegistry = () => {
                             </div>
 
                             <div className="detail-row">
-                                <span className="detail-label">Status</span>
+                                <span className="detail-label">Status parowania</span>
                                 <span className={`detail-value ${viewDevice.status === 'ACTIVE' ? 'text-green' : 'text-yellow'}`}>
                                     {viewDevice.status}
                                 </span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Stan połączenia</span>
+                                <span className={`detail-value ${getConnectionTextClassName(viewDevice)}`}>
+                                    {getConnectionLabel(viewDevice)}
+                                </span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span className="detail-label">Ostatni heartbeat</span>
+                                <span className="detail-value">{formatLastSeen(viewDevice.lastSeen)}</span>
                             </div>
 
                             <div className="detail-row">

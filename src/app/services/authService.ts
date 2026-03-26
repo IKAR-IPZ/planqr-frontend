@@ -34,6 +34,17 @@ export const fetchSession = async (): Promise<SessionInfo | null> => {
   }
 };
 
+export const logout = async () => {
+  const response = await fetch('/api/auth/logout', {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Logout failed');
+  }
+};
+
 export const getPreferredRoute = (session: SessionInfo | null) => {
   if (!session) {
     return null;
