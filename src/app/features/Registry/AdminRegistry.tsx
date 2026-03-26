@@ -1,1263 +1,881 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ThemeToggle from '../../layout/ThemeToggle';
-import { logout } from '../../services/authService';
-// Removed semantic-ui-react imports
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { logout } from "../../services/authService";
+import "./AdminRegistry.css";
+import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
+import AdminsView from "./adminPanel/AdminsView";
+import DevicesView from "./adminPanel/DevicesView";
+import ScheduleView from "./adminPanel/ScheduleView";
+import {
+  adminViewMeta,
+  defaultNightModeSettings,
+  formatLastSeen,
+  getConnectionLabel,
+  getConnectionTone,
+  matchesDeviceSearch,
+  normalizeRoomValue,
+  ROOM_SEARCH_DEBOUNCE_MS,
+  ROOM_SEARCH_MIN_LENGTH,
+  sanitizeRoomValue,
+  sortDevices,
+} from "./adminPanel/helpers";
+import type {
+  AdminPanelView,
+  AdminRecord,
+  Device,
+  DeviceSortOption,
+  NightModeSettings,
+} from "./adminPanel/types";
 
-interface Device {
-    id: number;
-    deviceName: string | null;
-    deviceClassroom: string | null;
-    deviceURL: string | null;
-    deviceId: string;
-    status: 'PENDING' | 'ACTIVE';
-    connectionStatus: 'PENDING' | 'ONLINE' | 'OFFLINE';
-    isConnected: boolean;
-    lastSeen: string;
-    ipAddress?: string;
-    deviceModel?: string;
-    userAgent?: string;
-    macAddress?: string;
-}
+const getActiveView = (value: string | null): AdminPanelView => {
+  if (value === "admins" || value === "schedule") {
+    return value;
+  }
 
-const ROOM_SEARCH_DEBOUNCE_MS = 350;
-const ROOM_SEARCH_MIN_LENGTH = 2;
-
-const sanitizeRoomValue = (value: string) => value.trim().replace(/\s+/g, ' ');
-const normalizeRoomValue = (value: string) => sanitizeRoomValue(value).toUpperCase();
-interface NightModeSettings {
-    enabled: boolean;
-    startTime: string;
-    endTime: string;
-}
-
-interface AdminRecord {
-    id: string;
-    username: string;
-    role: string;
-    adminSource: 'database' | 'panel';
-    createdAt: string | null;
-    updatedAt: string | null;
-    isCurrentUser: boolean;
-    canBeRemovedFromPanel: boolean;
-}
-
-const defaultNightModeSettings: NightModeSettings = {
-    enabled: false,
-    startTime: '22:00',
-    endTime: '06:00'
-};
-
-const formatAdminDate = (value?: string | null) => {
-    if (!value) {
-        return null;
-    }
-
-    return new Intl.DateTimeFormat('pl-PL', {
-    dateStyle: 'short',
-    timeStyle: 'short'
-    }).format(new Date(value));
-};
-
-const getAdminSourceLabel = (source: AdminRecord['adminSource']) =>
-    source === 'panel' ? 'Panel administracyjny' : 'Baza danych';
-
-const formatLastSeen = (value?: string) => {
-    if (!value) {
-        return 'brak danych';
-    }
-
-    const parsedDate = new Date(value);
-    if (Number.isNaN(parsedDate.getTime())) {
-        return 'brak danych';
-    }
-
-    return new Intl.DateTimeFormat('pl-PL', {
-        dateStyle: 'short',
-        timeStyle: 'medium'
-    }).format(parsedDate);
-};
-
-const getConnectionBadgeClassName = (device: Device) => {
-    if (device.status !== 'ACTIVE') {
-        return 'admin-panel__status-badge admin-panel__status-badge--pending';
-    }
-
-    return device.connectionStatus === 'ONLINE'
-        ? 'admin-panel__status-badge admin-panel__status-badge--online'
-        : 'admin-panel__status-badge admin-panel__status-badge--offline';
-};
-
-const getConnectionLabel = (device: Device) => {
-    if (device.status !== 'ACTIVE') {
-        return 'Oczekuje na akceptację';
-    }
-
-    return device.connectionStatus === 'ONLINE' ? 'Online' : 'Offline';
-};
-
-const getConnectionTextClassName = (device: Device) => {
-    if (device.status !== 'ACTIVE') {
-        return 'text-yellow';
-    }
-
-    return device.connectionStatus === 'ONLINE' ? 'text-green' : 'text-red';
+  return "devices";
 };
 
 const AdminRegistry = () => {
-    const navigate = useNavigate();
-    const [devices, setDevices] = useState<Device[]>([]);
-    const [admins, setAdmins] = useState<AdminRecord[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [adminsLoading, setAdminsLoading] = useState(false);
-    const [adminMutationLoading, setAdminMutationLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [newAdminUsername, setNewAdminUsername] = useState('');
-    const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
-    const [reloadingTablets, setReloadingTablets] = useState(false);
-    const [reloadFeedback, setReloadFeedback] = useState<string | null>(null);
-    const [nightModeSettings, setNightModeSettings] = useState<NightModeSettings>(defaultNightModeSettings);
-    const [nightModeLoading, setNightModeLoading] = useState(false);
-    const [nightModeSaving, setNightModeSaving] = useState(false);
-    const [nightModeFeedback, setNightModeFeedback] = useState<string | null>(null);
-    const [nightModeModalOpen, setNightModeModalOpen] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentView = getActiveView(searchParams.get("view"));
 
-    // Modal State
-    const [registerModalOpen, setRegisterModalOpen] = useState(false);
-    const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-    const [viewDevice, setViewDevice] = useState<Device | null>(null);
-    const [formClassroom, setFormClassroom] = useState('');
-    const [roomError, setRoomError] = useState('');
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [admins, setAdmins] = useState<AdminRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [adminMutationLoading, setAdminMutationLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [deviceSort, setDeviceSort] = useState<DeviceSortOption>("status");
+  const [newAdminUsername, setNewAdminUsername] = useState("");
+  const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
+  const [reloadingTablets, setReloadingTablets] = useState(false);
+  const [reloadFeedback, setReloadFeedback] = useState<string | null>(null);
+  const [nightModeSettings, setNightModeSettings] =
+    useState<NightModeSettings>(defaultNightModeSettings);
+  const [nightModeLoading, setNightModeLoading] = useState(false);
+  const [nightModeSaving, setNightModeSaving] = useState(false);
+  const [nightModeFeedback, setNightModeFeedback] = useState<string | null>(null);
 
-    // Delete Confirm
-    const [confirmOpen, setConfirmOpen] = useState(false);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [viewDevice, setViewDevice] = useState<Device | null>(null);
+  const [formClassroom, setFormClassroom] = useState("");
+  const [roomError, setRoomError] = useState("");
 
-    // Autocomplete State
-    const [suggestions, setSuggestions] = useState<string[]>([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
-    const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
-    const roomSearchAbortRef = useRef<AbortController | null>(null);
-    const roomSearchRequestIdRef = useRef(0);
-    const roomSearchCacheRef = useRef(new Map<string, string[]>());
-    const knownRoomsRef = useRef(new Set<string>());
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
 
-    useEffect(() => {
-        const query = sanitizeRoomValue(formClassroom);
+  const roomSearchAbortRef = useRef<AbortController | null>(null);
+  const roomSearchRequestIdRef = useRef(0);
+  const roomSearchCacheRef = useRef(new Map<string, string[]>());
+  const knownRoomsRef = useRef(new Set<string>());
 
-        if (!showSuggestions) {
-            roomSearchAbortRef.current?.abort();
-            roomSearchAbortRef.current = null;
-            roomSearchRequestIdRef.current += 1;
-            setIsSearching(false);
-            return;
-        }
+  useEffect(() => {
+    const query = sanitizeRoomValue(formClassroom);
 
-        if (query.length < ROOM_SEARCH_MIN_LENGTH) {
-            roomSearchAbortRef.current?.abort();
-            roomSearchAbortRef.current = null;
-            roomSearchRequestIdRef.current += 1;
-            setSuggestions([]);
-            setIsSearching(false);
-            return;
-        }
-
-        const timer = window.setTimeout(() => {
-            void searchRooms(query);
-        }, ROOM_SEARCH_DEBOUNCE_MS);
-
-        return () => window.clearTimeout(timer);
-    }, [formClassroom, showSuggestions]);
-
-    useEffect(() => {
-        return () => {
-            roomSearchAbortRef.current?.abort();
-        };
-    }, []);
-
-    const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
-        const sanitizedQuery = sanitizeRoomValue(query);
-        const cacheKey = normalizeRoomValue(sanitizedQuery);
-
-        if (!sanitizedQuery) {
-            return [];
-        }
-
-        const cachedRooms = roomSearchCacheRef.current.get(cacheKey);
-        if (cachedRooms) {
-            return cachedRooms;
-        }
-
-        const response = await fetch(`/schedule.php?kind=room&query=${encodeURIComponent(sanitizedQuery)}`, { signal });
-        if (!response.ok) {
-            return [];
-        }
-
-        const data = await response.json();
-        const rooms = Array.isArray(data)
-            ? Array.from(new Set(
-                data
-                    .filter((item: any) => item && typeof item.item === 'string')
-                    .map((item: any) => sanitizeRoomValue(item.item))
-                    .filter(Boolean)
-            ))
-            : [];
-
-        roomSearchCacheRef.current.set(cacheKey, rooms);
-        rooms.forEach(room => knownRoomsRef.current.add(normalizeRoomValue(room)));
-
-        return rooms;
-    };
-
-    const searchRooms = async (query: string) => {
-        const sanitizedQuery = sanitizeRoomValue(query);
-        if (sanitizedQuery.length < ROOM_SEARCH_MIN_LENGTH) {
-            setSuggestions([]);
-            setIsSearching(false);
-            return [];
-        }
-
-        roomSearchAbortRef.current?.abort();
-        const controller = new AbortController();
-        roomSearchAbortRef.current = controller;
-        const requestId = roomSearchRequestIdRef.current + 1;
-        roomSearchRequestIdRef.current = requestId;
-
-        setIsSearching(true);
-        try {
-            const rooms = await fetchRoomMatches(sanitizedQuery, controller.signal);
-
-            if (!controller.signal.aborted && requestId === roomSearchRequestIdRef.current) {
-                setSuggestions(rooms);
-            }
-
-            return rooms;
-        } catch (error) {
-            if (!(error instanceof DOMException && error.name === 'AbortError')) {
-                console.error("Error searching rooms:", error);
-            }
-
-            if (requestId === roomSearchRequestIdRef.current) {
-                setSuggestions([]);
-            }
-
-            return [];
-        } finally {
-            if (requestId === roomSearchRequestIdRef.current) {
-                setIsSearching(false);
-            }
-        }
-    };
-
-    const fetchDevices = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch('/api/devices');
-            if (response.ok) {
-                const data = await response.json();
-                setDevices(data);
-            }
-        } catch (error) {
-            console.error('Error fetching devices:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchAdmins = async () => {
-        try {
-            setAdminsLoading(true);
-            const response = await fetch('/api/admins', {
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                throw new Error('Nie udało się pobrać listy administratorów.');
-            }
-
-            const data = await response.json();
-            setAdmins(Array.isArray(data.admins) ? data.admins : []);
-        } catch (error) {
-            console.error('Error fetching admins:', error);
-            setAdminFeedback('Nie udało się pobrać listy administratorów.');
-        } finally {
-            setAdminsLoading(false);
-        }
-    };
-
-    const fetchNightModeSettings = async () => {
-        try {
-            setNightModeLoading(true);
-            const response = await fetch('/api/devices/display-settings');
-
-            if (!response.ok) {
-                throw new Error('Nie udało się pobrać ustawień trybu nocnego.');
-            }
-
-            const data = await response.json();
-            setNightModeSettings(data.nightMode ?? defaultNightModeSettings);
-        } catch (error) {
-            console.error('Error fetching night mode settings:', error);
-            setNightModeFeedback('Nie udało się pobrać ustawień trybu nocnego.');
-        } finally {
-            setNightModeLoading(false);
-        }
-    };
-
-    const handleNightModeSettingsSave = async () => {
-        if (nightModeSettings.startTime === nightModeSettings.endTime) {
-            setNightModeFeedback('Godzina rozpoczęcia i zakończenia nie mogą być takie same.');
-            return;
-        }
-
-        try {
-            setNightModeSaving(true);
-            setNightModeFeedback(null);
-
-            const response = await fetch('/api/devices/display-settings', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(nightModeSettings)
-            });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.message || 'Nie udało się zapisać ustawień trybu nocnego.');
-            }
-
-            setNightModeSettings(data.nightMode ?? nightModeSettings);
-            setNightModeFeedback(`Zapisano. Zmiana została wysłana do ${data.delivered ?? 0} podłączonych ekranów.`);
-        } catch (error) {
-            console.error('Error saving night mode settings:', error);
-            setNightModeFeedback(error instanceof Error ? error.message : 'Nie udało się zapisać ustawień trybu nocnego.');
-        } finally {
-            setNightModeSaving(false);
-        }
-    };
-
-    const openNightModeModal = async () => {
-        setNightModeFeedback(null);
-        setNightModeModalOpen(true);
-        await fetchNightModeSettings();
-    };
-
-    const handleReloadAllTablets = async () => {
-        try {
-            setReloadingTablets(true);
-            setReloadFeedback(null);
-
-            const response = await fetch('/api/devices/reload-all', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    reason: 'admin-manual-tablet-reload'
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Nie udało się wysłać komendy reload.');
-            }
-
-            const data = await response.json();
-            setReloadFeedback(`Wysłano sygnał do ${data.delivered} połączeń tabletów.`);
-        } catch (error) {
-            console.error('Error reloading tablets:', error);
-            setReloadFeedback('Nie udało się wysłać sygnału przeładowania.');
-        } finally {
-            setReloadingTablets(false);
-        }
-    };
-
-    useEffect(() => {
-        void fetchDevices();
-        void fetchNightModeSettings();
-        void fetchAdmins();
-        const interval = setInterval(fetchDevices, 5000); // Poll for updates
-        return () => clearInterval(interval);
-    }, []);
-
-    const handleLogout = async () => {
-        try {
-            await logout();
-            navigate('/');
-        } catch (error) {
-            console.error('Error during logout:', error);
-            alert('Nie udało się wylogować. Spróbuj ponownie.');
-        }
-    };
-
-    const handleAddAdmin = async () => {
-        const username = newAdminUsername.trim().toLowerCase();
-
-        if (!username) {
-            setAdminFeedback('Podaj login LDAP użytkownika.');
-            return;
-        }
-
-        try {
-            setAdminMutationLoading(true);
-            setAdminFeedback(null);
-
-            const response = await fetch('/api/admins', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ username })
-            });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.message || 'Nie udało się nadać uprawnień administratora.');
-            }
-
-            setNewAdminUsername('');
-            setAdminFeedback(data.message || 'Nadano uprawnienia administratora.');
-            await fetchAdmins();
-        } catch (error) {
-            console.error('Error adding admin:', error);
-            setAdminFeedback(error instanceof Error ? error.message : 'Nie udało się nadać uprawnień administratora.');
-        } finally {
-            setAdminMutationLoading(false);
-        }
-    };
-
-    const handleRemoveAdmin = async (admin: AdminRecord) => {
-        if (admin.adminSource !== 'panel') {
-            setAdminFeedback('Administrator dodany z bazy danych może zostać usunięty tylko bezpośrednio w bazie danych.');
-            return;
-        }
-
-        if (admin.isCurrentUser) {
-            setAdminFeedback('Nie możesz odebrać uprawnień samemu sobie z poziomu panelu.');
-            return;
-        }
-
-        const shouldDelete = window.confirm(`Usunąć administratora ${admin.username}?`);
-        if (!shouldDelete) {
-            return;
-        }
-
-        try {
-            setAdminMutationLoading(true);
-            setAdminFeedback(null);
-
-            const response = await fetch(`/api/admins/${encodeURIComponent(admin.username)}`, {
-                method: 'DELETE',
-                credentials: 'include'
-            });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.message || 'Nie udało się usunąć administratora.');
-            }
-
-            setAdminFeedback(data.message || 'Usunięto administratora.');
-            await fetchAdmins();
-        } catch (error) {
-            console.error('Error removing admin:', error);
-            setAdminFeedback(error instanceof Error ? error.message : 'Nie udało się usunąć administratora.');
-        } finally {
-            setAdminMutationLoading(false);
-        }
-    };
-
-    const openRegisterModal = (device: Device) => {
-        const currentRoom = sanitizeRoomValue(device.deviceClassroom || '');
-
-        setSelectedDevice(device);
-        setFormClassroom(currentRoom);
-        setSelectedSuggestion(currentRoom || null);
-        setRoomError('');
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setIsSearching(false);
-        setRegisterModalOpen(true);
+    if (!showSuggestions) {
+      roomSearchAbortRef.current?.abort();
+      roomSearchAbortRef.current = null;
+      roomSearchRequestIdRef.current += 1;
+      setIsSearching(false);
+      return;
     }
 
-    const validateRoom = async (roomName: string): Promise<boolean> => {
-        const normalizedRoom = normalizeRoomValue(roomName);
-
-        if (!normalizedRoom) {
-            return false;
-        }
-
-        if (knownRoomsRef.current.has(normalizedRoom)) {
-            return true;
-        }
-
-        try {
-            const rooms = await fetchRoomMatches(roomName);
-            return rooms.some(room => normalizeRoomValue(room) === normalizedRoom);
-        } catch {
-            return false;
-        }
-    };
-
-    const handleRegister = async () => {
-        const sanitizedRoom = sanitizeRoomValue(formClassroom);
-
-        if (!selectedDevice || !sanitizedRoom) {
-            setRoomError('Proszę wprowadzić nazwę sali');
-            return;
-        }
-
-        roomSearchAbortRef.current?.abort();
-        roomSearchAbortRef.current = null;
-        roomSearchRequestIdRef.current += 1;
-        setIsSearching(false);
-        setShowSuggestions(false);
-
-        const normalizedRoom = normalizeRoomValue(sanitizedRoom);
-        const isValid = (
-            selectedSuggestion !== null &&
-            normalizeRoomValue(selectedSuggestion) === normalizedRoom
-        ) || await validateRoom(sanitizedRoom);
-
-        if (!isValid) {
-            setRoomError('Wybrana sala nie została znaleziona w systemie planu.');
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/devices/${selectedDevice.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: selectedDevice.id,
-                    deviceName: sanitizedRoom,
-                    deviceClassroom: sanitizedRoom
-                })
-            });
-            if (response.ok) {
-                setRegisterModalOpen(false);
-                setFormClassroom(sanitizedRoom);
-                setSelectedSuggestion(sanitizedRoom);
-                setRoomError('');
-                setSuggestions([]);
-                fetchDevices();
-                setDeleteId(null); // Clear delete ID if it was set
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                setRoomError(errorData.message || 'Nie udało się zaktualizować urządzenia');
-            }
-        } catch (error) {
-            console.error("Error registering device", error);
-            setRoomError('Wystąpił błąd podczas aktualizacji urządzenia');
-        }
+    if (query.length < ROOM_SEARCH_MIN_LENGTH) {
+      roomSearchAbortRef.current?.abort();
+      roomSearchAbortRef.current = null;
+      roomSearchRequestIdRef.current += 1;
+      setSuggestions([]);
+      setIsSearching(false);
+      return;
     }
 
-    const handleDelete = async () => {
-        if (deleteId === null) return;
-        try {
-            const response = await fetch(`/api/devices/${deleteId}`, { method: 'DELETE' });
-            if (response.ok) {
-                fetchDevices();
-            } else {
-                alert('Nie udało się usunąć urządzenia');
-            }
-        } catch (error) {
-            console.error('Error deleting device:', error);
-            alert('Wystąpił błąd podczas usuwania urządzenia');
-        } finally {
-            setConfirmOpen(false);
-            setRegisterModalOpen(false); // Also close the modal if deleted from there
-            setDeleteId(null);
-        }
-    };
+    const timer = window.setTimeout(() => {
+      roomSearchAbortRef.current?.abort();
+      const controller = new AbortController();
+      roomSearchAbortRef.current = controller;
+      const requestId = roomSearchRequestIdRef.current + 1;
+      roomSearchRequestIdRef.current = requestId;
 
-    const pendingDevices = devices.filter(device => device.status === 'PENDING');
-    const pairedDevices = devices.filter(device => device.status === 'ACTIVE');
-    const onlineDevicesCount = pairedDevices.filter(device => device.connectionStatus === 'ONLINE').length;
-    const offlineDevicesCount = pairedDevices.filter(device => device.connectionStatus === 'OFFLINE').length;
-    const hasSearchFilter = searchTerm.trim().length > 0;
-    const activeDevices = [...pairedDevices]
-        .filter(d =>
-        (d.deviceClassroom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            d.deviceId.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
-        .sort((left, right) => {
-            const leftRank = left.connectionStatus === 'ONLINE' ? 0 : 1;
-            const rightRank = right.connectionStatus === 'ONLINE' ? 0 : 1;
+      setIsSearching(true);
 
-            if (leftRank !== rightRank) {
-                return leftRank - rightRank;
-            }
+      void fetchRoomMatches(query, controller.signal)
+        .then((rooms) => {
+          if (!controller.signal.aborted && requestId === roomSearchRequestIdRef.current) {
+            setSuggestions(rooms);
+          }
+        })
+        .catch((error) => {
+          if (!(error instanceof DOMException && error.name === "AbortError")) {
+            console.error("Error searching rooms:", error);
+          }
 
-            return new Date(right.lastSeen).getTime() - new Date(left.lastSeen).getTime();
+          if (requestId === roomSearchRequestIdRef.current) {
+            setSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (requestId === roomSearchRequestIdRef.current) {
+            setIsSearching(false);
+          }
         });
+    }, ROOM_SEARCH_DEBOUNCE_MS);
 
-    return (
-        <div className="admin-panel">
-            {/* SIDEBAR */}
-            <aside className="admin-panel__sidebar">
-                <div className="admin-panel__sidebar-header">
-                    <div className="admin-panel__sidebar-brand">
-                        <i className="fas fa-shield-alt" style={{ color: 'var(--color-blue-glow)', marginRight: '0.75rem' }}></i>
-                        <span>Admin Panel</span>
-                    </div>
-                    <div className="admin-panel__theme-toggle-wrapper">
-                      <ThemeToggle />
-                    </div>
-                </div>
+    return () => window.clearTimeout(timer);
+  }, [formClassroom, showSuggestions]);
 
-                <div className="admin-panel__sidebar-search">
-                    <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>SZUKAJ</label>
-                    <input
-                        type="text"
-                        className="admin-panel__sidebar-input"
-                        placeholder="Sala lub ID..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
+  useEffect(() => {
+    return () => {
+      roomSearchAbortRef.current?.abort();
+    };
+  }, []);
 
-                <div className="admin-panel__sidebar-stats">
-                    <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>PRZEGLĄD</label>
+  const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
+    const sanitizedQuery = sanitizeRoomValue(query);
+    const cacheKey = normalizeRoomValue(sanitizedQuery);
 
-                    <div className="admin-panel__stat-item">
-                        <span className="admin-panel__stat-label">Wszystkie</span>
-                        <span className="admin-panel__stat-value">{devices.length}</span>
-                    </div>
+    if (!sanitizedQuery) {
+      return [];
+    }
 
-                    <div className="admin-panel__stat-item admin-panel__stat-item--active">
-                        <span className="admin-panel__stat-label">Online</span>
-                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-success)' }}>{onlineDevicesCount}</span>
-                    </div>
+    const cachedRooms = roomSearchCacheRef.current.get(cacheKey);
+    if (cachedRooms) {
+      return cachedRooms;
+    }
 
-                    <div className="admin-panel__stat-item">
-                        <span className="admin-panel__stat-label">Offline</span>
-                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-danger)' }}>{offlineDevicesCount}</span>
-                    </div>
-
-                    <div className="admin-panel__stat-item admin-panel__stat-item--pending">
-                        <span className="admin-panel__stat-label">Oczekujące</span>
-                        <span className="admin-panel__stat-value" style={{ color: 'var(--color-warning)' }}>{pendingDevices.length}</span>
-                    </div>
-
-                    <div className="admin-panel__stat-item">
-                        <span className="admin-panel__stat-label">Admini</span>
-                        <span className="admin-panel__stat-value">{admins.length}</span>
-                    </div>
-                </div>
-
-                <div className="admin-panel__sidebar-actions">
-                    <button
-                        className={`btn btn-primary btn-full ${loading ? 'loading' : ''}`}
-                        onClick={fetchDevices}
-                        disabled={loading}
-                    >
-                        <i className={`fas fa-sync ${loading ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
-                        Odśwież
-                    </button>
-                    <button
-                        className={`btn btn-full ${reloadingTablets ? 'loading' : ''}`}
-                        onClick={handleReloadAllTablets}
-                        disabled={reloadingTablets}
-                        style={{ marginTop: '0.75rem' }}
-                    >
-                        <i className={`fas fa-bolt ${reloadingTablets ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
-                        Przeładuj tablety
-                    </button>
-                    <button
-                        className="btn btn-danger btn-full"
-                        onClick={handleLogout}
-                        style={{ marginTop: '0.75rem' }}
-                    >
-                        <i className="fas fa-sign-out-alt" style={{ marginRight: '0.5rem' }}></i>
-                        Wyloguj
-                    </button>
-                    {reloadFeedback && (
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.75rem', lineHeight: 1.4 }}>
-                            {reloadFeedback}
-                        </p>
-                    )}
-                    <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                        <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>Powrót do strony głównej</a>
-                    </div>
-                </div>
-            </aside>
-
-            {/* MAIN CONTENT */}
-            <main className="admin-panel__content">
-                <div className="admin-panel__page-header">
-                    <div>
-                        <h1 className="admin-panel__page-title">Zarządzanie Tabletami</h1>
-                        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                            Zarządzaj urządzeniami tabletowymi i przypisuj je do sal
-                        </p>
-                    </div>
-                    <button
-                        className="btn btn-primary"
-                        onClick={openNightModeModal}
-                        disabled={nightModeLoading}
-                    >
-                        <i className={`fas fa-moon ${nightModeLoading ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
-                        Harmonogram trybu nocnego
-                    </button>
-                </div>
-
-                <div className="admin-panel__section">
-                    <div className="admin-panel__section-label">
-                        Administratorzy
-                    </div>
-
-                    <div className="admin-panel__admin-grid">
-                        <section className="admin-panel__admin-card">
-                            <h3>Dodaj administratora</h3>
-                            <p className="admin-panel__sidebar-help" style={{ marginTop: '0.5rem' }}>
-                                Podaj login LDAP. Konto dostaje dostęp do panelu po zapisaniu rekordu w bazie i przy następnym odświeżeniu sesji.
-                            </p>
-
-                            <div className="admin-panel__admin-form">
-                                <input
-                                    type="text"
-                                    className="admin-panel__sidebar-input"
-                                    placeholder="np. gr55764"
-                                    value={newAdminUsername}
-                                    onChange={(e) => {
-                                        setNewAdminUsername(e.target.value);
-                                        setAdminFeedback(null);
-                                    }}
-                                    autoComplete="off"
-                                />
-                                <button
-                                    className={`btn btn-primary ${adminMutationLoading ? 'loading' : ''}`}
-                                    onClick={handleAddAdmin}
-                                    disabled={adminMutationLoading || !newAdminUsername.trim()}
-                                >
-                                    Dodaj admina
-                                </button>
-                            </div>
-
-                            <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
-                                Flow: wpisujesz login, system zapisuje go w tabeli `User`, a ten użytkownik po zalogowaniu LDAP automatycznie przechodzi do adminpanelu.
-                            </p>
-
-                            {adminFeedback && (
-                                <p className="admin-panel__admin-feedback">
-                                    {adminFeedback}
-                                </p>
-                            )}
-                        </section>
-
-                        <section className="admin-panel__admin-card">
-                            <div className="admin-panel__admin-card-header">
-                                <h3>Aktualni administratorzy</h3>
-                                <button
-                                    className={`btn btn-ghost ${adminsLoading ? 'loading' : ''}`}
-                                    onClick={fetchAdmins}
-                                    disabled={adminsLoading || adminMutationLoading}
-                                >
-                                    Odśwież listę
-                                </button>
-                            </div>
-
-                            {adminsLoading ? (
-                                <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
-                                    Trwa pobieranie listy administratorów...
-                                </p>
-                            ) : admins.length === 0 ? (
-                                <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
-                                    W bazie nie ma jeszcze żadnych administratorów.
-                                </p>
-                            ) : (
-                                <div className="admin-panel__admin-list">
-                                    {admins.map((admin) => (
-                                        <div key={admin.id} className="admin-panel__admin-list-item">
-                                            <div className="admin-panel__admin-summary">
-                                                <div className="admin-panel__admin-username">
-                                                    {admin.username}
-                                                    <span className={`admin-panel__admin-source-badge admin-panel__admin-source-badge--${admin.adminSource}`}>
-                                                        {getAdminSourceLabel(admin.adminSource)}
-                                                    </span>
-                                                    {admin.isCurrentUser && (
-                                                        <span className="admin-panel__admin-badge">To Ty</span>
-                                                    )}
-                                                </div>
-                                                {admin.createdAt && (
-                                                    <div className="admin-panel__admin-meta">
-                                                        Utworzono: {formatAdminDate(admin.createdAt)}
-                                                    </div>
-                                                )}
-                                                {admin.updatedAt && (
-                                                    <div className="admin-panel__admin-meta">
-                                                        Ostatnia zmiana: {formatAdminDate(admin.updatedAt)}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {admin.adminSource === 'panel' && (
-                                                <button
-                                                    className="btn btn-danger"
-                                                    onClick={() => handleRemoveAdmin(admin)}
-                                                    disabled={adminMutationLoading || !admin.canBeRemovedFromPanel || admins.length <= 1}
-                                                    title={
-                                                        admin.isCurrentUser
-                                                            ? 'Nie możesz usunąć samemu sobie uprawnień administratora.'
-                                                            : admins.length <= 1
-                                                                ? 'Nie można usunąć ostatniego administratora.'
-                                                                : 'Usuń administratora'
-                                                    }
-                                                >
-                                                    Usuń
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-                    </div>
-                </div>
-
-                {/* PENDING SECTION */}
-                {pendingDevices.length > 0 && (
-                    <div className="admin-panel__section">
-                        <div className="admin-panel__section-label" style={{ color: 'var(--color-warning)' }}>
-                            <i className="fas fa-exclamation-circle" /> Wykryto Nowe Urządzenia ({pendingDevices.length})
-                        </div>
-                        <div className="admin-panel__device-grid">
-                            {pendingDevices.map(device => (
-                                <div key={device.id} className="admin-panel__device-card" style={{ borderColor: 'var(--color-warning)', background: 'rgba(245, 158, 11, 0.05)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <div className="admin-panel__status-badge admin-panel__status-badge--pending">
-                                            <div className="status-dot"></div> Oczekuje na akceptację
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            <button
-                                                className="btn-info-icon"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setViewDevice(device);
-                                                }}
-                                                title="Szczegóły"
-                                            >
-                                                <i className="fas fa-info-circle"></i>
-                                            </button>
-                                            <i className="fas fa-tablet-alt" style={{ opacity: 0.5, fontSize: '1.5em' }} />
-                                        </div>
-                                    </div>
-                                    <h3 style={{ margin: '0 0 0.5rem 0' }} className="admin-panel__device-id">{device.deviceId}</h3>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                                        Urządzenie czeka na przypisanie sali.
-                                    </p>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                        <button className="btn btn-success" onClick={() => openRegisterModal(device)}>
-                                            Autoryzuj
-                                        </button>
-                                        <button className="btn btn-danger" onClick={() => { setDeleteId(device.id); setConfirmOpen(true); }}>
-                                            Odrzuć
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* ACTIVE SECTION */}
-                <div className="admin-panel__section">
-                    <div className="admin-panel__section-label">
-                        Sparowane Terminale
-                    </div>
-
-                    {activeDevices.length === 0 ? (
-                        <div className="empty-state-card">
-                            <i className="fas fa-search" style={{ fontSize: '3em', marginBottom: '1rem' }} />
-                            <h3>{hasSearchFilter ? 'Brak wyników dla filtra' : 'Brak sparowanych urządzeń'}</h3>
-                            <p>{hasSearchFilter ? 'Wyczyść albo zmień filtr wyszukiwania.' : 'Poczekaj na sparowanie nowego tabletu.'}</p>
-                        </div>
-                    ) : (
-                        <div className="admin-panel__device-grid">
-                            {activeDevices.map(device => (
-                                <div key={device.id} className="admin-panel__device-card">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                        <div>
-                                            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem' }}>{device.deviceClassroom}</h3>
-                                            <code className="admin-panel__device-id">
-                                                {device.deviceId}
-                                            </code>
-                                        </div>
-                                        <div className={getConnectionBadgeClassName(device)}>
-                                            <div className="status-dot"></div> {getConnectionLabel(device)}
-                                        </div>
-                                        <button
-                                            className="btn-info-icon"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setViewDevice(device);
-                                            }}
-                                            title="Szczegóły"
-                                        >
-                                            <i className="fas fa-info-circle"></i>
-                                        </button>
-                                    </div>
-
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                        Ostatni heartbeat: {formatLastSeen(device.lastSeen)}
-                                    </p>
-
-                                    <div className="card-actions">
-                                        <a
-                                            className="btn action-view"
-                                            href={`/room/${device.deviceClassroom?.split(' ')[0] || 'WI'}/${device.deviceClassroom}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            <i className="fas fa-external-link-alt" style={{ opacity: 0.8, marginRight: '0.5rem' }} /> Plan sali
-                                        </a>
-                                        <button
-                                            className="btn action-delete"
-                                            onClick={() => openRegisterModal(device)}
-                                            style={{ color: 'var(--color-warning)', borderColor: 'rgba(251, 191, 36, 0.4)', background: 'rgba(251, 191, 36, 0.1)' }}
-                                            title="Edytuj"
-                                        >
-                                            <i className="fas fa-pen" style={{ margin: 0 }} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </main>
-
-            {/* CUSTOM DELETE MODAL */}
-            {confirmOpen && (
-                <div className="custom-modal-overlay">
-                    <div className="custom-modal">
-                        <div className="modal-header" style={{ color: '#ef4444' }}>
-                            <i className="fas fa-exclamation-triangle" style={{ marginRight: '10px' }}></i> Usuń Urządzenie
-                        </div>
-                        <div className="modal-content" style={{ textAlign: 'center', color: '#cbd5e1' }}>
-                            <p>Czy na pewno chcesz usunąć to urządzenie z rejestru?</p>
-                            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Urządzenie będzie musiało zostać ponownie sparowane, aby uzyskać dostęp.</p>
-                        </div>
-                        <div className="modal-actions" style={{ justifyContent: 'center', gap: '1rem' }}>
-                            <button
-                                className="btn btn-ghost"
-                                onClick={() => setConfirmOpen(false)}
-                            >
-                                Anuluj
-                            </button>
-                            <button
-                                className="btn btn-danger"
-                                onClick={handleDelete}
-                            >
-                                Usuń dostęp
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* REGISTER / EDIT MODAL */}
-            {registerModalOpen && (
-                <div className="custom-modal-overlay">
-                    <div className="custom-modal">
-                        <div className="modal-header">
-                            {selectedDevice?.status === 'ACTIVE' ? 'Edycja Urządzenia' : 'Parowanie Urządzenia'}
-                        </div>
-                        <div className="modal-content">
-                            <label className="modal-label">Identyfikator Sali</label>
-                            <div style={{ position: 'relative' }}>
-                                <input
-                                    className="modal-input"
-                                    placeholder='np. WI WI1- 308'
-                                    value={formClassroom}
-                                    onChange={(e) => {
-                                        setFormClassroom(e.target.value);
-                                        setSelectedSuggestion(null);
-                                        setRoomError('');
-                                        setShowSuggestions(true);
-                                    }}
-                                    autoFocus
-                                    style={roomError ? { borderColor: '#ef4444' } : {}}
-                                />
-                                {isSearching && (
-                                    <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>
-                                        <i className="fas fa-spinner fa-spin"></i>
-                                    </div>
-                                )}
-                                {showSuggestions && suggestions.length > 0 && (
-                                    <div className="suggestions-list">
-                                        {suggestions.map((room, index) => (
-                                            <div
-                                                key={index}
-                                                className="suggestion-item"
-                                                onClick={() => {
-                                                    setFormClassroom(room);
-                                                    setSelectedSuggestion(room);
-                                                    setRoomError('');
-                                                    setShowSuggestions(false);
-                                                    setSuggestions([]);
-                                                }}
-                                            >
-                                                {room}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            {roomError && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem' }}>{roomError}</p>}
-                            <p className="modal-input-help">To będzie nazwa wyświetlana na tablecie. Wybierz z listy.</p>
-                        </div>
-                        <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
-                            {/* Delete button only for Active devices (or pending if needed, but UI shows reject there) */}
-                            {selectedDevice?.status === 'ACTIVE' && (
-                                <button
-                                    className="btn btn-danger"
-                                    onClick={() => {
-                                        if (selectedDevice) {
-                                            setDeleteId(selectedDevice.id);
-                                            // Handle delete directly here or open confirm?
-                                            // User requested "Anuluj Zapisz Usuń" in the tile.
-                                            // Let's make this button trigger the delete logic.
-                                            // Since we are in a modal, maybe we don't need *another* confirm for this action if it's explicit?
-                                            // But for safety, reusing handleDelete which uses deleteId seems fine, 
-                                            // but handleDelete currently relies on confirmOpen or just calls API?
-                                            // The existing handleDelete uses deleteId. 
-                                            // Let's call handleDelete directly if we are sure, OR setConfirmOpen(true) on top of this modal?
-                                            // Setting confirmOpen might stack modals. 
-                                            // Let's just call the API directly here but we need to ensure update logic doesn't race.
-                                            // Actually, let's just use the handleDelete logic but without the confirm dialog if the user clicks "Delete" inside the edit modal?
-                                            // Or maybe we can just repurpose handleDelete to be called directly.
-                                            // To be safe, I'll invoke a direct delete.
-                                            if (window.confirm("Czy na pewno chcesz usunąć to urządzenie?")) {
-                                                setDeleteId(selectedDevice.id);
-                                                // We need to wait for state/effect? No, just call fetch.
-                                                // Refactored logic below to be cleaner.
-                                                fetch(`/api/devices/${selectedDevice.id}`, { method: 'DELETE' })
-                                                    .then(() => {
-                                                        setRegisterModalOpen(false);
-                                                        fetchDevices();
-                                                    });
-                                            }
-                                        }
-                                    }}
-                                >
-                                    Usuń
-                                </button>
-                            )}
-                            {!selectedDevice || selectedDevice.status !== 'ACTIVE' ? <div /> : null}
-
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button
-                                    className="btn btn-ghost"
-                                    onClick={() => {
-                                        roomSearchAbortRef.current?.abort();
-                                        roomSearchAbortRef.current = null;
-                                        roomSearchRequestIdRef.current += 1;
-                                        setShowSuggestions(false);
-                                        setSuggestions([]);
-                                        setIsSearching(false);
-                                        setRegisterModalOpen(false);
-                                    }}
-                                >
-                                    Anuluj
-                                </button>
-                                <button
-                                    className="btn btn-success"
-                                    onClick={handleRegister}
-                                    disabled={!formClassroom.trim()}
-                                >
-                                    Zapisz
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {nightModeModalOpen && (
-                <div className="custom-modal-overlay" onClick={() => setNightModeModalOpen(false)}>
-                    <div className="custom-modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            Ustawienia Trybu Nocnego
-                        </div>
-                        <div className="modal-content">
-                            <label className="admin-panel__checkbox-row">
-                                <input
-                                    type="checkbox"
-                                    checked={nightModeSettings.enabled}
-                                    onChange={(e) => {
-                                        setNightModeSettings(current => ({
-                                            ...current,
-                                            enabled: e.target.checked
-                                        }));
-                                        setNightModeFeedback(null);
-                                    }}
-                                    disabled={nightModeLoading || nightModeSaving}
-                                />
-                                <span>Włącz harmonogram czarnego ekranu</span>
-                            </label>
-
-                            <div className="admin-panel__time-grid">
-                                <label className="admin-panel__time-field">
-                                    <span>Od</span>
-                                    <input
-                                        type="time"
-                                        className="modal-input"
-                                        value={nightModeSettings.startTime}
-                                        onChange={(e) => {
-                                            setNightModeSettings(current => ({
-                                                ...current,
-                                                startTime: e.target.value
-                                            }));
-                                            setNightModeFeedback(null);
-                                        }}
-                                        disabled={nightModeLoading || nightModeSaving}
-                                    />
-                                </label>
-
-                                <label className="admin-panel__time-field">
-                                    <span>Do</span>
-                                    <input
-                                        type="time"
-                                        className="modal-input"
-                                        value={nightModeSettings.endTime}
-                                        onChange={(e) => {
-                                            setNightModeSettings(current => ({
-                                                ...current,
-                                                endTime: e.target.value
-                                            }));
-                                            setNightModeFeedback(null);
-                                        }}
-                                        disabled={nightModeLoading || nightModeSaving}
-                                    />
-                                </label>
-                            </div>
-
-                            <p className="admin-panel__sidebar-help">
-                                W podanym przedziale tablet przechodzi na całkowicie czarny ekran i sam wraca po zakończeniu okna.
-                            </p>
-
-                            <p className="admin-panel__sidebar-help" style={{ marginBottom: 0 }}>
-                                Z poziomu zwykłej strony WWW nie da się fizycznie wyłączyć podświetlenia ekranu.
-                            </p>
-
-                            {nightModeFeedback && (
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '1rem', lineHeight: 1.4 }}>
-                                    {nightModeFeedback}
-                                </p>
-                            )}
-                        </div>
-                        <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
-                            <button
-                                className="btn btn-ghost"
-                                onClick={() => setNightModeModalOpen(false)}
-                            >
-                                Zamknij
-                            </button>
-                            <button
-                                className={`btn btn-primary ${nightModeSaving ? 'loading' : ''}`}
-                                onClick={handleNightModeSettingsSave}
-                                disabled={nightModeLoading || nightModeSaving}
-                            >
-                                <i className={`fas fa-save ${nightModeSaving ? 'fa-spin' : ''}`} style={{ marginRight: '0.5rem' }}></i>
-                                Zapisz harmonogram
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* VIEW DETAILS MODAL */}
-            {viewDevice && (
-                <div className="custom-modal-overlay" onClick={() => setViewDevice(null)}>
-                    <div className="custom-modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                            <i className="fas fa-info-circle" style={{ marginRight: '10px', color: '#60a5fa' }}></i>
-                            Szczegóły Urządzenia
-                        </div>
-                        <div className="modal-content" style={{ textAlign: 'left' }}>
-
-                            <div className="detail-row">
-                                <span className="detail-label">ID Bazy Danych</span>
-                                <span className="detail-value">{viewDevice.id}</span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Nazwa Urządzenia</span>
-                                <span className="detail-value">{viewDevice.deviceName || '-'}</span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Sala (Classroom)</span>
-                                <span className="detail-value">{viewDevice.deviceClassroom || '-'}</span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Device ID (UUID)</span>
-                                <span className="detail-value code-font">{viewDevice.deviceId}</span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Model</span>
-                                <span className="detail-value">{viewDevice.deviceModel || '-'}</span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Adres IP</span>
-                                <span className="detail-value">{viewDevice.ipAddress || '-'}</span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">MAC</span>
-                                <span className="detail-value code-font">{viewDevice.macAddress || '-'}</span>
-                            </div>
-
-                            <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                <span className="detail-label">User Agent</span>
-                                <span className="detail-value" style={{ maxWidth: '100%', fontSize: '0.8rem', textAlign: 'left', color: '#64748b' }}>
-                                    {viewDevice.userAgent || '-'}
-                                </span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Status parowania</span>
-                                <span className={`detail-value ${viewDevice.status === 'ACTIVE' ? 'text-green' : 'text-yellow'}`}>
-                                    {viewDevice.status}
-                                </span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Stan połączenia</span>
-                                <span className={`detail-value ${getConnectionTextClassName(viewDevice)}`}>
-                                    {getConnectionLabel(viewDevice)}
-                                </span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">Ostatni heartbeat</span>
-                                <span className="detail-value">{formatLastSeen(viewDevice.lastSeen)}</span>
-                            </div>
-
-                            <div className="detail-row">
-                                <span className="detail-label">URL</span>
-                                <div className="detail-value" style={{ wordBreak: 'break-all', fontSize: '0.85rem' }}>
-                                    {viewDevice.deviceURL ? (
-                                        <a href={viewDevice.deviceURL} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>
-                                            {viewDevice.deviceURL}
-                                        </a>
-                                    ) : '-'}
-                                </div>
-                            </div>
-
-                        </div>
-                        <div className="modal-actions" style={{ justifyContent: 'center' }}>
-                            <button
-                                className="btn btn-primary"
-                                onClick={() => setViewDevice(null)}
-                            >
-                                Zamknij
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+    const response = await fetch(
+      `/schedule.php?kind=room&query=${encodeURIComponent(sanitizedQuery)}`,
+      { signal },
     );
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    const rooms = Array.isArray(data)
+      ? Array.from(
+          new Set(
+            data
+              .filter((item: { item?: unknown }) => typeof item?.item === "string")
+              .map((item: { item: string }) => sanitizeRoomValue(item.item))
+              .filter(Boolean),
+          ),
+        )
+      : [];
+
+    roomSearchCacheRef.current.set(cacheKey, rooms);
+    rooms.forEach((room) => knownRoomsRef.current.add(normalizeRoomValue(room)));
+
+    return rooms;
+  };
+
+  const fetchDevices = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/devices");
+      if (response.ok) {
+        const data = await response.json();
+        setDevices(data);
+      }
+    } catch (error) {
+      console.error("Error fetching devices:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAdmins = async () => {
+    try {
+      setAdminsLoading(true);
+      const response = await fetch("/api/admins", {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Nie udało się pobrać listy administratorów.");
+      }
+
+      const data = await response.json();
+      setAdmins(Array.isArray(data.admins) ? data.admins : []);
+    } catch (error) {
+      console.error("Error fetching admins:", error);
+      setAdminFeedback("Nie udało się pobrać listy administratorów.");
+    } finally {
+      setAdminsLoading(false);
+    }
+  };
+
+  const fetchNightModeSettings = async () => {
+    try {
+      setNightModeLoading(true);
+      const response = await fetch("/api/devices/display-settings");
+
+      if (!response.ok) {
+        throw new Error("Nie udało się pobrać ustawień trybu nocnego.");
+      }
+
+      const data = await response.json();
+      setNightModeSettings(data.nightMode ?? defaultNightModeSettings);
+    } catch (error) {
+      console.error("Error fetching night mode settings:", error);
+      setNightModeFeedback("Nie udało się pobrać ustawień trybu nocnego.");
+    } finally {
+      setNightModeLoading(false);
+    }
+  };
+
+  const handleNightModeSettingsSave = async () => {
+    if (nightModeSettings.startTime === nightModeSettings.endTime) {
+      setNightModeFeedback(
+        "Godzina rozpoczęcia i zakończenia nie mogą być takie same.",
+      );
+      return;
+    }
+
+    try {
+      setNightModeSaving(true);
+      setNightModeFeedback(null);
+
+      const response = await fetch("/api/devices/display-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nightModeSettings),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Nie udało się zapisać ustawień trybu nocnego.",
+        );
+      }
+
+      setNightModeSettings(data.nightMode ?? nightModeSettings);
+      setNightModeFeedback(
+        `Zapisano. Zmiana została wysłana do ${data.delivered ?? 0} podłączonych ekranów.`,
+      );
+    } catch (error) {
+      console.error("Error saving night mode settings:", error);
+      setNightModeFeedback(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zapisać ustawień trybu nocnego.",
+      );
+    } finally {
+      setNightModeSaving(false);
+    }
+  };
+
+  const handleReloadAllTablets = async () => {
+    try {
+      setReloadingTablets(true);
+      setReloadFeedback(null);
+
+      const response = await fetch("/api/devices/reload-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: "admin-manual-tablet-reload",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Nie udało się wysłać komendy reload.");
+      }
+
+      const data = await response.json();
+      setReloadFeedback(`Wysłano sygnał do ${data.delivered} połączeń tabletów.`);
+    } catch (error) {
+      console.error("Error reloading tablets:", error);
+      setReloadFeedback("Nie udało się wysłać sygnału przeładowania.");
+    } finally {
+      setReloadingTablets(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchDevices();
+    void fetchNightModeSettings();
+    void fetchAdmins();
+    const interval = window.setInterval(fetchDevices, 5000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (currentView === "schedule") {
+      void fetchNightModeSettings();
+    }
+  }, [currentView]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Error during logout:", error);
+      alert("Nie udało się wylogować. Spróbuj ponownie.");
+    }
+  };
+
+  const handleAddAdmin = async () => {
+    const username = newAdminUsername.trim().toLowerCase();
+
+    if (!username) {
+      setAdminFeedback("Podaj login LDAP użytkownika.");
+      return;
+    }
+
+    try {
+      setAdminMutationLoading(true);
+      setAdminFeedback(null);
+
+      const response = await fetch("/api/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się nadać uprawnień administratora.");
+      }
+
+      setNewAdminUsername("");
+      setAdminFeedback(data.message || "Nadano uprawnienia administratora.");
+      await fetchAdmins();
+    } catch (error) {
+      console.error("Error adding admin:", error);
+      setAdminFeedback(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się nadać uprawnień administratora.",
+      );
+    } finally {
+      setAdminMutationLoading(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (admin: AdminRecord) => {
+    if (admin.adminSource !== "panel") {
+      setAdminFeedback(
+        "Administrator dodany z bazy danych może zostać usunięty tylko bezpośrednio w bazie danych.",
+      );
+      return;
+    }
+
+    if (admin.isCurrentUser) {
+      setAdminFeedback("Nie możesz odebrać uprawnień samemu sobie z poziomu panelu.");
+      return;
+    }
+
+    const shouldDelete = window.confirm(`Usunąć administratora ${admin.username}?`);
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      setAdminMutationLoading(true);
+      setAdminFeedback(null);
+
+      const response = await fetch(
+        `/api/admins/${encodeURIComponent(admin.username)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się usunąć administratora.");
+      }
+
+      setAdminFeedback(data.message || "Usunięto administratora.");
+      await fetchAdmins();
+    } catch (error) {
+      console.error("Error removing admin:", error);
+      setAdminFeedback(
+        error instanceof Error ? error.message : "Nie udało się usunąć administratora.",
+      );
+    } finally {
+      setAdminMutationLoading(false);
+    }
+  };
+
+  const closeRegisterModal = () => {
+    roomSearchAbortRef.current?.abort();
+    roomSearchAbortRef.current = null;
+    roomSearchRequestIdRef.current += 1;
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setIsSearching(false);
+    setRegisterModalOpen(false);
+  };
+
+  const openRegisterModal = (device: Device) => {
+    const currentRoom = sanitizeRoomValue(device.deviceClassroom || "");
+
+    setSelectedDevice(device);
+    setFormClassroom(currentRoom);
+    setSelectedSuggestion(currentRoom || null);
+    setRoomError("");
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setIsSearching(false);
+    setRegisterModalOpen(true);
+  };
+
+  const validateRoom = async (roomName: string): Promise<boolean> => {
+    const normalizedRoom = normalizeRoomValue(roomName);
+
+    if (!normalizedRoom) {
+      return false;
+    }
+
+    if (knownRoomsRef.current.has(normalizedRoom)) {
+      return true;
+    }
+
+    try {
+      const rooms = await fetchRoomMatches(roomName);
+      return rooms.some((room) => normalizeRoomValue(room) === normalizedRoom);
+    } catch {
+      return false;
+    }
+  };
+
+  const handleRegister = async () => {
+    const sanitizedRoom = sanitizeRoomValue(formClassroom);
+
+    if (!selectedDevice || !sanitizedRoom) {
+      setRoomError("Proszę wprowadzić nazwę sali.");
+      return;
+    }
+
+    roomSearchAbortRef.current?.abort();
+    roomSearchAbortRef.current = null;
+    roomSearchRequestIdRef.current += 1;
+    setIsSearching(false);
+    setShowSuggestions(false);
+
+    const normalizedRoom = normalizeRoomValue(sanitizedRoom);
+    const isValid =
+      (selectedSuggestion !== null &&
+        normalizeRoomValue(selectedSuggestion) === normalizedRoom) ||
+      (await validateRoom(sanitizedRoom));
+
+    if (!isValid) {
+      setRoomError("Wybrana sala nie została znaleziona w systemie planu.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/devices/${selectedDevice.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedDevice.id,
+          deviceName: sanitizedRoom,
+          deviceClassroom: sanitizedRoom,
+        }),
+      });
+
+      if (response.ok) {
+        closeRegisterModal();
+        setFormClassroom(sanitizedRoom);
+        setSelectedSuggestion(sanitizedRoom);
+        setRoomError("");
+        setDeleteId(null);
+        await fetchDevices();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setRoomError(errorData.message || "Nie udało się zaktualizować urządzenia.");
+      }
+    } catch (error) {
+      console.error("Error registering device", error);
+      setRoomError("Wystąpił błąd podczas aktualizacji urządzenia.");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleteId === null) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/devices/${deleteId}`, { method: "DELETE" });
+      if (response.ok) {
+        await fetchDevices();
+      } else {
+        alert("Nie udało się usunąć urządzenia.");
+      }
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      alert("Wystąpił błąd podczas usuwania urządzenia.");
+    } finally {
+      setConfirmOpen(false);
+      closeRegisterModal();
+      setDeleteId(null);
+    }
+  };
+
+  const handleViewChange = (view: AdminPanelView) => {
+    if (view === "devices") {
+      setSearchParams({});
+      return;
+    }
+
+    setSearchParams({ view });
+  };
+
+  const allPendingDevices = devices.filter((device) => device.status === "PENDING");
+  const pendingDevices = allPendingDevices.filter((device) =>
+    matchesDeviceSearch(device, searchTerm),
+  );
+  const pairedDevices = devices.filter((device) => device.status === "ACTIVE");
+  const activeDevices = sortDevices(
+    pairedDevices.filter((device) => matchesDeviceSearch(device, searchTerm)),
+    deviceSort,
+  );
+  const onlineDevicesCount = pairedDevices.filter(
+    (device) => device.connectionStatus === "ONLINE",
+  ).length;
+  const offlineDevicesCount = pairedDevices.filter(
+    (device) => device.connectionStatus === "OFFLINE",
+  ).length;
+
+  const viewMeta = adminViewMeta[currentView];
+  const navigationItems = (Object.keys(adminViewMeta) as AdminPanelView[]).map((key) => ({
+    key,
+    label: adminViewMeta[key].label,
+    description: adminViewMeta[key].description,
+  }));
+  const summaryItems = [
+    { label: "Wszystkie urządzenia", value: devices.length },
+    { label: "Online", value: onlineDevicesCount, tone: "success" as const },
+    { label: "Offline", value: offlineDevicesCount, tone: "danger" as const },
+    { label: "Oczekujące", value: allPendingDevices.length, tone: "warning" as const },
+    { label: "Administratorzy", value: admins.length },
+  ];
+
+  return (
+    <div className="admin-workspace">
+      <AdminPanelSidebar
+        activeView={currentView}
+        navigationItems={navigationItems}
+        summaryItems={summaryItems}
+        loading={loading}
+        reloadingTablets={reloadingTablets}
+        reloadFeedback={reloadFeedback}
+        onRefreshDevices={fetchDevices}
+        onReloadTablets={handleReloadAllTablets}
+        onLogout={handleLogout}
+        onViewChange={handleViewChange}
+      />
+
+      <main className="admin-workspace__main">
+        <header className="admin-workspace__header">
+          <div>
+            <span className="admin-workspace__eyebrow">{viewMeta.label}</span>
+            <h2 className="admin-workspace__header-title">{viewMeta.title}</h2>
+            <p className="admin-workspace__header-description">
+              {viewMeta.description}
+            </p>
+          </div>
+          <div className="admin-workspace__header-card">
+            <span className="admin-workspace__header-card-label">Widok aktywny</span>
+            <strong>{viewMeta.label}</strong>
+            <span>
+              {currentView === "devices"
+                ? `${activeDevices.length} pozycji w tabeli`
+                : currentView === "admins"
+                  ? `${admins.length} kont z dostępem`
+                  : `Okno ${nightModeSettings.startTime} - ${nightModeSettings.endTime}`}
+            </span>
+          </div>
+        </header>
+
+        <div className="admin-workspace__content">
+          {currentView === "devices" ? (
+            <DevicesView
+              activeDevices={activeDevices}
+              pendingDevices={pendingDevices}
+              loading={loading}
+              searchTerm={searchTerm}
+              sortBy={deviceSort}
+              onSearchTermChange={setSearchTerm}
+              onSortChange={setDeviceSort}
+              onRefresh={fetchDevices}
+              onViewDevice={setViewDevice}
+              onEditDevice={openRegisterModal}
+              onAuthorizeDevice={openRegisterModal}
+              onRejectDevice={(device) => {
+                setDeleteId(device.id);
+                setConfirmOpen(true);
+              }}
+            />
+          ) : null}
+
+          {currentView === "admins" ? (
+            <AdminsView
+              admins={admins}
+              adminsLoading={adminsLoading}
+              adminMutationLoading={adminMutationLoading}
+              newAdminUsername={newAdminUsername}
+              adminFeedback={adminFeedback}
+              onUsernameChange={(value) => {
+                setNewAdminUsername(value);
+                setAdminFeedback(null);
+              }}
+              onAddAdmin={handleAddAdmin}
+              onRefreshAdmins={fetchAdmins}
+              onRemoveAdmin={handleRemoveAdmin}
+            />
+          ) : null}
+
+          {currentView === "schedule" ? (
+            <ScheduleView
+              settings={nightModeSettings}
+              loading={nightModeLoading}
+              saving={nightModeSaving}
+              feedback={nightModeFeedback}
+              onRefresh={fetchNightModeSettings}
+              onSettingChange={(next) => {
+                setNightModeSettings(next);
+                setNightModeFeedback(null);
+              }}
+              onSave={handleNightModeSettingsSave}
+            />
+          ) : null}
+        </div>
+      </main>
+
+      {confirmOpen ? (
+        <div className="admin-modal__overlay">
+          <div className="admin-modal admin-modal--compact">
+            <div className="admin-modal__header">
+              <h3>Usuń urządzenie</h3>
+              <p>
+                Urządzenie zostanie usunięte z rejestru i będzie wymagało ponownego
+                sparowania.
+              </p>
+            </div>
+            <div className="admin-modal__actions">
+              <button
+                type="button"
+                className="admin-button admin-button--ghost"
+                onClick={() => setConfirmOpen(false)}
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--danger"
+                onClick={handleDelete}
+              >
+                Usuń dostęp
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {registerModalOpen ? (
+        <div className="admin-modal__overlay" onClick={closeRegisterModal}>
+          <div className="admin-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="admin-modal__header">
+              <h3>
+                {selectedDevice?.status === "ACTIVE"
+                  ? "Edytuj urządzenie"
+                  : "Autoryzuj urządzenie"}
+              </h3>
+              <p>Wybierz poprawną salę z planu i zapisz powiązanie tabletu.</p>
+            </div>
+
+            <div className="admin-modal__content">
+              <label className="admin-form-field">
+                <span className="admin-form-field__label">Sala</span>
+                <div className="admin-autocomplete">
+                  <input
+                    className="admin-form-field__input"
+                    placeholder="np. WI WI1-308"
+                    value={formClassroom}
+                    onChange={(event) => {
+                      setFormClassroom(event.target.value);
+                      setSelectedSuggestion(null);
+                      setRoomError("");
+                      setShowSuggestions(true);
+                    }}
+                    autoFocus
+                  />
+                  {isSearching ? (
+                    <span className="admin-autocomplete__loading">
+                      <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                    </span>
+                  ) : null}
+                  {showSuggestions && suggestions.length > 0 ? (
+                    <div className="admin-autocomplete__list">
+                      {suggestions.map((room) => (
+                        <button
+                          key={room}
+                          type="button"
+                          className="admin-autocomplete__item"
+                          onClick={() => {
+                            setFormClassroom(room);
+                            setSelectedSuggestion(room);
+                            setRoomError("");
+                            setShowSuggestions(false);
+                            setSuggestions([]);
+                          }}
+                        >
+                          {room}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </label>
+
+              {roomError ? <p className="admin-feedback admin-feedback--error">{roomError}</p> : null}
+
+              <p className="admin-modal__hint">
+                Nazwa wyświetlana na tablecie powinna pochodzić z listy zwróconej przez
+                system planu.
+              </p>
+            </div>
+
+            <div className="admin-modal__actions admin-modal__actions--between">
+              {selectedDevice?.status === "ACTIVE" ? (
+                <button
+                  type="button"
+                  className="admin-button admin-button--danger"
+                  onClick={() => {
+                    setDeleteId(selectedDevice.id);
+                    setConfirmOpen(true);
+                    closeRegisterModal();
+                  }}
+                >
+                  Usuń
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="admin-modal__actions-group">
+                <button
+                  type="button"
+                  className="admin-button admin-button--ghost"
+                  onClick={closeRegisterModal}
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="button"
+                  className="admin-button admin-button--primary"
+                  onClick={handleRegister}
+                  disabled={!formClassroom.trim()}
+                >
+                  Zapisz
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {viewDevice ? (
+        <div className="admin-modal__overlay" onClick={() => setViewDevice(null)}>
+          <div className="admin-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="admin-modal__header">
+              <h3>Szczegóły urządzenia</h3>
+              <p>Techniczne informacje o tablecie i jego aktualnym stanie połączenia.</p>
+            </div>
+
+            <div className="admin-detail-list">
+              <div className="admin-detail-list__row">
+                <span>ID bazy danych</span>
+                <strong>{viewDevice.id}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Nazwa urządzenia</span>
+                <strong>{viewDevice.deviceName || "-"}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Sala</span>
+                <strong>{viewDevice.deviceClassroom || "-"}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Device ID</span>
+                <strong className="admin-table__meta-code">{viewDevice.deviceId}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Status</span>
+                <strong>
+                  <span
+                    className={`admin-status-pill admin-status-pill--${getConnectionTone(
+                      viewDevice,
+                    )}`}
+                  >
+                    {getConnectionLabel(viewDevice)}
+                  </span>
+                </strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Model</span>
+                <strong>{viewDevice.deviceModel || "-"}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Adres IP</span>
+                <strong>{viewDevice.ipAddress || "-"}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>MAC</span>
+                <strong className="admin-table__meta-code">{viewDevice.macAddress || "-"}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Ostatni heartbeat</span>
+                <strong>{formatLastSeen(viewDevice.lastSeen)}</strong>
+              </div>
+              <div className="admin-detail-list__row admin-detail-list__row--stacked">
+                <span>User Agent</span>
+                <strong>{viewDevice.userAgent || "-"}</strong>
+              </div>
+              <div className="admin-detail-list__row admin-detail-list__row--stacked">
+                <span>URL</span>
+                {viewDevice.deviceURL ? (
+                  <a
+                    className="admin-detail-list__link"
+                    href={viewDevice.deviceURL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {viewDevice.deviceURL}
+                  </a>
+                ) : (
+                  <strong>-</strong>
+                )}
+              </div>
+            </div>
+
+            <div className="admin-modal__actions">
+              <button
+                type="button"
+                className="admin-button admin-button--primary"
+                onClick={() => setViewDevice(null)}
+              >
+                Zamknij
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 };
 
 export default AdminRegistry;
