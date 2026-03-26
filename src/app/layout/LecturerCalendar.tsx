@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -13,29 +13,16 @@ import { fetchMessages, createMessage, deleteMessage } from "../services/message
 import { FaPaperPlane, FaTimes, FaTrash } from "react-icons/fa";
 import * as leoProfanity from "leo-profanity";
 import polishBadWords from "../../assets/badWords";
+import { fetchSession } from "../services/authService";
 
 leoProfanity.loadDictionary("en");
 leoProfanity.add(polishBadWords);
 
-// =====================================================================
-// 🛠️ MOCK / TRYB TESTOWY (TYLKO DLA DEWELOPERA) 🛠️
-// =====================================================================
-// Aby podejrzeć plan konkretnego dydaktyka, wpisz jego Imię i Nazwisko poniżej.
-// Na przykład: "Śliwiński Grzegorz" lub "Nowak Anna".
-// 
-// Jeśli zostawisz pusty tekst "", aplikacja zadziała standardowo i pobierze
-// plan zalogowanego obecnie użytkownika.
-// PAMIĘTAJ ABY ZOSTAWIĆ PUSTE PRZED WRZUCENIEM NA PRODUKCJĘ!
-// =====================================================================
-const MOCK_TEACHER_NAME = "Lipczyński Tomasz";
-// =====================================================================
-
 export default function LecturerCalendar() {
   const navigate = useNavigate();
-  const { teacher } = useParams<{ teacher?: string }>();
   
   const [actualLogin, setActualLogin] = useState<string | null>(null);
-  const [activeTeacher, setActiveTeacher] = useState<string | null>(MOCK_TEACHER_NAME || null);
+  const [activeTeacher, setActiveTeacher] = useState<string | null>(null);
   
   const [events, setEvents] = useState<any[]>([]);
   const [currentDates, setCurrentDates] = useState({ start: '', end: '' });
@@ -67,45 +54,36 @@ export default function LecturerCalendar() {
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
 
-  // Init Login & Teacher
-  // ⚠️ MOCK HAS ABSOLUTE PRIORITY: if MOCK_TEACHER_NAME is set, activeTeacher is NEVER changed by login check.
   useEffect(() => {
-    const checkLoginStatus = async () => {
-      try {
-        const response = await fetch('/api/auth/check-login', { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          // Always store the actual login for isOutgoing checks
-          setActualLogin(data.login);
+    let isMounted = true;
 
-          // Determine which teacher to show - set ONCE, never override mock
-          if (MOCK_TEACHER_NAME) {
-            // Mock is active - DO NOT touch activeTeacher, it's already set in useState
-            console.log(`[LecturerCalendar] Mock active. Keeping: "${MOCK_TEACHER_NAME}". Logged in as: "${data.login}"`);
-          } else if (teacher) {
-            setActiveTeacher(decodeURIComponent(teacher));
-            console.log(`[LecturerCalendar] URL param teacher: "${decodeURIComponent(teacher)}"`);
-          } else {
-            const fullName = `${data.surname} ${data.givenName}`;
-            setActiveTeacher(fullName);
-            console.log(`[LecturerCalendar] Using logged-in user: "${fullName}"`);
-          }
-        } else {
-          // Not logged in
-          if (MOCK_TEACHER_NAME) {
-            setActualLogin("mock_login");
-          } else if (teacher) {
-            setActiveTeacher(decodeURIComponent(teacher));
-          }
-        }
-      } catch (error) {
-        console.error("Auth check failed", error);
-        if (MOCK_TEACHER_NAME) setActualLogin("mock_login");
-        else if (teacher) setActiveTeacher(decodeURIComponent(teacher));
+    const loadSession = async () => {
+      const session = await fetchSession();
+      if (!isMounted) {
+        return;
       }
+
+      if (!session || !session.access.canAccessLecturerPlan) {
+        navigate('/access-denied', { replace: true, state: { reason: 'lecturer' } });
+        return;
+      }
+
+      setActualLogin(session.login);
+
+      const fullName = session.displayName || `${session.surname} ${session.givenName}`.trim();
+      if (!fullName) {
+        navigate('/access-denied', { replace: true, state: { reason: 'lecturer' } });
+        return;
+      }
+
+      setActiveTeacher(fullName);
     };
-    checkLoginStatus();
-  }, [teacher]); // eslint-disable-line react-hooks/exhaustive-deps
+    void loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
 
   useEffect(() => {
@@ -113,7 +91,7 @@ export default function LecturerCalendar() {
   }, [activeTeacher]);
 
   const fetchEvents = async (startDate: string, endDate: string, targetTeacher: string) => {
-    console.log(`[LecturerCalendar] fetchEvents Triggered! targetTeacher: "${targetTeacher}", URL param "teacher": "${teacher}"`);
+    console.log(`[LecturerCalendar] fetchEvents Triggered! targetTeacher: "${targetTeacher}"`);
     if (!targetTeacher) {
       console.warn("[LecturerCalendar] fetchEvents ABORTED: No targetTeacher!");
       return;
@@ -213,7 +191,7 @@ export default function LecturerCalendar() {
     const message = {
       body: sanitizedMessage,
       lecturer: selectedEventData?.worker_title || activeTeacher || "Wykładowca",
-      login: actualLogin || "mock_login",
+      login: actualLogin || "unknown",
       room: selectedEventData?.room || "Unknown",
       lessonId: lessonId,
       group: selectedEventData?.group_name || "Unknown",
@@ -288,6 +266,10 @@ export default function LecturerCalendar() {
       }
     }
   };
+
+  if (!activeTeacher) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Ladowanie panelu dydaktyka...</div>;
+  }
 
   return (
     <div className="lecturer-plan">
@@ -391,7 +373,7 @@ export default function LecturerCalendar() {
                       <div className="text-center text-gray-400 text-sm mt-4">Brak wiadomości</div>
                     ) : (
                       messages.map(msg => {
-                        const isOutgoing = msg.login === actualLogin || (actualLogin === "mock_login" && msg.lecturer === MOCK_TEACHER_NAME);
+                        const isOutgoing = msg.login === actualLogin;
 
                         if (msg.isRoomChange) {
                           return (

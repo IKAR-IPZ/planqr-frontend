@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
+import { reportTabletDisplayProfile } from '../services/displayProfileService';
 import { QRCodeCanvas } from 'qrcode.react';
 import { FaUserFriends } from 'react-icons/fa';
 
@@ -15,14 +16,50 @@ interface ScheduleEvent {
   form: string;
   group_name: string;
   login: string;
-  notifications: any[];
+  notifications: TabletMessageNotification[];
   color: string;
+}
+
+interface TabletMessageNotification {
+  body: string;
+  lecturer?: string;
+  createdAt?: string;
+  isRoomChange?: boolean;
+  newRoom?: string;
+}
+
+interface ScheduleApiEvent {
+  id: string;
+  start?: string;
+  end?: string;
+  title?: string;
+  subject?: string;
+  worker_title?: string;
+  room?: string;
+  group_name?: string;
+  login?: string;
+  color?: string;
+  lesson_form_short?: string;
+}
+
+interface TimelineMessage {
+  body: string;
+  lecturer: string;
+  createdAt: string;
+  eventTitle: string;
+  isRoomChange?: boolean;
+  newRoom?: string;
 }
 
 interface TabletNightModeConfig {
   enabled: boolean;
   startTime: string;
   endTime: string;
+  blackScreenAfterScheduleEnd: boolean;
+}
+
+interface DisplaySettingsResponse {
+  nightMode?: TabletNightModeConfig | null;
 }
 
 interface DeviceStatusResponse {
@@ -35,7 +72,7 @@ interface DeviceStatusResponse {
 }
 
 interface TabletCommandPayload {
-  type: 'connected' | 'config-updated' | 'reload' | 'registry-reset';
+  type: 'connected' | 'config-updated' | 'reload' | 'registry-reset' | 'report-display-profile';
   hardReload?: boolean;
   path?: string;
   config?: DeviceStatusResponse['config'];
@@ -43,10 +80,13 @@ interface TabletCommandPayload {
 
 const TABLET_RELOAD_PARAM = '_tabletReload';
 const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
+const TABLET_PREVIEW_PARAM = 'preview';
+const SHOW_MESSAGES_ALL_DAY = true;
 const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
   enabled: false,
   startTime: '22:00',
   endTime: '06:00',
+  blackScreenAfterScheduleEnd: false,
 };
 
 const buildTabletPath = (room: string, secretUrl: string) =>
@@ -67,6 +107,10 @@ const normalizeNightModeConfig = (
     typeof nightMode?.endTime === 'string' && nightMode.endTime
       ? nightMode.endTime
       : DEFAULT_TABLET_NIGHT_MODE_CONFIG.endTime,
+  blackScreenAfterScheduleEnd:
+    typeof nightMode?.blackScreenAfterScheduleEnd === 'boolean'
+      ? nightMode.blackScreenAfterScheduleEnd
+      : DEFAULT_TABLET_NIGHT_MODE_CONFIG.blackScreenAfterScheduleEnd,
 });
 
 const persistNightModeConfig = (nightMode: TabletNightModeConfig) => {
@@ -128,6 +172,15 @@ const isNightModeEnabledAt = (nightMode: TabletNightModeConfig, currentDate: Dat
   return currentMinutes >= startMinutes || currentMinutes < endMinutes;
 };
 
+const parseClockTimeToMinutes = (time: string) => {
+  const [hours, minutes] = time.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+};
+
 const forceHardReload = (path?: string) => {
   const target = path ?? `${window.location.pathname}${window.location.search}`;
   const url = new URL(target, window.location.origin);
@@ -159,13 +212,16 @@ const syncTabletRouteFromConfig = (
 export default function Tablet() {
   const params = useParams<{ room?: string; secretUrl?: string }>();
   const location = useLocation();
+  const isPreviewMode = new URLSearchParams(location.search).get(TABLET_PREVIEW_PARAM) === '1';
 
   const currentRouteRoom = params.room ? decodeURIComponent(params.room) : '';
   const currentRouteSecret = params.secretUrl ? decodeURIComponent(params.secretUrl) : '';
 
   const [roomInfo, setRoomInfo] = useState({ building: "", room: "" });
   const [deviceId, setDeviceId] = useState('');
-  const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() => readStoredNightModeConfig());
+  const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() =>
+    isPreviewMode ? DEFAULT_TABLET_NIGHT_MODE_CONFIG : readStoredNightModeConfig()
+  );
   
   // States
   const [currentDateTime, setCurrentDateTime] = useState({
@@ -179,6 +235,10 @@ export default function Tablet() {
   const timeSlotsCount = 13; // 7:00 to 19:00
 
   useEffect(() => {
+    if (isPreviewMode) {
+      return;
+    }
+
     const storedDeviceId = window.localStorage.getItem('tablet_uuid') || '';
     if (!storedDeviceId) {
       forceHardReload('/registry');
@@ -186,13 +246,48 @@ export default function Tablet() {
     }
 
     setDeviceId(storedDeviceId);
-  }, []);
+  }, [isPreviewMode]);
 
-  const applyNightModeConfig = (config?: DeviceStatusResponse['config']) => {
+  const applyNightModeConfig = useCallback((config?: DeviceStatusResponse['config']) => {
     const nextNightModeConfig = normalizeNightModeConfig(config?.nightMode);
     setNightModeConfig(nextNightModeConfig);
-    persistNightModeConfig(nextNightModeConfig);
-  };
+    if (!isPreviewMode) {
+      persistNightModeConfig(nextNightModeConfig);
+    }
+  }, [isPreviewMode]);
+
+  useEffect(() => {
+    if (!isPreviewMode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPreviewNightModeConfig = async () => {
+      try {
+        const response = await fetch('/api/devices/display-settings');
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as DisplaySettingsResponse;
+        if (cancelled) {
+          return;
+        }
+
+        const nextNightModeConfig = normalizeNightModeConfig(data.nightMode);
+        setNightModeConfig(nextNightModeConfig);
+      } catch (error) {
+        console.error('[Tablet] Failed to load preview display settings:', error);
+      }
+    };
+
+    void loadPreviewNightModeConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPreviewMode]);
 
   // 1. Parse Room Info
   useEffect(() => {
@@ -210,7 +305,45 @@ export default function Tablet() {
   }, [location.pathname, params]);
 
   useEffect(() => {
+    if (isPreviewMode || !deviceId) return;
+
+    let resizeTimeoutId: number | null = null;
+
+    const sendDisplayProfile = async () => {
+      try {
+        await reportTabletDisplayProfile(deviceId);
+      } catch (error) {
+        console.error('[Tablet] Failed to report display profile:', error);
+      }
+    };
+
+    const handleViewportChange = () => {
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
+      }
+
+      resizeTimeoutId = window.setTimeout(() => {
+        void sendDisplayProfile();
+      }, 300);
+    };
+
+    void sendDisplayProfile();
+    window.addEventListener('resize', handleViewportChange);
+    window.screen.orientation?.addEventListener?.('change', handleViewportChange);
+
+    return () => {
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
+      }
+
+      window.removeEventListener('resize', handleViewportChange);
+      window.screen.orientation?.removeEventListener?.('change', handleViewportChange);
+    };
+  }, [deviceId, isPreviewMode]);
+
+  useEffect(() => {
     if (!deviceId) return;
+    if (isPreviewMode) return;
 
     const eventSource = new EventSource(`/api/registry/stream/${encodeURIComponent(deviceId)}`);
     const handleTabletCommand = (event: MessageEvent<string>) => {
@@ -242,6 +375,13 @@ export default function Tablet() {
           }
 
           forceHardReload(payload.path);
+          return;
+        }
+
+        if (payload.type === 'report-display-profile') {
+          void reportTabletDisplayProfile(deviceId).catch((error) => {
+            console.error('[Tablet] Failed to report display profile on demand:', error);
+          });
         }
       } catch (error) {
         console.error('[Tablet] Failed to handle stream payload:', error);
@@ -257,10 +397,11 @@ export default function Tablet() {
       eventSource.removeEventListener('tablet-command', handleTabletCommand as EventListener);
       eventSource.close();
     };
-  }, [currentRouteRoom, currentRouteSecret, deviceId]);
+  }, [applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   useEffect(() => {
     if (!deviceId) return;
+    if (isPreviewMode) return;
 
     let cancelled = false;
 
@@ -300,7 +441,7 @@ export default function Tablet() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [currentRouteRoom, currentRouteSecret, deviceId]);
+  }, [applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   // 2. Clock
   useEffect(() => {
@@ -319,9 +460,43 @@ export default function Tablet() {
   }, []);
 
   const isNightModeActive = useMemo(
-    () => isNightModeEnabledAt(nightModeConfig, new Date()),
-    [nightModeConfig, currentDateTime.date, currentDateTime.time]
+    () => {
+      const currentTime = currentDateTime.time.slice(0, 5);
+      const currentDate = new Date();
+      const parsedMinutes = parseClockTimeToMinutes(currentTime);
+
+      if (parsedMinutes !== null) {
+        currentDate.setHours(Math.floor(parsedMinutes / 60), parsedMinutes % 60, 0, 0);
+      }
+
+      return isNightModeEnabledAt(nightModeConfig, currentDate);
+    },
+    [currentDateTime.time, nightModeConfig]
   );
+
+  const isBlackScreenAfterScheduleEndActive = useMemo(() => {
+    if (!nightModeConfig.blackScreenAfterScheduleEnd || scheduleItems.length === 0) {
+      return false;
+    }
+
+    const lastLessonEndMinutes = scheduleItems.reduce((latest, event) => {
+      const endMinutes = parseClockTimeToMinutes(event.endTime);
+      if (endMinutes === null) {
+        return latest;
+      }
+
+      return Math.max(latest, endMinutes);
+    }, -1);
+
+    if (lastLessonEndMinutes < 0) {
+      return false;
+    }
+
+    const currentMinutes =
+      parseClockTimeToMinutes(currentDateTime.time.slice(0, 5)) ??
+      new Date().getHours() * 60 + new Date().getMinutes();
+    return currentMinutes >= lastLessonEndMinutes;
+  }, [currentDateTime.time, nightModeConfig.blackScreenAfterScheduleEnd, scheduleItems]);
 
   // 3. Fetch Schedule & Messages
   useEffect(() => {
@@ -348,30 +523,34 @@ export default function Tablet() {
           throw new Error('Nie udało się pobrać planu');
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as ScheduleApiEvent[];
         console.log('[Tablet] Raw API response:', data.length, 'events');
 
         // Filter out invalid events (ZUT API returns empty first element) and match today's date
         // Use local YYYY-MM-DD comparison to avoid timezone issues
         const todayLocal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
-        const targetEvents = data.filter((e: any) => {
-          if (!e.start || !e.title) return false; // Skip incomplete events
-          const eventDate = e.start.split('T')[0]; // Extract YYYY-MM-DD from ISO string
+        const targetEvents = data.filter((event) => {
+          if (!event.start || !event.title) return false;
+          const eventDate = event.start.split('T')[0];
           return eventDate === todayLocal;
         });
         console.log('[Tablet] Today:', todayLocal, '| Matching events:', targetEvents.length);
 
         const formattedEvents = await Promise.all(
-          targetEvents.map(async (event: any) => {
-            let messages = [];
+          targetEvents.map(async (event) => {
+            let messages: TabletMessageNotification[] = [];
             try {
-              if (event.id) messages = await fetchMessages(event.id);
-            } catch (err) {}
+              if (event.id) {
+                messages = (await fetchMessages(event.id)) as TabletMessageNotification[];
+              }
+            } catch {
+              messages = [];
+            }
             
             return {
               id: event.id,
-              startTime: new Date(event.start).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
-              endTime: new Date(event.end).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+              startTime: new Date(event.start ?? '').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+              endTime: new Date(event.end ?? event.start ?? '').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
               description: event.subject || event.title,
               instructor: event.worker_title || 'Brak',
               room: event.room || '',
@@ -411,11 +590,9 @@ export default function Tablet() {
   const now = new Date();
   const nowVal = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
 
-  const SHOW_MESSAGES_ALL_DAY = true; // 🛠️ TRYB DEWELOPERSKI (zmień na false na produkcji)
-
   // Aggregate all messages from all today's events (including room changes)
   const allMessages = useMemo(() => {
-     const msgs: any[] = [];
+     const msgs: TimelineMessage[] = [];
      const now = new Date();
 
      scheduleItems.forEach(ev => {
@@ -432,21 +609,20 @@ export default function Tablet() {
         }
 
         if (isRelevant) {
-           ev.notifications?.forEach(msg => {
+           ev.notifications?.forEach((message) => {
               msgs.push({
-                 body: msg.body,
-                 lecturer: msg.lecturer || 'Wykładowca',
-                 createdAt: msg.createdAt || '',
+                 body: message.body,
+                 lecturer: message.lecturer || 'Wykładowca',
+                 createdAt: message.createdAt || '',
                  eventTitle: ev.description,
-                 isRoomChange: msg.isRoomChange,
-                 newRoom: msg.newRoom
+                 isRoomChange: message.isRoomChange,
+                 newRoom: message.newRoom
               });
            });
         }
      });
      return msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-   // Odświeżaj gdy zmienia się plan, lub po prostu z upływem minut (nowVal)
-   }, [scheduleItems, nowVal]);
+	   }, [scheduleItems]);
 
   // Handle seamless marquee scroll
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -511,8 +687,17 @@ export default function Tablet() {
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
 
-  if (isNightModeActive) {
-    return <div className="tablet-night-screen" aria-label="Tryb nocny aktywny" />;
+  if (isNightModeActive || isBlackScreenAfterScheduleEndActive) {
+    return (
+      <div
+        className="tablet-night-screen"
+        aria-label={
+          isNightModeActive
+            ? 'Tryb nocny aktywny'
+            : 'Czarny ekran po zakończeniu zajęć aktywny'
+        }
+      />
+    );
   }
 
   if (isLoading) return <div className="fullscreen-msg">Wczytywanie systemu...</div>;

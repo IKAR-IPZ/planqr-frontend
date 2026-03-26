@@ -18,6 +18,7 @@ export const createMessage = async (message: any) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(message),
+            credentials: 'include',
         });
         console.log("[messageService] POST response status:", response.status, response.statusText);
         if (!response.ok) {
@@ -37,7 +38,8 @@ export const createMessage = async (message: any) => {
 export const deleteMessage = async (id: number) => {
     try {
         const response = await fetch(`${API_URL}/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to delete message');
     } catch (error) {

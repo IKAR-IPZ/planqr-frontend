@@ -1,6 +1,7 @@
 import { NavLink, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import ThemeToggle from './ThemeToggle';
+import { logout } from '../services/authService';
 
 export default function NavBar() {
   const { room, teacher } = useParams();
@@ -26,17 +27,9 @@ export default function NavBar() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        setIsLoggedIn(false);
-        navigate('/');
-      } else {
-        alert('Logout failed');
-      }
+      await logout();
+      setIsLoggedIn(false);
+      navigate('/');
     } catch (error) {
       console.error('Error during logout:', error);
       alert('An error occurred during logout. Please try again.');
