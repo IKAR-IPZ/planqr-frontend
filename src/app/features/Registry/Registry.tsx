@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../../layout/ThemeToggle';
+import { reportTabletDisplayProfile } from '../../services/displayProfileService';
 
 const buildTabletPath = (room: string, secretUrl: string) =>
     `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
@@ -29,6 +30,43 @@ const Registry = () => {
         }
         setUuid(deviceId);
     }, []);
+
+    useEffect(() => {
+        if (!uuid) return;
+
+        let resizeTimeoutId: number | null = null;
+
+        const sendDisplayProfile = async () => {
+            try {
+                await reportTabletDisplayProfile(uuid);
+            } catch (error) {
+                console.error('[Registry] Failed to report display profile:', error);
+            }
+        };
+
+        const handleViewportChange = () => {
+            if (resizeTimeoutId !== null) {
+                window.clearTimeout(resizeTimeoutId);
+            }
+
+            resizeTimeoutId = window.setTimeout(() => {
+                void sendDisplayProfile();
+            }, 300);
+        };
+
+        void sendDisplayProfile();
+        window.addEventListener('resize', handleViewportChange);
+        window.screen.orientation?.addEventListener?.('change', handleViewportChange);
+
+        return () => {
+            if (resizeTimeoutId !== null) {
+                window.clearTimeout(resizeTimeoutId);
+            }
+
+            window.removeEventListener('resize', handleViewportChange);
+            window.screen.orientation?.removeEventListener?.('change', handleViewportChange);
+        };
+    }, [uuid]);
 
     // Handshake and Polling
     useEffect(() => {

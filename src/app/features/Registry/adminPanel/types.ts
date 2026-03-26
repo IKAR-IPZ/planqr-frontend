@@ -12,6 +12,13 @@ export interface Device {
   deviceModel?: string;
   userAgent?: string;
   macAddress?: string;
+  viewportWidthPx?: number | null;
+  viewportHeightPx?: number | null;
+  screenWidthPx?: number | null;
+  screenHeightPx?: number | null;
+  devicePixelRatio?: number | null;
+  screenOrientation?: string | null;
+  displayProfileReportedAt?: string | null;
 }
 
 export interface NightModeSettings {

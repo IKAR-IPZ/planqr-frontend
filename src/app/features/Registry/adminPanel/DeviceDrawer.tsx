@@ -1,9 +1,12 @@
 import {
+  formatDevicePixelRatio,
+  formatDisplayDimensions,
   formatLastSeen,
   getConnectionLabel,
   getConnectionTone,
   getDeviceDisplayName,
   getDeviceSecondaryName,
+  hasDeviceDisplayProfile,
 } from "./helpers";
 import type { Device } from "./types";
 
@@ -17,18 +20,12 @@ interface DeviceDrawerProps {
   isSearching: boolean;
   onClose: () => void;
   onStartEdit: () => void;
+  onPreview: () => void;
   onFormChange: (value: string) => void;
   onSuggestionSelect: (room: string) => void;
   onSave: () => void;
   onDelete: () => void;
 }
-
-const buildRoomHref = (device: Device) => {
-  const roomLabel = device.deviceClassroom || device.deviceName || device.deviceId;
-  const department = roomLabel.split(" ")[0] || "WI";
-
-  return `/room/${encodeURIComponent(department)}/${encodeURIComponent(roomLabel)}`;
-};
 
 const DeviceDrawer = ({
   mode,
@@ -40,6 +37,7 @@ const DeviceDrawer = ({
   isSearching,
   onClose,
   onStartEdit,
+  onPreview,
   onFormChange,
   onSuggestionSelect,
   onSave,
@@ -48,6 +46,7 @@ const DeviceDrawer = ({
   const displayName = getDeviceDisplayName(device);
   const secondaryName = getDeviceSecondaryName(device);
   const isPending = device.status === "PENDING";
+  const hasDisplayProfile = hasDeviceDisplayProfile(device);
 
   return (
     <div className="admin-drawer__overlay" onClick={onClose}>
@@ -115,11 +114,41 @@ const DeviceDrawer = ({
                   <span>MAC</span>
                   <strong className="admin-table__meta-code">{device.macAddress || "-"}</strong>
                 </div>
+                <div className="admin-detail-list__row">
+                  <span>Viewport</span>
+                  <strong>
+                    {formatDisplayDimensions(device.viewportWidthPx, device.viewportHeightPx)}
+                  </strong>
+                </div>
+                <div className="admin-detail-list__row">
+                  <span>Ekran fizyczny</span>
+                  <strong>
+                    {formatDisplayDimensions(device.screenWidthPx, device.screenHeightPx)}
+                  </strong>
+                </div>
+                <div className="admin-detail-list__row">
+                  <span>Device pixel ratio</span>
+                  <strong>{formatDevicePixelRatio(device.devicePixelRatio)}</strong>
+                </div>
+                <div className="admin-detail-list__row">
+                  <span>Orientacja</span>
+                  <strong>{device.screenOrientation || "-"}</strong>
+                </div>
+                <div className="admin-detail-list__row">
+                  <span>Raport profilu</span>
+                  <strong>{formatLastSeen(device.displayProfileReportedAt ?? undefined)}</strong>
+                </div>
                 <div className="admin-detail-list__row admin-detail-list__row--stacked">
                   <span>User Agent</span>
                   <strong>{device.userAgent || "-"}</strong>
                 </div>
               </div>
+
+              {!hasDisplayProfile ? (
+                <p className="admin-feedback">
+                  Profil ekranu zapisze się automatycznie, gdy tablet zgłosi swoje parametry.
+                </p>
+              ) : null}
             </>
           ) : (
             <>
@@ -181,14 +210,13 @@ const DeviceDrawer = ({
                   {isPending ? "Autoryzuj" : "Edytuj"}
                 </button>
                 {!isPending ? (
-                  <a
+                  <button
+                    type="button"
                     className="admin-button admin-button--ghost"
-                    href={buildRoomHref(device)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    onClick={onPreview}
                   >
-                    Plan sali
-                  </a>
+                    Podgląd
+                  </button>
                 ) : null}
                 <button
                   type="button"
