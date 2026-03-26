@@ -29,6 +29,7 @@ interface DevicesViewProps {
   pendingDevices: Device[];
   counts: DeviceCounts;
   loading: boolean;
+  manualRefreshing: boolean;
   reloadingTablets: boolean;
   searchTerm: string;
   sortBy: DeviceSortOption;
@@ -57,6 +58,7 @@ const DevicesView = ({
   pendingDevices,
   counts,
   loading,
+  manualRefreshing,
   reloadingTablets,
   searchTerm,
   sortBy,
@@ -106,10 +108,13 @@ const DevicesView = ({
               type="button"
               className="admin-button admin-button--secondary"
               onClick={onRefresh}
-              disabled={loading}
+              disabled={manualRefreshing}
             >
-              <i className={`fas fa-sync-alt ${loading ? "fa-spin" : ""}`} aria-hidden="true" />
-              {loading ? "Odświeżanie" : "Odśwież"}
+              <i
+                className={`fas fa-sync-alt ${manualRefreshing ? "fa-spin" : ""}`}
+                aria-hidden="true"
+              />
+              Odśwież
             </button>
             <button
               type="button"
@@ -210,9 +215,17 @@ const DevicesView = ({
       <AdminPanelSection title="Aktywne">
         {activeDevices.length === 0 ? (
           <div className="admin-empty-state">
-            <h3>{hasSearchFilter ? "Brak wyników" : "Brak urządzeń"}</h3>
+            <h3>
+              {loading && !hasSearchFilter
+                ? "Ładowanie urządzeń"
+                : hasSearchFilter
+                  ? "Brak wyników"
+                  : "Brak urządzeń"}
+            </h3>
             <p>
-              {hasSearchFilter
+              {loading && !hasSearchFilter
+                ? "Trwa pobieranie listy tabletów."
+                : hasSearchFilter
                 ? "Zmień filtr, aby zobaczyć urządzenia."
                 : "Po sparowaniu tabletów pojawią się tutaj."}
             </p>

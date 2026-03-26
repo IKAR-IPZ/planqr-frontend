@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logo from "../../../assets/ZUT_Logo.png";
-import { logout } from "../../services/authService";
+import { fetchSession, logout, type SessionInfo } from "../../services/authService";
 import "./AdminRegistry.css";
 import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
 import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
@@ -55,9 +55,11 @@ const AdminRegistry = () => {
   const currentView = getActiveView(searchParams.get("view"));
 
   const [adminTheme, setAdminTheme] = useState<AdminPanelTheme>(getStoredAdminTheme);
+  const [session, setSession] = useState<SessionInfo | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [admins, setAdmins] = useState<AdminRecord[]>([]);
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [adminMutationLoading, setAdminMutationLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -226,9 +228,22 @@ const AdminRegistry = () => {
     return rooms;
   };
 
-  const fetchDevices = async () => {
+  const fetchDevices = async (options?: {
+    silent?: boolean;
+    manual?: boolean;
+  }) => {
+    const silent = options?.silent ?? false;
+    const manual = options?.manual ?? false;
+
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
+
+      if (manual) {
+        setManualRefreshing(true);
+      }
+
       const response = await fetch("/api/devices");
       if (response.ok) {
         const data = await response.json();
@@ -237,7 +252,13 @@ const AdminRegistry = () => {
     } catch (error) {
       console.error("Error fetching devices:", error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
+
+      if (manual) {
+        setManualRefreshing(false);
+      }
     }
   };
 
@@ -352,7 +373,12 @@ const AdminRegistry = () => {
     void fetchDevices();
     void fetchNightModeSettings();
     void fetchAdmins();
-    const interval = window.setInterval(fetchDevices, 5000);
+    void fetchSession().then(setSession).catch((error) => {
+      console.error("Error fetching session:", error);
+    });
+    const interval = window.setInterval(() => {
+      void fetchDevices({ silent: true });
+    }, 5000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -614,8 +640,10 @@ const AdminRegistry = () => {
         <div className="admin-console__brand">
           <img className="admin-console__brand-logo" src={logo} alt="ZUT" />
           <div className="admin-console__brand-copy">
-            <span className="admin-console__brand-kicker">ZUT Szczecin</span>
             <strong>PlanQR Admin</strong>
+            {session?.login ? (
+              <span className="admin-console__brand-user">Zalogowany: {session.login}</span>
+            ) : null}
           </div>
         </div>
 
@@ -659,12 +687,13 @@ const AdminRegistry = () => {
                 pending: allPendingDevices.length,
               }}
               loading={loading}
+              manualRefreshing={manualRefreshing}
               reloadingTablets={reloadingTablets}
               searchTerm={searchTerm}
               sortBy={deviceSort}
               onSearchTermChange={setSearchTerm}
               onSortChange={setDeviceSort}
-              onRefresh={fetchDevices}
+              onRefresh={() => void fetchDevices({ manual: true })}
               onReloadTablets={handleReloadAllTablets}
               onViewDevice={openDeviceDetails}
               onEditDevice={openDeviceEditor}
