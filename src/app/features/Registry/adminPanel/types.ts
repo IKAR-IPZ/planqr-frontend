@@ -18,6 +18,7 @@ export interface NightModeSettings {
   enabled: boolean;
   startTime: string;
   endTime: string;
+  blackScreenAfterScheduleEnd: boolean;
 }
 
 export interface AdminRecord {

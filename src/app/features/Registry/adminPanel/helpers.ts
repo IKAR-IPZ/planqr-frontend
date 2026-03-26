@@ -21,6 +21,7 @@ export const defaultNightModeSettings: NightModeSettings = {
   enabled: false,
   startTime: "22:00",
   endTime: "06:00",
+  blackScreenAfterScheduleEnd: false,
 };
 
 export const defaultAdminPanelTheme: AdminPanelTheme = "light";

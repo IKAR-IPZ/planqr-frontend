@@ -31,6 +31,13 @@ import type {
 } from "./adminPanel/types";
 
 const ADMIN_THEME_STORAGE_KEY = "admin-theme";
+const TOAST_DURATION_MS = 5000;
+
+interface AdminToast {
+  id: number;
+  message: string;
+  tone: Tone;
+}
 
 const getActiveView = (value: string | null): AdminPanelView => {
   if (value === "admins" || value === "schedule") {
@@ -64,12 +71,12 @@ const AdminRegistry = () => {
   const [adminMutationLoading, setAdminMutationLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [deviceSort, setDeviceSort] = useState<DeviceSortOption>("status");
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
+  const [batchMutationLoading, setBatchMutationLoading] = useState(false);
   const [newAdminUsername, setNewAdminUsername] = useState("");
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
   const [adminFeedbackTone, setAdminFeedbackTone] = useState<Tone>("neutral");
   const [reloadingTablets, setReloadingTablets] = useState(false);
-  const [reloadFeedback, setReloadFeedback] = useState<string | null>(null);
-  const [reloadFeedbackTone, setReloadFeedbackTone] = useState<Tone>("neutral");
   const [nightModeSettings, setNightModeSettings] =
     useState<NightModeSettings>(defaultNightModeSettings);
   const [nightModeLoading, setNightModeLoading] = useState(false);
@@ -86,11 +93,16 @@ const AdminRegistry = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<AdminToast[]>([]);
 
   const roomSearchAbortRef = useRef<AbortController | null>(null);
   const roomSearchRequestIdRef = useRef(0);
   const roomSearchCacheRef = useRef(new Map<string, string[]>());
   const knownRoomsRef = useRef(new Set<string>());
+  const pendingDeviceIdsRef = useRef<Set<string>>(new Set());
+  const hasFetchedDevicesRef = useRef(false);
+  const toastIdRef = useRef(0);
+  const toastTimeoutRef = useRef(new Map<number, number>());
 
   const drawerDevice = useMemo(
     () =>
@@ -166,10 +178,43 @@ const AdminRegistry = () => {
   }, [formClassroom, showSuggestions]);
 
   useEffect(() => {
+    const toastTimeouts = toastTimeoutRef.current;
+
     return () => {
       roomSearchAbortRef.current?.abort();
+      for (const timeoutId of toastTimeouts.values()) {
+        window.clearTimeout(timeoutId);
+      }
+      toastTimeouts.clear();
     };
   }, []);
+
+  const dismissToast = (toastId: number) => {
+    const timeoutId = toastTimeoutRef.current.get(toastId);
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+      toastTimeoutRef.current.delete(toastId);
+    }
+
+    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  };
+
+  const pushToast = (
+    message: string,
+    tone: Tone = "neutral",
+    duration = TOAST_DURATION_MS,
+  ) => {
+    const nextToastId = toastIdRef.current + 1;
+    toastIdRef.current = nextToastId;
+
+    setToasts((current) => [...current, { id: nextToastId, message, tone }]);
+
+    const timeoutId = window.setTimeout(() => {
+      dismissToast(nextToastId);
+    }, duration);
+
+    toastTimeoutRef.current.set(nextToastId, timeoutId);
+  };
 
   const resetRoomSearch = () => {
     roomSearchAbortRef.current?.abort();
@@ -246,7 +291,26 @@ const AdminRegistry = () => {
 
       const response = await fetch("/api/devices");
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as Device[];
+        const nextPendingDevices = data.filter((device) => device.status === "PENDING");
+        const nextPendingIds = new Set(nextPendingDevices.map((device) => device.deviceId));
+
+        if (hasFetchedDevicesRef.current) {
+          const newPendingDevices = nextPendingDevices.filter(
+            (device) => !pendingDeviceIdsRef.current.has(device.deviceId),
+          );
+
+          if (newPendingDevices.length > 0) {
+            const message =
+              newPendingDevices.length === 1
+                ? `Nowy tablet czeka na sparowanie: ${newPendingDevices[0].deviceId}.`
+                : `${newPendingDevices.length} nowe tablety czekają na sparowanie.`;
+            pushToast(message, "warning", 7000);
+          }
+        }
+
+        pendingDeviceIdsRef.current = nextPendingIds;
+        hasFetchedDevicesRef.current = true;
         setDevices(data);
       }
     } catch (error) {
@@ -329,6 +393,7 @@ const AdminRegistry = () => {
       setNightModeSettings(data.nightMode ?? nightModeSettings);
       setNightModeFeedback(`Zapisano. Wysłano do ${data.delivered ?? 0} ekranów.`);
       setNightModeFeedbackTone("success");
+      pushToast(`Zapisano ustawienia. Wysłano do ${data.delivered ?? 0} ekranów.`, "success");
     } catch (error) {
       console.error("Error saving night mode settings:", error);
       setNightModeFeedback(
@@ -343,7 +408,6 @@ const AdminRegistry = () => {
   const handleReloadAllTablets = async () => {
     try {
       setReloadingTablets(true);
-      setReloadFeedback(null);
 
       const response = await fetch("/api/devices/reload-all", {
         method: "POST",
@@ -358,12 +422,10 @@ const AdminRegistry = () => {
       }
 
       const data = await response.json();
-      setReloadFeedback(`Wysłano sygnał do ${data.delivered} połączeń.`);
-      setReloadFeedbackTone("success");
+      pushToast(`Wysłano sygnał do ${data.delivered} połączeń.`, "success");
     } catch (error) {
       console.error("Error reloading tablets:", error);
-      setReloadFeedback("Nie udało się wysłać komendy.");
-      setReloadFeedbackTone("danger");
+      pushToast("Nie udało się wysłać komendy.", "danger");
     } finally {
       setReloadingTablets(false);
     }
@@ -380,6 +442,7 @@ const AdminRegistry = () => {
       void fetchDevices({ silent: true });
     }, 5000);
     return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -522,6 +585,28 @@ const AdminRegistry = () => {
     }
   };
 
+  const updateDeviceRoomAssignment = async (deviceId: number, roomName: string) => {
+    const response = await fetch(`/api/devices/${deviceId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: deviceId,
+        deviceName: roomName,
+        deviceClassroom: roomName,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        ok: false as const,
+        message: errorData.message || "Nie udało się zapisać zmian.",
+      };
+    }
+
+    return { ok: true as const };
+  };
+
   const handleRegister = async () => {
     const device = drawerDevice;
     const sanitizedRoom = sanitizeRoomValue(formClassroom);
@@ -549,27 +634,25 @@ const AdminRegistry = () => {
     }
 
     try {
-      const response = await fetch(`/api/devices/${device.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: device.id,
-          deviceName: sanitizedRoom,
-          deviceClassroom: sanitizedRoom,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        setRoomError(errorData.message || "Nie udało się zapisać zmian.");
+      const deviceLabel = device.deviceClassroom || device.deviceName || device.deviceId;
+      const result = await updateDeviceRoomAssignment(device.id, sanitizedRoom);
+      if (!result.ok) {
+        setRoomError(result.message);
         return;
       }
 
       closeDrawer();
+      pushToast(
+        device.status === "PENDING"
+          ? `Tablet ${deviceLabel} został sparowany.`
+          : `Zapisano zmiany dla tabletu ${deviceLabel}.`,
+        "success",
+      );
       await fetchDevices();
     } catch (error) {
       console.error("Error registering device", error);
       setRoomError("Nie udało się zapisać zmian.");
+      pushToast("Nie udało się zapisać zmian tabletu.", "danger");
     }
   };
 
@@ -585,19 +668,95 @@ const AdminRegistry = () => {
     }
 
     try {
+      const deviceLabel = device.deviceClassroom || device.deviceName || device.deviceId;
       const response = await fetch(`/api/devices/${device.id}`, { method: "DELETE" });
       if (!response.ok) {
-        alert("Nie udało się usunąć urządzenia.");
+        pushToast("Nie udało się usunąć urządzenia.", "danger");
         return;
       }
 
       if (drawerDeviceId === device.id) {
         closeDrawer();
       }
+      pushToast(`Usunięto tablet ${deviceLabel}.`, "success");
       await fetchDevices();
     } catch (error) {
       console.error("Error deleting device:", error);
-      alert("Wystąpił błąd podczas usuwania urządzenia.");
+      pushToast("Wystąpił błąd podczas usuwania urządzenia.", "danger");
+    }
+  };
+
+  const clearDeviceSelection = () => {
+    setSelectedDeviceIds([]);
+  };
+
+  const handleToggleDeviceSelection = (deviceId: number) => {
+    setSelectedDeviceIds((current) =>
+      current.includes(deviceId)
+        ? current.filter((currentId) => currentId !== deviceId)
+        : [...current, deviceId],
+    );
+  };
+
+  const handleToggleAllActiveDevices = (checked: boolean) => {
+    setSelectedDeviceIds(checked ? activeDevices.map((device) => device.id) : []);
+  };
+
+  const handleDeleteSelectedDevices = async () => {
+    const selectedDevices = activeDevices.filter((device) =>
+      selectedDeviceIds.includes(device.id),
+    );
+
+    if (selectedDevices.length === 0) {
+      pushToast("Zaznacz co najmniej jeden tablet.", "danger");
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Usunąć ${selectedDevices.length} zaznaczonych tabletów z rejestru?`,
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      setBatchMutationLoading(true);
+
+      const results = await Promise.allSettled(
+        selectedDevices.map((device) =>
+          fetch(`/api/devices/${device.id}`, { method: "DELETE" }).then(async (response) => {
+            if (!response.ok) {
+              throw new Error("Nie udało się usunąć urządzenia.");
+            }
+          }),
+        ),
+      );
+
+      const deletedCount = results.filter((result) => result.status === "fulfilled").length;
+      const failedCount = results.length - deletedCount;
+
+      if (failedCount > 0) {
+        pushToast(
+          `Usunięto ${deletedCount} z ${results.length} tabletów.`,
+          deletedCount > 0 ? "warning" : "danger",
+        );
+      } else {
+        pushToast(`Usunięto ${deletedCount} tabletów.`, "success");
+      }
+
+      if (deletedCount > 0) {
+        if (drawerDeviceId !== null && selectedDeviceIds.includes(drawerDeviceId)) {
+          closeDrawer();
+        }
+
+        clearDeviceSelection();
+        await fetchDevices({ silent: true });
+      }
+    } catch (error) {
+      console.error("Error deleting selected devices:", error);
+      pushToast("Nie udało się usunąć zaznaczonych tabletów.", "danger");
+    } finally {
+      setBatchMutationLoading(false);
     }
   };
 
@@ -633,6 +792,14 @@ const AdminRegistry = () => {
     label: adminViewMeta[key].label,
     icon: adminViewMeta[key].icon,
   }));
+
+  useEffect(() => {
+    const visibleIds = new Set(activeDevices.map((device) => device.id));
+    setSelectedDeviceIds((current) => {
+      const next = current.filter((deviceId) => visibleIds.has(deviceId));
+      return next.length === current.length ? current : next;
+    });
+  }, [activeDevices]);
 
   return (
     <div className="admin-console" data-admin-theme={adminTheme}>
@@ -670,12 +837,6 @@ const AdminRegistry = () => {
         />
 
         <main className="admin-console__main">
-          {reloadFeedback ? (
-            <div className={`admin-inline-message admin-inline-message--${reloadFeedbackTone}`}>
-              {reloadFeedback}
-            </div>
-          ) : null}
-
           {currentView === "devices" ? (
             <DevicesView
               activeDevices={activeDevices}
@@ -689,10 +850,16 @@ const AdminRegistry = () => {
               loading={loading}
               manualRefreshing={manualRefreshing}
               reloadingTablets={reloadingTablets}
+              batchUpdating={batchMutationLoading}
+              selectedDeviceIds={selectedDeviceIds}
               searchTerm={searchTerm}
               sortBy={deviceSort}
               onSearchTermChange={setSearchTerm}
               onSortChange={setDeviceSort}
+              onDeleteSelectedDevices={() => void handleDeleteSelectedDevices()}
+              onClearSelectedDevices={clearDeviceSelection}
+              onToggleAllActiveDevices={handleToggleAllActiveDevices}
+              onToggleDeviceSelection={handleToggleDeviceSelection}
               onRefresh={() => void fetchDevices({ manual: true })}
               onReloadTablets={handleReloadAllTablets}
               onViewDevice={openDeviceDetails}
@@ -765,6 +932,24 @@ const AdminRegistry = () => {
           onSave={handleRegister}
           onDelete={() => void handleDeleteDevice(drawerDevice)}
         />
+      ) : null}
+
+      {toasts.length > 0 ? (
+        <div className="admin-toast-stack" aria-live="polite" aria-atomic="false">
+          {toasts.map((toast) => (
+            <div key={toast.id} className={`admin-toast admin-toast--${toast.tone}`}>
+              <p className="admin-toast__message">{toast.message}</p>
+              <button
+                type="button"
+                className="admin-toast__close"
+                onClick={() => dismissToast(toast.id)}
+                aria-label="Zamknij powiadomienie"
+              >
+                <i className="fas fa-times" aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
       ) : null}
     </div>
   );

@@ -37,26 +37,47 @@ const ScheduleView = ({
     }
   >
     <div className="admin-form-grid">
-      <label className="admin-switch">
-        <input
-          type="checkbox"
-          checked={settings.enabled}
-          onChange={(event) =>
-            onSettingChange({
-              ...settings,
-              enabled: event.target.checked,
-            })
-          }
-          disabled={loading || saving}
-        />
-        <span>Włącz harmonogram</span>
-      </label>
+      <div className="admin-settings-stack">
+        <label className="admin-switch">
+          <input
+            type="checkbox"
+            checked={settings.enabled}
+            onChange={(event) =>
+              onSettingChange({
+                ...settings,
+                enabled: event.target.checked,
+              })
+            }
+            disabled={loading || saving}
+          />
+          <span>Włącz harmonogram</span>
+        </label>
+
+        <label className="admin-switch">
+          <input
+            type="checkbox"
+            checked={settings.blackScreenAfterScheduleEnd}
+            onChange={(event) =>
+              onSettingChange({
+                ...settings,
+                blackScreenAfterScheduleEnd: event.target.checked,
+              })
+            }
+            disabled={loading || saving}
+          />
+          <span>Po zajęciach pokazuj czarny ekran</span>
+        </label>
+      </div>
 
       <div className="admin-status-inline">
         <span>Status</span>
         <strong>{settings.enabled ? "Aktywny" : "Wyłączony"}</strong>
         <span>
           {settings.startTime} - {settings.endTime}
+        </span>
+        <span>
+          Po zajęciach:{" "}
+          <strong>{settings.blackScreenAfterScheduleEnd ? "włączony" : "wyłączony"}</strong>
         </span>
       </div>
     </div>
