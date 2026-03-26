@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
+import { reportTabletDisplayProfile } from '../services/displayProfileService';
 import { QRCodeCanvas } from 'qrcode.react';
 import { FaUserFriends } from 'react-icons/fa';
 
@@ -57,6 +58,10 @@ interface TabletNightModeConfig {
   blackScreenAfterScheduleEnd: boolean;
 }
 
+interface DisplaySettingsResponse {
+  nightMode?: TabletNightModeConfig | null;
+}
+
 interface DeviceStatusResponse {
   status: string;
   config?: {
@@ -67,7 +72,7 @@ interface DeviceStatusResponse {
 }
 
 interface TabletCommandPayload {
-  type: 'connected' | 'config-updated' | 'reload' | 'registry-reset';
+  type: 'connected' | 'config-updated' | 'reload' | 'registry-reset' | 'report-display-profile';
   hardReload?: boolean;
   path?: string;
   config?: DeviceStatusResponse['config'];
@@ -75,6 +80,7 @@ interface TabletCommandPayload {
 
 const TABLET_RELOAD_PARAM = '_tabletReload';
 const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
+const TABLET_PREVIEW_PARAM = 'preview';
 const SHOW_MESSAGES_ALL_DAY = true;
 const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
   enabled: false,
@@ -206,13 +212,16 @@ const syncTabletRouteFromConfig = (
 export default function Tablet() {
   const params = useParams<{ room?: string; secretUrl?: string }>();
   const location = useLocation();
+  const isPreviewMode = new URLSearchParams(location.search).get(TABLET_PREVIEW_PARAM) === '1';
 
   const currentRouteRoom = params.room ? decodeURIComponent(params.room) : '';
   const currentRouteSecret = params.secretUrl ? decodeURIComponent(params.secretUrl) : '';
 
   const [roomInfo, setRoomInfo] = useState({ building: "", room: "" });
   const [deviceId, setDeviceId] = useState('');
-  const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() => readStoredNightModeConfig());
+  const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() =>
+    isPreviewMode ? DEFAULT_TABLET_NIGHT_MODE_CONFIG : readStoredNightModeConfig()
+  );
   
   // States
   const [currentDateTime, setCurrentDateTime] = useState({
@@ -226,6 +235,10 @@ export default function Tablet() {
   const timeSlotsCount = 13; // 7:00 to 19:00
 
   useEffect(() => {
+    if (isPreviewMode) {
+      return;
+    }
+
     const storedDeviceId = window.localStorage.getItem('tablet_uuid') || '';
     if (!storedDeviceId) {
       forceHardReload('/registry');
@@ -233,13 +246,48 @@ export default function Tablet() {
     }
 
     setDeviceId(storedDeviceId);
-  }, []);
+  }, [isPreviewMode]);
 
-  const applyNightModeConfig = (config?: DeviceStatusResponse['config']) => {
+  const applyNightModeConfig = useCallback((config?: DeviceStatusResponse['config']) => {
     const nextNightModeConfig = normalizeNightModeConfig(config?.nightMode);
     setNightModeConfig(nextNightModeConfig);
-    persistNightModeConfig(nextNightModeConfig);
-  };
+    if (!isPreviewMode) {
+      persistNightModeConfig(nextNightModeConfig);
+    }
+  }, [isPreviewMode]);
+
+  useEffect(() => {
+    if (!isPreviewMode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPreviewNightModeConfig = async () => {
+      try {
+        const response = await fetch('/api/devices/display-settings');
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as DisplaySettingsResponse;
+        if (cancelled) {
+          return;
+        }
+
+        const nextNightModeConfig = normalizeNightModeConfig(data.nightMode);
+        setNightModeConfig(nextNightModeConfig);
+      } catch (error) {
+        console.error('[Tablet] Failed to load preview display settings:', error);
+      }
+    };
+
+    void loadPreviewNightModeConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPreviewMode]);
 
   // 1. Parse Room Info
   useEffect(() => {
@@ -257,7 +305,45 @@ export default function Tablet() {
   }, [location.pathname, params]);
 
   useEffect(() => {
+    if (isPreviewMode || !deviceId) return;
+
+    let resizeTimeoutId: number | null = null;
+
+    const sendDisplayProfile = async () => {
+      try {
+        await reportTabletDisplayProfile(deviceId);
+      } catch (error) {
+        console.error('[Tablet] Failed to report display profile:', error);
+      }
+    };
+
+    const handleViewportChange = () => {
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
+      }
+
+      resizeTimeoutId = window.setTimeout(() => {
+        void sendDisplayProfile();
+      }, 300);
+    };
+
+    void sendDisplayProfile();
+    window.addEventListener('resize', handleViewportChange);
+    window.screen.orientation?.addEventListener?.('change', handleViewportChange);
+
+    return () => {
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
+      }
+
+      window.removeEventListener('resize', handleViewportChange);
+      window.screen.orientation?.removeEventListener?.('change', handleViewportChange);
+    };
+  }, [deviceId, isPreviewMode]);
+
+  useEffect(() => {
     if (!deviceId) return;
+    if (isPreviewMode) return;
 
     const eventSource = new EventSource(`/api/registry/stream/${encodeURIComponent(deviceId)}`);
     const handleTabletCommand = (event: MessageEvent<string>) => {
@@ -289,6 +375,13 @@ export default function Tablet() {
           }
 
           forceHardReload(payload.path);
+          return;
+        }
+
+        if (payload.type === 'report-display-profile') {
+          void reportTabletDisplayProfile(deviceId).catch((error) => {
+            console.error('[Tablet] Failed to report display profile on demand:', error);
+          });
         }
       } catch (error) {
         console.error('[Tablet] Failed to handle stream payload:', error);
@@ -304,10 +397,11 @@ export default function Tablet() {
       eventSource.removeEventListener('tablet-command', handleTabletCommand as EventListener);
       eventSource.close();
     };
-  }, [currentRouteRoom, currentRouteSecret, deviceId]);
+  }, [applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   useEffect(() => {
     if (!deviceId) return;
+    if (isPreviewMode) return;
 
     let cancelled = false;
 
@@ -347,7 +441,7 @@ export default function Tablet() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [currentRouteRoom, currentRouteSecret, deviceId]);
+  }, [applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   // 2. Clock
   useEffect(() => {

@@ -79,6 +79,34 @@ export const formatLastSeen = (value?: string) => {
   }).format(parsedDate);
 };
 
+export const formatDisplayDimensions = (
+  width?: number | null,
+  height?: number | null,
+) => {
+  if (!width || !height) {
+    return "brak danych";
+  }
+
+  return `${width} × ${height} px`;
+};
+
+export const formatDevicePixelRatio = (value?: number | null) => {
+  if (!value) {
+    return "brak danych";
+  }
+
+  return `${value.toFixed(value % 1 === 0 ? 0 : 2)}x`;
+};
+
+export const hasDeviceDisplayProfile = (device: Device) =>
+  Boolean(
+    device.viewportWidthPx &&
+      device.viewportHeightPx &&
+      device.screenWidthPx &&
+      device.screenHeightPx &&
+      device.devicePixelRatio,
+  );
+
 export const getAdminSourceLabel = (source: AdminRecord["adminSource"]) =>
   source === "panel" ? "Panel administracyjny" : "Baza danych";
 

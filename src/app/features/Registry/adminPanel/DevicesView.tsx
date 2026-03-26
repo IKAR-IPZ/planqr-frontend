@@ -45,6 +45,7 @@ interface DevicesViewProps {
   onReloadTablets: () => void;
   onViewDevice: (device: Device) => void;
   onEditDevice: (device: Device) => void;
+  onPreviewDevice: (device: Device) => void;
   onAuthorizeDevice: (device: Device) => void;
   onDeleteDevice: (device: Device) => void;
 }
@@ -80,6 +81,7 @@ const DevicesView = ({
   onReloadTablets,
   onViewDevice,
   onEditDevice,
+  onPreviewDevice,
   onAuthorizeDevice,
   onDeleteDevice,
 }: DevicesViewProps) => {
@@ -406,19 +408,16 @@ const DevicesView = ({
                     >
                       Edytuj
                     </button>
-                    <a
+                    <button
+                      type="button"
                       className="admin-button admin-button--secondary admin-button--small"
-                      href={`/room/${encodeURIComponent(
-                        (device.deviceClassroom || device.deviceName || "WI").split(" ")[0] || "WI",
-                      )}/${encodeURIComponent(
-                        device.deviceClassroom || device.deviceName || device.deviceId,
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onPreviewDevice(device);
+                      }}
                     >
-                      Plan
-                    </a>
+                      Podgląd
+                    </button>
                     <button
                       type="button"
                       className="admin-button admin-button--danger admin-button--small"
