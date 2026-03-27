@@ -86,6 +86,7 @@ const AdminsView = ({
     ) : (
       <AdminPanelTable
         caption="Lista administratorów"
+        wrapperClassName="admin-table__wrapper--full-width admin-table__wrapper--list"
         columns={["Login", "Źródło", "Utworzono", "Ostatnia zmiana", "Akcje"]}
       >
         {admins.map((admin) => (

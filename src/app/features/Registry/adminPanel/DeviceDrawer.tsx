@@ -1,7 +1,9 @@
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   formatDevicePixelRatio,
   formatDisplayDimensions,
   formatLastSeen,
+  formatPairingDeviceId,
   getConnectionLabel,
   getConnectionTone,
   getDeviceDisplayName,
@@ -9,6 +11,17 @@ import {
   hasDeviceDisplayProfile,
 } from "./helpers";
 import type { Device } from "./types";
+
+const getViewportStyle = (): CSSProperties | undefined => {
+  if (typeof window === "undefined" || !window.visualViewport) {
+    return undefined;
+  }
+
+  return {
+    height: `${Math.round(window.visualViewport.height)}px`,
+    top: `${Math.max(0, Math.round(window.visualViewport.offsetTop))}px`,
+  };
+};
 
 interface DeviceDrawerProps {
   mode: "details" | "edit";
@@ -43,14 +56,54 @@ const DeviceDrawer = ({
   onSave,
   onDelete,
 }: DeviceDrawerProps) => {
+  const [viewportStyle, setViewportStyle] = useState<CSSProperties | undefined>(() =>
+    getViewportStyle(),
+  );
   const displayName = getDeviceDisplayName(device);
   const secondaryName = getDeviceSecondaryName(device);
   const isPending = device.status === "PENDING";
   const hasDisplayProfile = hasDeviceDisplayProfile(device);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) {
+      return;
+    }
+
+    const syncViewport = () => {
+      const nextStyle = getViewportStyle();
+
+      setViewportStyle((currentStyle) => {
+        if (
+          currentStyle?.height === nextStyle?.height &&
+          currentStyle?.top === nextStyle?.top
+        ) {
+          return currentStyle;
+        }
+
+        return nextStyle;
+      });
+    };
+
+    syncViewport();
+    viewport.addEventListener("resize", syncViewport);
+    viewport.addEventListener("scroll", syncViewport);
+    window.addEventListener("orientationchange", syncViewport);
+
+    return () => {
+      viewport.removeEventListener("resize", syncViewport);
+      viewport.removeEventListener("scroll", syncViewport);
+      window.removeEventListener("orientationchange", syncViewport);
+    };
+  }, []);
+
   return (
     <div className="admin-drawer__overlay" onClick={onClose}>
-      <aside className="admin-drawer" onClick={(event) => event.stopPropagation()}>
+      <aside
+        className="admin-drawer"
+        style={viewportStyle}
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="admin-drawer__header">
           <div className="admin-drawer__title-wrap">
             <h2 className="admin-drawer__title">
@@ -61,7 +114,9 @@ const DeviceDrawer = ({
                 : displayName}
             </h2>
             <div className="admin-drawer__meta">
-              <span className="admin-table__meta-code">{device.deviceId}</span>
+              <span className="admin-table__meta-code">
+                {formatPairingDeviceId(device.deviceId)}
+              </span>
               <span
                 className={`admin-status-pill admin-status-pill--${getConnectionTone(device)}`}
               >
@@ -257,7 +312,7 @@ const DeviceDrawer = ({
                   onClick={onSave}
                   disabled={!formClassroom.trim()}
                 >
-                  Zapisz
+                  {isPending ? "Dodaj" : "Zapisz"}
                 </button>
               </div>
             </>
