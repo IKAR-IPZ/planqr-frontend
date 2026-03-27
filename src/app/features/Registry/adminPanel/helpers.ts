@@ -10,12 +10,66 @@ import type {
 
 export const ROOM_SEARCH_DEBOUNCE_MS = 350;
 export const ROOM_SEARCH_MIN_LENGTH = 2;
+const PAIRING_QR_TYPE = "planqr-pairing";
 
 export const sanitizeRoomValue = (value: string) =>
   value.trim().replace(/\s+/g, " ");
 
+export const sanitizePairingDeviceId = (value: string) => value.replace(/\s+/g, "").trim();
+
+export const formatPairingDeviceId = (value: string) => {
+  const normalizedValue = sanitizePairingDeviceId(value);
+  const match = normalizedValue.match(/^(\d{3})(\d{3})$/);
+
+  if (!match) {
+    return value.trim();
+  }
+
+  return `${match[1]} ${match[2]}`;
+};
+
 export const normalizeRoomValue = (value: string) =>
   sanitizeRoomValue(value).toUpperCase();
+
+export const buildPairingQrValue = (deviceId: string) =>
+  JSON.stringify({
+    type: PAIRING_QR_TYPE,
+    deviceId: sanitizePairingDeviceId(deviceId),
+  });
+
+export const extractPairingDeviceId = (value: string) => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmedValue) as { type?: unknown; deviceId?: unknown };
+    if (parsed?.type === PAIRING_QR_TYPE && typeof parsed.deviceId === "string") {
+      return sanitizePairingDeviceId(parsed.deviceId) || null;
+    }
+  } catch {
+    // Ignore invalid JSON and continue with fallback formats.
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedValue);
+    const deviceId = parsedUrl.searchParams.get("deviceId");
+    if (deviceId) {
+      return sanitizePairingDeviceId(deviceId) || null;
+    }
+  } catch {
+    // Ignore invalid URLs and continue with fallback formats.
+  }
+
+  const prefixedValueMatch = trimmedValue.match(/^planqr(?:-device)?:([A-Za-z0-9_-]+)$/i);
+  if (prefixedValueMatch) {
+    return sanitizePairingDeviceId(prefixedValueMatch[1]) || null;
+  }
+
+  return sanitizePairingDeviceId(trimmedValue) || null;
+};
 
 export const defaultNightModeSettings: NightModeSettings = {
   enabled: false,
@@ -164,6 +218,7 @@ export const matchesDeviceSearch = (device: Device, term: string) => {
     device.deviceClassroom,
     device.deviceName,
     device.deviceId,
+    formatPairingDeviceId(device.deviceId),
     getConnectionLabel(device),
   ]
     .filter(Boolean)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/ZUT_Logo.png";
 import ThemeToggle from "./ThemeToggle";
@@ -9,6 +9,8 @@ export default function LoginPanel() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,6 +25,54 @@ export default function LoginPanel() {
 
     void checkLoginStatus();
   }, [navigate]);
+
+  useEffect(() => {
+    document.documentElement.classList.add("login-scroll-root");
+    document.body.classList.add("login-scroll-root");
+
+    return () => {
+      document.documentElement.classList.remove("login-scroll-root");
+      document.body.classList.remove("login-scroll-root");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isEditing) {
+      return;
+    }
+
+    let scrollTimeout = 0;
+
+    const scrollActiveFieldIntoView = () => {
+      window.clearTimeout(scrollTimeout);
+      scrollTimeout = window.setTimeout(() => {
+        const activeElement = document.activeElement;
+
+        if (!(activeElement instanceof HTMLElement)) {
+          return;
+        }
+
+        if (!formRef.current?.contains(activeElement)) {
+          return;
+        }
+
+        activeElement.scrollIntoView({
+          block: "center",
+          inline: "nearest",
+        });
+      }, 250);
+    };
+
+    const viewport = window.visualViewport;
+
+    scrollActiveFieldIntoView();
+    viewport?.addEventListener("resize", scrollActiveFieldIntoView);
+
+    return () => {
+      window.clearTimeout(scrollTimeout);
+      viewport?.removeEventListener("resize", scrollActiveFieldIntoView);
+    };
+  }, [isEditing]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -63,11 +113,23 @@ export default function LoginPanel() {
   };
 
   return (
-    <div className="login-panel">
+    <div className={`login-panel${isEditing ? " login-panel--editing" : ""}`}>
       <div className="login-panel__theme-toggle">
         <ThemeToggle />
       </div>
-      <form className="login-panel__form" onSubmit={handleSubmit}>
+      <form
+        ref={formRef}
+        className="login-panel__form"
+        onSubmit={handleSubmit}
+        onFocusCapture={() => setIsEditing(true)}
+        onBlurCapture={() => {
+          window.requestAnimationFrame(() => {
+            if (!formRef.current?.contains(document.activeElement)) {
+              setIsEditing(false);
+            }
+          });
+        }}
+      >
         <div className="login-panel__header">
           <img src={logo} alt="ZUT Logo" className="login-panel__logo" />
         </div>

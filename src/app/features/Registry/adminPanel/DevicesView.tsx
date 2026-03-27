@@ -3,6 +3,7 @@ import AdminPanelSearchField from "./AdminPanelSearchField";
 import AdminPanelSection from "./AdminPanelSection";
 import AdminPanelTable from "./AdminPanelTable";
 import {
+  formatPairingDeviceId,
   formatLastSeen,
   getConnectionLabel,
   getConnectionTone,
@@ -92,13 +93,35 @@ const DevicesView = ({
   const allActiveSelected =
     activeDevices.length > 0 && activeDevices.every((device) => selectedIds.has(device.id));
   const partiallySelected =
-    selectedCount > 0 && activeDevices.some((device) => selectedIds.has(device.id)) && !allActiveSelected;
+    selectedCount > 0 &&
+    activeDevices.some((device) => selectedIds.has(device.id)) &&
+    !allActiveSelected;
   const statusItems = [
     { label: "Wszystkie", value: counts.all, tone: "neutral" },
     { label: "Online", value: counts.online, tone: "success" },
     { label: "Offline", value: counts.offline, tone: "danger" },
     { label: "Oczekujące", value: counts.pending, tone: "warning" },
   ] as const;
+
+  const emptyStateTitle =
+    loading && !hasSearchFilter
+      ? "Ładowanie urządzeń"
+      : hasSearchFilter && pendingDevices.length === 0
+        ? "Brak wyników"
+        : pendingDevices.length > 0
+          ? "Brak sparowanych tabletów"
+          : "Brak urządzeń";
+
+  const emptyStateDescription =
+    loading && !hasSearchFilter
+      ? "Trwa pobieranie listy tabletów."
+      : hasSearchFilter && pendingDevices.length === 0
+        ? "Zmień filtr, aby zobaczyć urządzenia."
+        : pendingDevices.length > 0
+          ? hasSearchFilter
+            ? "Dla tego filtra widoczne są tylko tablety oczekujące na akceptację."
+            : "Tablety oczekujące na akceptację są widoczne powyżej."
+          : "Po sparowaniu tabletów pojawią się tutaj.";
 
   useEffect(() => {
     if (selectAllRef.current) {
@@ -172,122 +195,124 @@ const DevicesView = ({
       </AdminPanelSection>
 
       {pendingDevices.length > 0 ? (
-        <AdminPanelSection title="Oczekujące">
+        <section className="admin-table-block" aria-labelledby="admin-pending-devices-heading">
+          <div className="admin-table-block__header">
+            <h3 className="admin-table-block__title" id="admin-pending-devices-heading">
+              Tablety oczekujące na akceptację
+            </h3>
+          </div>
+
           <AdminPanelTable
             caption="Lista oczekujących urządzeń"
-            columns={["Tablet", "Device ID", "Status", "Akcje"]}
+            className="admin-table--pending"
+            wrapperClassName="admin-table__wrapper--flush admin-table__wrapper--pending"
+            columnGroup={
+              <colgroup>
+                <col className="admin-table__col admin-table__col--name" />
+                <col className="admin-table__col admin-table__col--device-id" />
+                <col className="admin-table__col admin-table__col--status" />
+                <col className="admin-table__col admin-table__col--heartbeat" />
+                <col className="admin-table__col admin-table__col--actions" />
+              </colgroup>
+            }
+            columns={["Sala / nazwa", "Device ID", "Status", "Ostatni heartbeat", "Akcje"]}
           >
-            {pendingDevices.map((device) => (
-              <tr
-                key={device.id}
-                className="admin-table__row admin-table__row--interactive"
-                onClick={() => onViewDevice(device)}
-                onKeyDown={(event) => handleRowKeyDown(event, () => onViewDevice(device))}
-                tabIndex={0}
-                role="button"
-              >
-                <td data-label="Tablet">
-                  <div className="admin-table__primary">
-                    <strong>{getDeviceDisplayName(device)}</strong>
-                  </div>
-                </td>
-                <td data-label="Device ID">
-                  <span className="admin-table__meta-code">{device.deviceId}</span>
-                </td>
-                <td data-label="Status">
-                  <span className="admin-status-pill admin-status-pill--warning">
-                    {getConnectionLabel(device)}
-                  </span>
-                </td>
-                <td data-label="Akcje">
-                  <div className="admin-table__actions">
-                    <button
-                      type="button"
-                      className="admin-button admin-button--ghost admin-button--small"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onViewDevice(device);
-                      }}
-                    >
-                      Szczegóły
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-button admin-button--primary admin-button--small"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onAuthorizeDevice(device);
-                      }}
-                    >
-                      Autoryzuj
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-button admin-button--danger admin-button--small"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteDevice(device);
-                      }}
-                    >
-                      Odrzuć
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {pendingDevices.map((device) => {
+              const displayName = getDeviceDisplayName(device);
+              const secondaryName = getDeviceSecondaryName(device);
+
+              return (
+                <tr
+                  key={device.id}
+                  className="admin-table__row admin-table__row--interactive"
+                  onClick={() => onViewDevice(device)}
+                  onKeyDown={(event) => handleRowKeyDown(event, () => onViewDevice(device))}
+                  tabIndex={0}
+                  role="button"
+                >
+                  <td data-label="Sala / nazwa" className="admin-table__cell--name">
+                    <div className="admin-table__primary">
+                      <strong>{displayName}</strong>
+                      {secondaryName ? (
+                        <span className="admin-table__secondary">{secondaryName}</span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td data-label="Device ID" className="admin-table__cell--center">
+                    <span className="admin-table__meta-code">
+                      {formatPairingDeviceId(device.deviceId)}
+                    </span>
+                  </td>
+                  <td data-label="Status" className="admin-table__cell--center">
+                    <span className="admin-status-pill admin-status-pill--warning">
+                      {getConnectionLabel(device)}
+                    </span>
+                  </td>
+                  <td data-label="Ostatni heartbeat" className="admin-table__cell--center">
+                    <span className="admin-table__secondary">
+                      {formatLastSeen(device.lastSeen)}
+                    </span>
+                  </td>
+                  <td data-label="Akcje" className="admin-table__cell--actions">
+                    <div className="admin-table__actions">
+                      <button
+                        type="button"
+                        className="admin-button admin-button--ghost admin-button--small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onViewDevice(device);
+                        }}
+                      >
+                        Szczegóły
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-button admin-button--primary admin-button--small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onAuthorizeDevice(device);
+                        }}
+                      >
+                        Autoryzuj
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-button admin-button--danger admin-button--small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteDevice(device);
+                        }}
+                      >
+                        Odrzuć
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </AdminPanelTable>
-        </AdminPanelSection>
+        </section>
       ) : null}
 
       {activeDevices.length === 0 ? (
         <div className="admin-table__wrapper admin-table__wrapper--full-width">
           <div className="admin-empty-state">
-            <h3>
-              {loading && !hasSearchFilter
-                ? "Ładowanie urządzeń"
-                : hasSearchFilter
-                  ? "Brak wyników"
-                  : "Brak urządzeń"}
-            </h3>
-            <p>
-              {loading && !hasSearchFilter
-                ? "Trwa pobieranie listy tabletów."
-                : hasSearchFilter
-                  ? "Zmień filtr, aby zobaczyć urządzenia."
-                  : "Po sparowaniu tabletów pojawią się tutaj."}
-            </p>
+            <h3>{emptyStateTitle}</h3>
+            <p>{emptyStateDescription}</p>
           </div>
         </div>
       ) : (
-        <>
-          <div className="admin-table__mobile-batch">
-            <div className="admin-table__mobile-batch-count">
-              Zaznaczone: <strong>{selectedCount}</strong>
-            </div>
-            <div className="admin-table__mobile-batch-actions">
-              <button
-                type="button"
-                className="admin-button admin-button--danger admin-button--small"
-                onClick={onDeleteSelectedDevices}
-                disabled={batchUpdating || selectedCount === 0}
-              >
-                Usuń zaznaczone
-              </button>
-              <button
-                type="button"
-                className="admin-button admin-button--ghost admin-button--small"
-                onClick={onClearSelectedDevices}
-                disabled={selectedCount === 0}
-              >
-                Wyczyść
-              </button>
-            </div>
+        <section className="admin-table-block" aria-labelledby="admin-active-devices-heading">
+          <div className="admin-table-block__header">
+            <h3 className="admin-table-block__title" id="admin-active-devices-heading">
+              Sparowane tablety
+            </h3>
           </div>
 
           <AdminPanelTable
             caption="Lista aktywnych tabletów"
             className="admin-table--devices admin-table--selectable"
-            wrapperClassName="admin-table__wrapper--full-width"
+            wrapperClassName="admin-table__wrapper--full-width admin-table__wrapper--active"
             columnGroup={
               <colgroup>
                 <col className="admin-table__col admin-table__col--select" />
@@ -336,105 +361,107 @@ const DevicesView = ({
               </div>,
             ]}
           >
-          {activeDevices.map((device) => {
-            const displayName = getDeviceDisplayName(device);
-            const secondaryName = getDeviceSecondaryName(device);
-            const isSelected = selectedIds.has(device.id);
+            {activeDevices.map((device) => {
+              const displayName = getDeviceDisplayName(device);
+              const secondaryName = getDeviceSecondaryName(device);
+              const isSelected = selectedIds.has(device.id);
 
-            return (
-              <tr
-                key={device.id}
-                className={`admin-table__row admin-table__row--interactive ${
-                  isSelected ? "admin-table__row--selected" : ""
-                }`}
-                onClick={() => onViewDevice(device)}
-                onKeyDown={(event) => handleRowKeyDown(event, () => onViewDevice(device))}
-                tabIndex={0}
-                role="button"
-              >
-                <td data-label="Zaznacz" className="admin-table__checkbox-cell">
-                  <input
-                    type="checkbox"
-                    className="admin-table__checkbox"
-                    aria-label={`Zaznacz tablet ${displayName}`}
-                    checked={isSelected}
-                    onChange={() => onToggleDeviceSelection(device.id)}
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
-                  />
-                </td>
-                <td data-label="Sala / nazwa" className="admin-table__cell--name">
-                  <div className="admin-table__primary">
-                    <strong>{displayName}</strong>
-                    {secondaryName ? (
-                      <span className="admin-table__secondary">{secondaryName}</span>
-                    ) : null}
-                  </div>
-                </td>
-                <td data-label="Device ID" className="admin-table__cell--center">
-                  <span className="admin-table__meta-code">{device.deviceId}</span>
-                </td>
-                <td data-label="Status" className="admin-table__cell--center">
-                  <span
-                    className={`admin-status-pill admin-status-pill--${getConnectionTone(device)}`}
-                  >
-                    {getConnectionLabel(device)}
-                  </span>
-                </td>
-                <td data-label="Ostatni heartbeat" className="admin-table__cell--center">
-                  <span className="admin-table__secondary">
-                    {formatLastSeen(device.lastSeen)}
-                  </span>
-                </td>
-                <td data-label="Akcje" className="admin-table__cell--actions">
-                  <div className="admin-table__actions">
-                    <button
-                      type="button"
-                      className="admin-button admin-button--ghost admin-button--small"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onViewDevice(device);
-                      }}
+              return (
+                <tr
+                  key={device.id}
+                  className={`admin-table__row admin-table__row--interactive ${
+                    isSelected ? "admin-table__row--selected" : ""
+                  }`}
+                  onClick={() => onViewDevice(device)}
+                  onKeyDown={(event) => handleRowKeyDown(event, () => onViewDevice(device))}
+                  tabIndex={0}
+                  role="button"
+                >
+                  <td data-label="Zaznacz" className="admin-table__checkbox-cell">
+                    <input
+                      type="checkbox"
+                      className="admin-table__checkbox"
+                      aria-label={`Zaznacz tablet ${displayName}`}
+                      checked={isSelected}
+                      onChange={() => onToggleDeviceSelection(device.id)}
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    />
+                  </td>
+                  <td data-label="Sala / nazwa" className="admin-table__cell--name">
+                    <div className="admin-table__primary">
+                      <strong>{displayName}</strong>
+                      {secondaryName ? (
+                        <span className="admin-table__secondary">{secondaryName}</span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td data-label="Device ID" className="admin-table__cell--center">
+                    <span className="admin-table__meta-code">
+                      {formatPairingDeviceId(device.deviceId)}
+                    </span>
+                  </td>
+                  <td data-label="Status" className="admin-table__cell--center">
+                    <span
+                      className={`admin-status-pill admin-status-pill--${getConnectionTone(device)}`}
                     >
-                      Szczegóły
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-button admin-button--secondary admin-button--small"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onEditDevice(device);
-                      }}
-                    >
-                      Edytuj
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-button admin-button--secondary admin-button--small"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onPreviewDevice(device);
-                      }}
-                    >
-                      Podgląd
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-button admin-button--danger admin-button--small"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteDevice(device);
-                      }}
-                    >
-                      Usuń
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
+                      {getConnectionLabel(device)}
+                    </span>
+                  </td>
+                  <td data-label="Ostatni heartbeat" className="admin-table__cell--center">
+                    <span className="admin-table__secondary">
+                      {formatLastSeen(device.lastSeen)}
+                    </span>
+                  </td>
+                  <td data-label="Akcje" className="admin-table__cell--actions">
+                    <div className="admin-table__actions">
+                      <button
+                        type="button"
+                        className="admin-button admin-button--ghost admin-button--small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onViewDevice(device);
+                        }}
+                      >
+                        Szczegóły
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-button admin-button--secondary admin-button--small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditDevice(device);
+                        }}
+                      >
+                        Edytuj
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-button admin-button--secondary admin-button--small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onPreviewDevice(device);
+                        }}
+                      >
+                        Podgląd
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-button admin-button--danger admin-button--small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteDevice(device);
+                        }}
+                      >
+                        Usuń
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </AdminPanelTable>
-        </>
+        </section>
       )}
     </div>
   );

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeCanvas } from 'qrcode.react';
 import ThemeToggle from '../../layout/ThemeToggle';
 import { reportTabletDisplayProfile } from '../../services/displayProfileService';
+import { buildPairingQrValue, formatPairingDeviceId } from './adminPanel/helpers';
 
 const buildTabletPath = (room: string, secretUrl: string) =>
     `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
@@ -19,6 +21,8 @@ const Registry = () => {
     const [uuid, setUuid] = useState<string>('');
     const [status, setStatus] = useState<string>('LOADING');
     const [error, setError] = useState<string | null>(null);
+    const pairingQrValue = uuid ? buildPairingQrValue(uuid) : '';
+    const formattedUuid = uuid ? formatPairingDeviceId(uuid) : '';
 
     // Initialize ID
     useEffect(() => {
@@ -72,7 +76,27 @@ const Registry = () => {
     useEffect(() => {
         if (!uuid) return;
 
+        let isMounted = true;
+        let handshakeInFlight = false;
+
+        const handleStatus = (data: RegistryStatusResponse) => {
+            if (!isMounted) {
+                return;
+            }
+
+            setError(null);
+            setStatus(data.status);
+            if (data.status === 'ACTIVE' && data.config) {
+                navigate(buildTabletPath(data.config.room, data.config.secretUrl));
+            }
+        };
+
         const performHandshake = async () => {
+            if (handshakeInFlight) {
+                return;
+            }
+
+            handshakeInFlight = true;
             try {
                 const response = await fetch('/api/registry/handshake', {
                     method: 'POST',
@@ -84,17 +108,28 @@ const Registry = () => {
                     const data = await response.json();
                     handleStatus(data);
                 } else {
-                    setError("Handshake failed");
+                    if (isMounted) {
+                        setError("Handshake failed");
+                    }
                 }
             } catch (err) {
                 console.error(err);
-                setError("Connection error");
+                if (isMounted) {
+                    setError("Connection error");
+                }
+            } finally {
+                handshakeInFlight = false;
             }
         };
 
         const checkStatus = async () => {
             try {
                 const response = await fetch(`/api/registry/status/${uuid}`);
+                if (response.status === 404) {
+                    await performHandshake();
+                    return;
+                }
+
                 if (response.ok) {
                     const data = await response.json();
                     handleStatus(data);
@@ -102,29 +137,15 @@ const Registry = () => {
             } catch (err) {
                 console.error(err);
             }
-        }
-
-        const handleStatus = (data: RegistryStatusResponse) => {
-            setStatus(data.status);
-            if (data.status === 'ACTIVE' && data.config) {
-                // Redirect to tablet view with secret
-                // path: tablet/:department/:room/:secretUrl
-                // Assuming config.room is "Building Room"? Or just Room? 
-                // The backend returns what was stored.
-                // If we stored "Room 101" and "Building" isn't separate, we might need adjustments.
-                // For now, assume data.config.room contains proper info or we pass placeholders.
-                // Actually, in DeviceListController we stored "deviceClassroom".
-                // Let's assume deviceClassroom is the Room Number. Building is... ? 
-                // In legacy, "department" and "room" were needed. 
-                // Let's use "WI" as default department for now as seen in Tablet.tsx logic
-                navigate(buildTabletPath(data.config.room, data.config.secretUrl));
-            }
         };
 
-        performHandshake();
+        void performHandshake();
         const pollInterval = setInterval(checkStatus, 5000); // Poll every 5s
 
-        return () => clearInterval(pollInterval);
+        return () => {
+            isMounted = false;
+            clearInterval(pollInterval);
+        };
     }, [uuid, navigate]);
 
     return (
@@ -133,27 +154,42 @@ const Registry = () => {
                 <ThemeToggle />
             </div>
             <header className="registry__header">
-                <h1 className="registry__title">Device Registration</h1>
+                <p className="registry__eyebrow">PlanQR</p>
+                <h1 className="registry__title">Rejestracja tabletu</h1>
+                <p className="registry__subtitle">
+                    Zeskanuj kod QR z telefonu w panelu administratora albo wpisz kod ręcznie,
+                    jeśli aparat nie jest dostępny.
+                </p>
             </header>
 
             <div className="registry__status-card">
                 {status === 'LOADING' && <div className="loading-spinner"></div>}
 
                 {status === 'PENDING' && (
-                    <div style={{ textAlign: 'center' }}>
-                        <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Pairing Code</h2>
-                        <div className="registry__uuid-display pulse">{uuid}</div>
-                        <p className="registry__status-text pulse">Waiting for administrator approval...</p>
-                        <div className="qr-placeholder">
-                            {/* Could generate QR code of UUID for easier admin scanning if mobile app exists */}
-                        </div>
+                    <div className="registry__pairing-panel">
+                        <h2 className="registry__section-title">Kod parowania</h2>
+                        <div className="registry__uuid-display pulse">{formattedUuid}</div>
+                        <p className="registry__status-text pulse">
+                            Czeka na przypisanie sali przez administratora.
+                        </p>
+                        {pairingQrValue ? (
+                            <QRCodeCanvas
+                                className="registry__qr"
+                                value={pairingQrValue}
+                                size={220}
+                                includeMargin={true}
+                                bgColor="#ffffff"
+                                fgColor="#0f172a"
+                                level="M"
+                            />
+                        ) : null}
                     </div>
                 )}
 
                 {status === 'ACTIVE' && (
-                    <div style={{ textAlign: 'center' }}>
-                        <h2>Device Active</h2>
-                        <p>Redirecting to plan view...</p>
+                    <div className="registry__pairing-panel">
+                        <h2 className="registry__section-title">Tablet aktywny</h2>
+                        <p className="registry__status-text">Przekierowanie do widoku planu...</p>
                         <div className="loading-spinner"></div>
                     </div>
                 )}

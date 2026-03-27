@@ -1,33 +1,37 @@
 import type { AdminPanelView } from "./types";
 
 interface NavigationItem {
-  key: AdminPanelView;
+  key: AdminPanelView | "pairing";
   label: string;
   icon: string;
+  active?: boolean;
 }
 
 interface AdminPanelSidebarProps {
-  activeView: AdminPanelView;
   navigationItems: NavigationItem[];
-  onViewChange: (view: AdminPanelView) => void;
+  onItemSelect: (key: AdminPanelView | "pairing") => void;
+  className?: string;
 }
 
 const AdminPanelSidebar = ({
-  activeView,
   navigationItems,
-  onViewChange,
+  onItemSelect,
+  className,
 }: AdminPanelSidebarProps) => (
-  <nav className="admin-nav" aria-label="Widoki panelu administracyjnego">
+  <nav
+    className={["admin-nav", className].filter(Boolean).join(" ")}
+    aria-label="Widoki panelu administracyjnego"
+  >
     <ul className="admin-nav__list">
       {navigationItems.map((item) => (
         <li key={item.key} className="admin-nav__item">
           <button
             type="button"
             className={`admin-nav__button${
-              item.key === activeView ? " admin-nav__button--active" : ""
+              item.active ? " admin-nav__button--active" : ""
             }`}
-            onClick={() => onViewChange(item.key)}
-            aria-current={item.key === activeView ? "page" : undefined}
+            onClick={() => onItemSelect(item.key)}
+            aria-current={item.active ? "page" : undefined}
           >
             <i className={item.icon} aria-hidden="true" />
             <span>{item.label}</span>

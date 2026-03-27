@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import logo from "../../../assets/ZUT_Logo.png";
 import { fetchSession, logout, type SessionInfo } from "../../services/authService";
 import "./AdminRegistry.css";
+import AdminPairingScanner from "./adminPanel/AdminPairingScanner";
 import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
 import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
 import AdminsView from "./adminPanel/AdminsView";
@@ -14,6 +15,7 @@ import {
   adminViewMeta,
   defaultAdminPanelTheme,
   defaultNightModeSettings,
+  formatPairingDeviceId,
   hasDeviceDisplayProfile,
   matchesDeviceSearch,
   normalizeRoomValue,
@@ -34,6 +36,17 @@ import type {
 
 const ADMIN_THEME_STORAGE_KEY = "admin-theme";
 const TOAST_DURATION_MS = 5000;
+const ADMIN_SCROLL_ROOT_CLASS = "admin-console-scroll-root";
+const MOBILE_BREAKPOINT_PX = 720;
+
+type AdminNavigationKey = AdminPanelView | "pairing";
+
+interface NavigationItem {
+  key: AdminNavigationKey;
+  label: string;
+  icon: string;
+  active: boolean;
+}
 
 interface AdminToast {
   id: number;
@@ -104,6 +117,11 @@ const AdminRegistry = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
   const [toasts, setToasts] = useState<AdminToast[]>([]);
+  const [isPairingScannerOpen, setPairingScannerOpen] = useState(false);
+  const [isMobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  const [pairingReturnMode, setPairingReturnMode] =
+    useState<"none" | "after-save">("none");
 
   const roomSearchAbortRef = useRef<AbortController | null>(null);
   const roomSearchRequestIdRef = useRef(0);
@@ -135,6 +153,16 @@ const AdminRegistry = () => {
   }, [adminTheme]);
 
   useEffect(() => {
+    document.documentElement.classList.add(ADMIN_SCROLL_ROOT_CLASS);
+    document.body.classList.add(ADMIN_SCROLL_ROOT_CLASS);
+
+    return () => {
+      document.documentElement.classList.remove(ADMIN_SCROLL_ROOT_CLASS);
+      document.body.classList.remove(ADMIN_SCROLL_ROOT_CLASS);
+    };
+  }, []);
+
+  useEffect(() => {
     if (drawerDeviceId !== null && !drawerDevice) {
       setDrawerMode(null);
       setDrawerDeviceId(null);
@@ -146,6 +174,34 @@ const AdminRegistry = () => {
       setPreviewModal(null);
     }
   }, [previewDevice, previewModal]);
+
+  useEffect(() => {
+    if (!isMobileNavOpen && !isMobileSettingsOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileNavOpen(false);
+        setMobileSettingsOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isMobileNavOpen, isMobileSettingsOpen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > MOBILE_BREAKPOINT_PX) {
+        setMobileNavOpen(false);
+        setMobileSettingsOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const query = sanitizeRoomValue(formClassroom);
@@ -258,8 +314,28 @@ const AdminRegistry = () => {
     setFormClassroom("");
   };
 
+  const handleDrawerClose = () => {
+    setPairingReturnMode("none");
+    closeDrawer();
+  };
+
   const closePreviewModal = () => {
     setPreviewModal(null);
+  };
+
+  const closeMobilePanels = () => {
+    setMobileNavOpen(false);
+    setMobileSettingsOpen(false);
+  };
+
+  const toggleMobileNav = () => {
+    setMobileSettingsOpen(false);
+    setMobileNavOpen((current) => !current);
+  };
+
+  const toggleMobileSettings = () => {
+    setMobileNavOpen(false);
+    setMobileSettingsOpen((current) => !current);
   };
 
   const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
@@ -331,7 +407,9 @@ const AdminRegistry = () => {
           if (newPendingDevices.length > 0) {
             const message =
               newPendingDevices.length === 1
-                ? `Nowy tablet czeka na sparowanie: ${newPendingDevices[0].deviceId}.`
+                ? `Nowy tablet czeka na sparowanie: ${formatPairingDeviceId(
+                    newPendingDevices[0].deviceId,
+                  )}.`
                 : `${newPendingDevices.length} nowe tablety czekają na sparowanie.`;
             pushToast(message, "warning", 7000);
           }
@@ -340,9 +418,11 @@ const AdminRegistry = () => {
         pendingDeviceIdsRef.current = nextPendingIds;
         hasFetchedDevicesRef.current = true;
         setDevices(data);
+        return data;
       }
     } catch (error) {
       console.error("Error fetching devices:", error);
+      return null;
     } finally {
       if (!silent) {
         setLoading(false);
@@ -352,6 +432,8 @@ const AdminRegistry = () => {
         setManualRefreshing(false);
       }
     }
+
+    return null;
   };
 
   const openDevicePreview = async (
@@ -625,6 +707,7 @@ const AdminRegistry = () => {
 
   const handleLogout = async () => {
     try {
+      closeMobilePanels();
       await logout();
       navigate("/");
     } catch (error) {
@@ -738,6 +821,36 @@ const AdminRegistry = () => {
     setSelectedSuggestion(currentRoom || null);
   };
 
+  const openPairingScanner = () => {
+    closeMobilePanels();
+    closePreviewModal();
+    closeDrawer();
+    setPairingReturnMode("none");
+    setPairingScannerOpen(true);
+  };
+
+  const handlePairingLookup = async (deviceId: string) => {
+    const exactMatch =
+      devices.find((device) => device.deviceId === deviceId) ??
+      (await fetchDevices({ silent: true }))?.find((device) => device.deviceId === deviceId) ??
+      null;
+
+    if (!exactMatch) {
+      return {
+        ok: false as const,
+        message: `Nie znaleziono tabletu ${formatPairingDeviceId(
+          deviceId,
+        )}. Odśwież /registry i spróbuj ponownie.`,
+      };
+    }
+
+    setPairingScannerOpen(false);
+    setPairingReturnMode("after-save");
+    openDeviceEditor(exactMatch);
+
+    return { ok: true as const };
+  };
+
   const handlePreviewRetry = () => {
     if (!previewDevice) {
       return;
@@ -814,13 +927,16 @@ const AdminRegistry = () => {
     }
 
     try {
-      const deviceLabel = device.deviceClassroom || device.deviceName || device.deviceId;
+      const deviceLabel =
+        device.deviceClassroom || device.deviceName || formatPairingDeviceId(device.deviceId);
       const result = await updateDeviceRoomAssignment(device.id, sanitizedRoom);
       if (!result.ok) {
         setRoomError(result.message);
         return;
       }
 
+      const shouldReturnToScanner = pairingReturnMode === "after-save";
+      setPairingReturnMode("none");
       closeDrawer();
       pushToast(
         device.status === "PENDING"
@@ -829,6 +945,10 @@ const AdminRegistry = () => {
         "success",
       );
       await fetchDevices();
+
+      if (shouldReturnToScanner) {
+        setPairingScannerOpen(true);
+      }
     } catch (error) {
       console.error("Error registering device", error);
       setRoomError("Nie udało się zapisać zmian.");
@@ -848,7 +968,10 @@ const AdminRegistry = () => {
     }
 
     try {
-      const deviceLabel = device.deviceClassroom || device.deviceName || device.deviceId;
+      const deviceLabel =
+        device.deviceClassroom || device.deviceName || formatPairingDeviceId(device.deviceId);
+      const shouldReturnToScanner =
+        pairingReturnMode === "after-save" && drawerDeviceId === device.id;
       const response = await fetch(`/api/devices/${device.id}`, { method: "DELETE" });
       if (!response.ok) {
         pushToast("Nie udało się usunąć urządzenia.", "danger");
@@ -861,8 +984,17 @@ const AdminRegistry = () => {
       if (previewModal?.deviceId === device.id) {
         closePreviewModal();
       }
+
+      if (shouldReturnToScanner) {
+        setPairingReturnMode("none");
+      }
+
       pushToast(`Usunięto tablet ${deviceLabel}.`, "success");
       await fetchDevices();
+
+      if (shouldReturnToScanner) {
+        setPairingScannerOpen(true);
+      }
     } catch (error) {
       console.error("Error deleting device:", error);
       pushToast("Wystąpił błąd podczas usuwania urządzenia.", "danger");
@@ -947,8 +1079,11 @@ const AdminRegistry = () => {
   };
 
   const handleViewChange = (view: AdminPanelView) => {
+    closeMobilePanels();
     closeDrawer();
     closePreviewModal();
+    setPairingScannerOpen(false);
+    setPairingReturnMode("none");
 
     if (view === "devices") {
       setSearchParams({});
@@ -974,11 +1109,31 @@ const AdminRegistry = () => {
     (device) => device.connectionStatus === "OFFLINE",
   ).length;
 
-  const navigationItems = (Object.keys(adminViewMeta) as AdminPanelView[]).map((key) => ({
-    key,
-    label: adminViewMeta[key].label,
-    icon: adminViewMeta[key].icon,
-  }));
+  const navigationItems: NavigationItem[] = [
+    ...(Object.keys(adminViewMeta) as AdminPanelView[]).map((key) => ({
+      key,
+      label: adminViewMeta[key].label,
+      icon: adminViewMeta[key].icon,
+      active: currentView === key,
+    })),
+    {
+      key: "pairing",
+      label: "Tryb parowania",
+      icon: "fas fa-camera",
+      active: false,
+    },
+  ];
+
+  const handleNavigationSelect = (key: AdminNavigationKey) => {
+    closeMobilePanels();
+
+    if (key === "pairing") {
+      openPairingScanner();
+      return;
+    }
+
+    handleViewChange(key);
+  };
 
   useEffect(() => {
     const visibleIds = new Set(activeDevices.map((device) => device.id));
@@ -988,9 +1143,23 @@ const AdminRegistry = () => {
     });
   }, [activeDevices]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [currentView]);
+
   return (
     <div className="admin-console" data-admin-theme={adminTheme}>
       <header className="admin-console__appbar">
+        <button
+          type="button"
+          className="admin-icon-button admin-console__mobile-trigger"
+          onClick={toggleMobileNav}
+          aria-label="Otwórz sekcje panelu"
+          aria-expanded={isMobileNavOpen}
+        >
+          <i className="fas fa-bars" aria-hidden="true" />
+        </button>
+
         <div className="admin-console__brand">
           <img className="admin-console__brand-logo" src={logo} alt="ZUT" />
           <div className="admin-console__brand-copy">
@@ -1000,6 +1169,8 @@ const AdminRegistry = () => {
             ) : null}
           </div>
         </div>
+
+        <strong className="admin-console__mobile-title">PlanQR Admin</strong>
 
         <div className="admin-console__appbar-actions">
           <AdminPanelThemeToggle theme={adminTheme} onChange={setAdminTheme} />
@@ -1014,13 +1185,23 @@ const AdminRegistry = () => {
             Wyloguj
           </button>
         </div>
+
+        <button
+          type="button"
+          className="admin-icon-button admin-console__mobile-trigger"
+          onClick={toggleMobileSettings}
+          aria-label="Otwórz ustawienia panelu"
+          aria-expanded={isMobileSettingsOpen}
+        >
+          <i className="fas fa-cog" aria-hidden="true" />
+        </button>
       </header>
 
       <div className="admin-console__body">
         <AdminPanelSidebar
-          activeView={currentView}
+          className="admin-nav--desktop"
           navigationItems={navigationItems}
-          onViewChange={handleViewChange}
+          onItemSelect={handleNavigationSelect}
         />
 
         <main className="admin-console__main">
@@ -1095,6 +1276,88 @@ const AdminRegistry = () => {
         </main>
       </div>
 
+      {isMobileNavOpen ? (
+        <div
+          className="admin-mobile-panel__overlay admin-mobile-panel__overlay--nav"
+          onClick={closeMobilePanels}
+        >
+          <aside
+            className="admin-mobile-panel admin-mobile-panel--nav"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="admin-mobile-panel__header">
+              <h2 className="admin-mobile-panel__title">Sekcje</h2>
+              <button
+                type="button"
+                className="admin-icon-button"
+                onClick={closeMobilePanels}
+                aria-label="Zamknij sekcje"
+              >
+                <i className="fas fa-times" aria-hidden="true" />
+              </button>
+            </header>
+            <div className="admin-mobile-panel__body">
+              <AdminPanelSidebar
+                className="admin-nav--mobile"
+                navigationItems={navigationItems}
+                onItemSelect={handleNavigationSelect}
+              />
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
+      {isMobileSettingsOpen ? (
+        <div
+          className="admin-mobile-panel__overlay admin-mobile-panel__overlay--settings"
+          onClick={closeMobilePanels}
+        >
+          <aside
+            className="admin-mobile-panel admin-mobile-panel--settings"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="admin-mobile-panel__header">
+              <h2 className="admin-mobile-panel__title">Ustawienia</h2>
+              <button
+                type="button"
+                className="admin-icon-button"
+                onClick={closeMobilePanels}
+                aria-label="Zamknij ustawienia"
+              >
+                <i className="fas fa-times" aria-hidden="true" />
+              </button>
+            </header>
+            <div className="admin-mobile-panel__body">
+              {session?.login ? (
+                <div className="admin-mobile-panel__user">
+                  <span>Zalogowany</span>
+                  <strong>{session.login}</strong>
+                </div>
+              ) : null}
+
+              <AdminPanelThemeToggle theme={adminTheme} onChange={setAdminTheme} />
+
+              <div className="admin-mobile-panel__actions">
+                <a
+                  className="admin-button admin-button--ghost"
+                  href="/"
+                  onClick={closeMobilePanels}
+                >
+                  Powrót
+                </a>
+                <button
+                  type="button"
+                  className="admin-button admin-button--ghost"
+                  onClick={handleLogout}
+                >
+                  Wyloguj
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
       {drawerMode && drawerDevice ? (
         <DeviceDrawer
           mode={drawerMode}
@@ -1104,7 +1367,7 @@ const AdminRegistry = () => {
           suggestions={suggestions}
           showSuggestions={showSuggestions}
           isSearching={isSearching}
-          onClose={closeDrawer}
+          onClose={handleDrawerClose}
           onStartEdit={() => openDeviceEditor(drawerDevice)}
           onPreview={() => {
             void openDevicePreview(drawerDevice);
@@ -1124,6 +1387,16 @@ const AdminRegistry = () => {
           }}
           onSave={handleRegister}
           onDelete={() => void handleDeleteDevice(drawerDevice)}
+        />
+      ) : null}
+
+      {isPairingScannerOpen ? (
+        <AdminPairingScanner
+          onClose={() => {
+            setPairingScannerOpen(false);
+            setPairingReturnMode("none");
+          }}
+          onPair={handlePairingLookup}
         />
       ) : null}
 
