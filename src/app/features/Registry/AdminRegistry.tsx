@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logo from "../../../assets/ZUT_Logo.png";
 import { fetchSession, logout, type SessionInfo } from "../../services/authService";
@@ -38,6 +38,8 @@ const ADMIN_THEME_STORAGE_KEY = "admin-theme";
 const TOAST_DURATION_MS = 5000;
 const ADMIN_SCROLL_ROOT_CLASS = "admin-console-scroll-root";
 const MOBILE_BREAKPOINT_PX = 720;
+const SCROLL_TOP_VISIBILITY_THRESHOLD_PX = 160;
+const SCROLL_TOP_TOAST_GAP_PX = 12;
 
 type AdminNavigationKey = AdminPanelView | "pairing";
 
@@ -122,6 +124,8 @@ const AdminRegistry = () => {
   const [isMobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [pairingReturnMode, setPairingReturnMode] =
     useState<"none" | "after-save">("none");
+  const [isScrollTopVisible, setScrollTopVisible] = useState(false);
+  const [toastStackOffset, setToastStackOffset] = useState(0);
 
   const roomSearchAbortRef = useRef<AbortController | null>(null);
   const roomSearchRequestIdRef = useRef(0);
@@ -131,6 +135,7 @@ const AdminRegistry = () => {
   const hasFetchedDevicesRef = useRef(false);
   const toastIdRef = useRef(0);
   const toastTimeoutRef = useRef(new Map<number, number>());
+  const toastStackRef = useRef<HTMLDivElement | null>(null);
 
   const drawerDevice = useMemo(
     () =>
@@ -1147,6 +1152,58 @@ const AdminRegistry = () => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [currentView]);
 
+  useEffect(() => {
+    const syncScrollTopVisibility = () => {
+      setScrollTopVisible(window.scrollY > SCROLL_TOP_VISIBILITY_THRESHOLD_PX);
+    };
+
+    syncScrollTopVisibility();
+    window.addEventListener("scroll", syncScrollTopVisibility, { passive: true });
+
+    return () => window.removeEventListener("scroll", syncScrollTopVisibility);
+  }, []);
+
+  useEffect(() => {
+    const toastStackNode = toastStackRef.current;
+
+    if (!toastStackNode) {
+      setToastStackOffset(0);
+      return;
+    }
+
+    const syncToastStackOffset = () => {
+      const nextHeight = Math.ceil(toastStackNode.getBoundingClientRect().height);
+      setToastStackOffset(nextHeight > 0 ? nextHeight + SCROLL_TOP_TOAST_GAP_PX : 0);
+    };
+
+    syncToastStackOffset();
+
+    const resizeListener = () => syncToastStackOffset();
+    window.addEventListener("resize", resizeListener);
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => {
+        window.removeEventListener("resize", resizeListener);
+      };
+    }
+
+    const observer = new ResizeObserver(() => {
+      syncToastStackOffset();
+    });
+
+    observer.observe(toastStackNode);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", resizeListener);
+    };
+  }, [toasts.length]);
+
+  const scrollTopButtonStyle: CSSProperties = {
+    ["--admin-scroll-top-toast-offset" as const]:
+      `${toastStackOffset}px`,
+  };
+
   return (
     <div className="admin-console" data-admin-theme={adminTheme}>
       <header className="admin-console__appbar">
@@ -1410,8 +1467,25 @@ const AdminRegistry = () => {
         />
       ) : null}
 
+      <button
+        type="button"
+        className={`admin-scroll-top-button ${
+          isScrollTopVisible ? "admin-scroll-top-button--visible" : ""
+        }`}
+        style={scrollTopButtonStyle}
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Przewiń na górę strony"
+      >
+        <i className="fas fa-arrow-up" aria-hidden="true" />
+      </button>
+
       {toasts.length > 0 ? (
-        <div className="admin-toast-stack" aria-live="polite" aria-atomic="false">
+        <div
+          ref={toastStackRef}
+          className="admin-toast-stack"
+          aria-live="polite"
+          aria-atomic="false"
+        >
           {toasts.map((toast) => (
             <div key={toast.id} className={`admin-toast admin-toast--${toast.tone}`}>
               <p className="admin-toast__message">{toast.message}</p>

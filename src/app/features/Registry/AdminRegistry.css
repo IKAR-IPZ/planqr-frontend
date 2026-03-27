@@ -30,6 +30,7 @@ body.admin-console-scroll-root #root {
   --admin-danger-soft: rgba(180, 35, 24, 0.12);
   --admin-neutral-soft: rgba(32, 64, 144, 0.06);
   --admin-overlay: rgba(15, 23, 34, 0.36);
+  --admin-scroll-top-base-offset: 1.25rem;
   min-height: 100dvh;
   background: var(--admin-bg);
   color: var(--admin-text);
@@ -188,8 +189,9 @@ body.admin-console-scroll-root #root {
   gap: 0.75rem;
 }
 
-.admin-console__mobile-trigger,
+.admin-console__appbar .admin-console__mobile-trigger,
 .admin-console__mobile-title {
+  /* Keep these hidden on desktop even though .admin-icon-button sets display. */
   display: none;
 }
 
@@ -506,6 +508,48 @@ body.admin-console-scroll-root #root {
 .admin-button--danger:hover,
 .admin-button--danger:focus-visible {
   border-color: rgba(180, 35, 24, 0.36);
+}
+
+.admin-scroll-top-button {
+  position: fixed;
+  right: 1.25rem;
+  bottom: calc(
+    var(--admin-scroll-top-base-offset) + var(--admin-scroll-top-toast-offset, 0px)
+  );
+  z-index: 34;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-accent);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 0.75rem, 0) scale(0.96);
+  transition: opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease;
+  touch-action: manipulation;
+}
+
+.admin-scroll-top-button:hover,
+.admin-scroll-top-button:focus-visible {
+  background: var(--admin-accent-strong);
+  outline: none;
+}
+
+.admin-scroll-top-button--visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.admin-scroll-top-button > i {
+  line-height: 1;
 }
 
 .admin-inline-message,
@@ -2062,7 +2106,9 @@ body.admin-console-scroll-root #root {
     border: 0;
     background: transparent;
     overflow-x: auto;
-    overflow-y: visible;
+    /* Keep horizontal swipe, but don't create a vertical scroll container on mobile. */
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
     height: auto;
     max-height: none;
     min-height: 0;
@@ -2297,6 +2343,14 @@ body.admin-console-scroll-root #root {
 }
 
 @media (max-width: 720px) {
+  .admin-console {
+    --admin-scroll-top-base-offset: 0.85rem;
+  }
+
+  .admin-scroll-top-button {
+    right: 0.85rem;
+  }
+
   html.admin-console-scroll-root,
   body.admin-console-scroll-root,
   body.admin-console-scroll-root #root {
@@ -2327,7 +2381,7 @@ body.admin-console-scroll-root #root {
     display: none;
   }
 
-  .admin-console__mobile-trigger {
+  .admin-console__appbar .admin-console__mobile-trigger {
     display: inline-flex;
   }
 
@@ -2388,7 +2442,8 @@ body.admin-console-scroll-root #root {
     border: 0;
     background: transparent;
     overflow-x: auto;
-    overflow-y: visible;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
     height: auto;
     max-height: none;
   }
