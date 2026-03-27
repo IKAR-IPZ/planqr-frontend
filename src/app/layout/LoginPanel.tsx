@@ -4,6 +4,39 @@ import logo from "../../assets/ZUT_Logo.png";
 import ThemeToggle from "./ThemeToggle";
 import { fetchSession, getPreferredRoute } from "../services/authService";
 
+type LoginErrorPayload = {
+  code?: string;
+  message?: string;
+};
+
+const getLoginErrorMessage = (status: number, data: LoginErrorPayload | null) => {
+  switch (data?.code) {
+    case "INVALID_CREDENTIALS":
+      return "Nieprawidłowy login lub hasło.";
+    case "LDAP_TIMEOUT":
+      return "Serwer LDAP nie odpowiedział na czas. Spróbuj ponownie za chwilę.";
+    case "LDAP_UNAVAILABLE":
+      return "Serwer LDAP jest obecnie niedostępny. Spróbuj ponownie za chwilę.";
+    case "AUTH_ERROR":
+      return "Wystąpił błąd podczas logowania. Spróbuj ponownie.";
+    default:
+      break;
+  }
+
+  if (status === 401) {
+    return "Nieprawidłowy login lub hasło.";
+  }
+
+  if (status === 403) {
+    return data?.message || "To konto nie ma dostępu do PlanQR.";
+  }
+
+  if (typeof data?.message === "string" && data.message.trim()) {
+    return data.message;
+  }
+
+  return "Wystąpił błąd podczas logowania. Spróbuj ponownie.";
+};
 
 export default function LoginPanel() {
   const [login, setLogin] = useState("");
@@ -102,13 +135,14 @@ export default function LoginPanel() {
       }
 
       if (response.status === 403) {
-        setErrorMessage(data?.message || "To konto nie ma dostepu do PlanQR.");
-      } else {
-        setErrorMessage(data?.message || "Nieprawidlowy login lub haslo.");
+        setErrorMessage(getLoginErrorMessage(response.status, data));
+        return;
       }
+
+      setErrorMessage(getLoginErrorMessage(response.status, data));
     } catch (error) {
       console.error("Error during login:", error);
-      setErrorMessage("Wystapil blad podczas logowania. Sprobuj ponownie.");
+      setErrorMessage("Wystąpił błąd podczas logowania. Spróbuj ponownie.");
     }
   };
 
