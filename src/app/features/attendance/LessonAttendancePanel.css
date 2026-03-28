@@ -1,0 +1,232 @@
+.attendance-page {
+  min-height: 100dvh;
+  padding: 1.5rem;
+}
+
+.attendance-page__shell {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.attendance-page__back {
+  justify-self: flex-start;
+  min-height: 36px;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.lesson-attendance {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.lesson-attendance--empty {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+}
+
+.lesson-attendance--page {
+  min-height: min(860px, calc(100dvh - 9rem));
+  border: 1px solid var(--admin-border);
+  border-radius: calc(var(--admin-radius) + 4px);
+  overflow: hidden;
+}
+
+.lesson-attendance__empty {
+  max-width: 22rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.lesson-attendance__empty h2,
+.lesson-attendance__header strong {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.15;
+  color: var(--admin-text);
+}
+
+.lesson-attendance__empty p {
+  margin: 0.35rem 0 0;
+  color: var(--admin-text-muted);
+  font-size: 0.84rem;
+}
+
+.lesson-attendance__header,
+.lesson-attendance__composer,
+.lesson-attendance__footer {
+  padding-inline: 1rem;
+}
+
+.lesson-attendance__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.lesson-attendance__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.lesson-attendance__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 34px;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--admin-accent) 22%, var(--admin-border));
+  border-radius: calc(var(--admin-radius) + 4px);
+  background: var(--admin-accent-soft);
+}
+
+.lesson-attendance__status strong {
+  color: var(--admin-accent);
+}
+
+.lesson-attendance__composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.lesson-attendance__composer input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+}
+
+.lesson-attendance__composer input:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-soft);
+}
+
+.lesson-attendance__list-shell {
+  min-height: 0;
+  overflow: auto;
+  padding: 0 1rem;
+}
+
+.lesson-attendance__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lesson-attendance__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 54px;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.lesson-attendance__line-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  color: var(--admin-text);
+}
+
+.lesson-attendance__separator,
+.lesson-attendance__source {
+  color: var(--admin-text-muted);
+}
+
+.lesson-attendance__source {
+  font-size: 0.78rem;
+  text-transform: lowercase;
+}
+
+.lesson-attendance__empty-inline {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 0;
+  color: var(--admin-text-muted);
+}
+
+.lesson-attendance__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.lesson-attendance__footer-note {
+  min-height: 1rem;
+  color: var(--admin-text-muted);
+  font-size: 0.78rem;
+}
+
+.lesson-attendance__footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+@media (max-width: 1080px) {
+  .lesson-attendance__header,
+  .lesson-attendance__composer,
+  .lesson-attendance__footer,
+  .lesson-attendance__footer-actions,
+  .lesson-attendance__line {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lesson-attendance__composer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .attendance-page {
+    padding: 0.75rem;
+  }
+
+  .lesson-attendance__header,
+  .lesson-attendance__composer,
+  .lesson-attendance__list-shell,
+  .lesson-attendance__footer {
+    padding-inline: 0.75rem;
+  }
+}

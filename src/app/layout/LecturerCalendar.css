@@ -1,0 +1,632 @@
+html.lecturer-console-scroll-root,
+body.lecturer-console-scroll-root,
+body.lecturer-console-scroll-root #root {
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+body.lecturer-console-scroll-root {
+  overflow-x: hidden;
+  overflow-y: hidden;
+  background-attachment: fixed;
+}
+
+.lecturer-console {
+  --lecturer-panel-width: 23rem;
+  --lecturer-attendance-width: 22rem;
+  min-height: 100dvh;
+  background: var(--admin-bg);
+}
+
+.lecturer-console[data-workspace-mode="triple-docked"] {
+  --lecturer-panel-width: clamp(21rem, 21vw, 24rem);
+  --lecturer-attendance-width: clamp(21rem, 20vw, 23rem);
+}
+
+.lecturer-console[data-workspace-mode="double-docked"] {
+  --lecturer-panel-width: clamp(22rem, 28vw, 25rem);
+  --lecturer-attendance-width: clamp(21rem, 30vw, 24rem);
+}
+
+.lecturer-console[data-workspace-mode="drawer"],
+.lecturer-console[data-workspace-mode="fullscreen-drawer"] {
+  --lecturer-panel-width: clamp(21rem, 36vw, 25rem);
+  --lecturer-attendance-width: clamp(21rem, 38vw, 24rem);
+}
+
+.lecturer-console__appbar {
+  box-shadow: none;
+}
+
+.lecturer-console__appbar-actions {
+  gap: 0.5rem;
+}
+
+.lecturer-console__shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+.lecturer-console__workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.lecturer-console__dock {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.lecturer-console__calendar-shell,
+.lecturer-console__panel-shell,
+.lecturer-console__drawer,
+.lecturer-console__floating-panel {
+  border: 1px solid var(--admin-border);
+  border-radius: calc(var(--admin-radius) + 4px);
+  background: var(--admin-surface);
+  box-shadow: none;
+}
+
+.lecturer-console__calendar-shell {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.lecturer-console__surface-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.lecturer-console__surface-title {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.lecturer-console__surface-title h1 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.15;
+  color: var(--admin-text);
+}
+
+.lecturer-console__surface-title span {
+  color: var(--admin-text-muted);
+  font-size: 0.84rem;
+}
+
+.lecturer-console__surface-actions,
+.lecturer-console__calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lecturer-console__surface-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.lecturer-console__view-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  overflow: hidden;
+  background: var(--admin-surface);
+}
+
+.lecturer-console__view-button {
+  min-height: 32px;
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-right: 1px solid var(--admin-border);
+  background: transparent;
+  color: var(--admin-text-muted);
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.lecturer-console__view-button:last-child {
+  border-right: 0;
+}
+
+.lecturer-console__view-button--active {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.lecturer-console__calendar-frame {
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.lecturer-console__calendar-frame .fc {
+  height: 100%;
+  width: 100%;
+}
+
+.lecturer-console__calendar-frame .fc-view-harness {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  margin: 0;
+}
+
+.lecturer-console__calendar-frame .fc-theme-standard,
+.lecturer-console__calendar-frame .fc-theme-standard .fc-scrollgrid {
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: transparent;
+  --fc-border-color: var(--admin-border);
+  --fc-now-indicator-color: #b42318;
+  --fc-today-bg-color: rgba(32, 64, 144, 0.08);
+  --fc-event-border-color: transparent;
+}
+
+.lecturer-console__calendar-frame .fc .fc-scrollgrid,
+.lecturer-console__calendar-frame .fc .fc-daygrid-body,
+.lecturer-console__calendar-frame .fc .fc-daygrid-day-frame,
+.lecturer-console__calendar-frame .fc .fc-timegrid-col,
+.lecturer-console__calendar-frame .fc .fc-timegrid-slot,
+.lecturer-console__calendar-frame .fc .fc-timegrid-axis,
+.lecturer-console__calendar-frame .fc .fc-col-header-cell {
+  background: transparent;
+}
+
+.lecturer-console__calendar-frame .fc .fc-col-header-cell-cushion,
+.lecturer-console__calendar-frame .fc .fc-timegrid-axis-cushion {
+  padding: 0.7rem 0.4rem;
+  color: var(--admin-text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.lecturer-console__calendar-frame .fc .fc-timegrid-slot-label-cushion {
+  padding-inline: 0.5rem;
+  color: var(--admin-text-soft);
+  font-size: 0.76rem;
+}
+
+.lecturer-console__calendar-frame .fc .fc-daygrid-day.fc-day-today,
+.lecturer-console__calendar-frame .fc .fc-timegrid-col.fc-day-today {
+  background: rgba(32, 64, 144, 0.08);
+}
+
+.lecturer-console__calendar-frame .fc .fc-col-header-cell.fc-day-today {
+  background: rgba(32, 64, 144, 0.12);
+}
+
+.lecturer-console__calendar-frame .fc .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
+  color: var(--admin-accent);
+  font-weight: 700;
+}
+
+.lecturer-console__calendar-frame .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number,
+.lecturer-console__calendar-frame .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-top {
+  color: var(--admin-accent);
+}
+
+.lecturer-console__calendar-frame .fc-event {
+  border-radius: calc(var(--admin-radius) + 3px);
+  box-shadow: none;
+}
+
+.lecturer-console__calendar-frame .lecturer-console__calendar-event--selected {
+  outline: 2px solid color-mix(in srgb, var(--admin-accent) 76%, white);
+  outline-offset: 1px;
+}
+
+.lecturer-console__event {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.lecturer-console__event-time {
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.88;
+}
+
+.lecturer-console__event-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.lecturer-console__event-room {
+  font-size: 0.7rem;
+  opacity: 0.84;
+}
+
+.lecturer-console__panel-shell {
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(10px);
+  transition:
+    width 200ms ease,
+    opacity 180ms ease,
+    transform 200ms ease;
+}
+
+.lecturer-console__panel-shell--open {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.lecturer-console__panel-shell--details.lecturer-console__panel-shell--open {
+  width: var(--lecturer-panel-width);
+}
+
+.lecturer-console__panel-shell--attendance.lecturer-console__panel-shell--open {
+  width: var(--lecturer-attendance-width);
+}
+
+.lecturer-console__panel {
+  height: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.lecturer-console__panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.lecturer-console__panel-header-copy {
+  min-width: 0;
+}
+
+.lecturer-console__panel-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--admin-text);
+}
+
+.lecturer-console__panel-header p {
+  margin: 0.25rem 0 0;
+  color: var(--admin-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.lecturer-console__panel-meta {
+  margin-top: 0.35rem;
+  color: var(--admin-text-soft);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.lecturer-console__panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.lecturer-console__panel-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.lecturer-console__panel-state--accent {
+  background: var(--admin-accent-soft);
+  border-color: color-mix(in srgb, var(--admin-accent) 20%, var(--admin-border));
+  color: var(--admin-accent);
+}
+
+.lecturer-console__panel-state--warning {
+  background: var(--admin-warning-soft);
+  border-color: rgba(181, 71, 8, 0.28);
+  color: var(--admin-warning);
+}
+
+.lecturer-console__panel-state--neutral {
+  background: var(--admin-neutral-soft);
+  border-color: var(--admin-border);
+  color: var(--admin-text-muted);
+}
+
+.lecturer-console__panel-strip,
+.lecturer-console__panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+}
+
+.lecturer-console__panel-strip {
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.lecturer-console__panel-footer {
+  border-top: 1px solid var(--admin-border);
+}
+
+.lecturer-console__room-inline,
+.lecturer-console__muted-copy {
+  min-width: 0;
+  color: var(--admin-text-muted);
+  font-size: 0.84rem;
+}
+
+.lecturer-console__room-editor,
+.lecturer-console__row-actions,
+.lecturer-console__composer,
+.lecturer-console__message-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.lecturer-console__room-editor {
+  width: 100%;
+}
+
+.lecturer-console__inline-input,
+.lecturer-console__message-editor,
+.lecturer-console__composer-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+}
+
+.lecturer-console__message-editor,
+.lecturer-console__composer-input {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.lecturer-console__inline-input:focus,
+.lecturer-console__message-editor:focus,
+.lecturer-console__composer-input:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-soft);
+}
+
+.lecturer-console__panel-section {
+  min-height: 0;
+  padding: 0 1rem;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.lecturer-console__messages {
+  min-height: 0;
+  overflow: auto;
+}
+
+.lecturer-console__messages-empty {
+  min-height: 7rem;
+  display: grid;
+  place-items: center;
+  color: var(--admin-text-muted);
+  font-size: 0.84rem;
+}
+
+.lecturer-console__message {
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--admin-border);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lecturer-console__message:last-child {
+  border-bottom: 0;
+}
+
+.lecturer-console__message--room-change .lecturer-console__message-text {
+  color: var(--admin-warning);
+  font-weight: 600;
+}
+
+.lecturer-console__message-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  align-items: flex-start;
+  color: var(--admin-text-muted);
+  font-size: 0.76rem;
+}
+
+.lecturer-console__message-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lecturer-console__message-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.3rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-accent) 10%, transparent);
+  color: var(--admin-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.lecturer-console__message-text {
+  margin: 0;
+  color: var(--admin-text);
+  line-height: 1.45;
+}
+
+.lecturer-console__composer {
+  padding: 0.85rem 0 0.95rem;
+  border-top: 1px solid var(--admin-border);
+}
+
+.lecturer-console__composer .admin-button {
+  flex-shrink: 0;
+}
+
+.lecturer-console__loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--admin-text-muted);
+}
+
+.lecturer-console__backdrop {
+  position: fixed;
+  top: var(--admin-appbar-height);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 55;
+  border: 0;
+  padding: 0;
+  background: var(--admin-overlay);
+}
+
+.lecturer-console__drawer,
+.lecturer-console__floating-panel {
+  position: fixed;
+  top: calc(var(--admin-appbar-height) + 0.65rem);
+  bottom: 0.75rem;
+  z-index: 60;
+  overflow: hidden;
+}
+
+.lecturer-console__drawer--details,
+.lecturer-console__floating-panel {
+  right: 0.75rem;
+  width: var(--lecturer-panel-width);
+}
+
+.lecturer-console__drawer--details-stacked {
+  right: calc(var(--lecturer-attendance-width) + 1.5rem);
+}
+
+.lecturer-console__drawer--attendance,
+.lecturer-console__floating-panel {
+  width: var(--lecturer-attendance-width);
+  z-index: 61;
+}
+
+.lecturer-console__drawer--attendance {
+  right: 0.75rem;
+}
+
+.lecturer-console__drawer--fullscreen {
+  top: calc(var(--admin-appbar-height) + 0.5rem);
+  right: 0.5rem;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  width: auto;
+}
+
+.lecturer-console__toast-stack {
+  position: fixed;
+  top: calc(var(--admin-appbar-height) + 0.85rem);
+  right: 0.75rem;
+  z-index: 80;
+  width: min(340px, calc(100vw - 1.5rem));
+}
+
+.lecturer-console[data-workspace-mode="drawer"] .lecturer-console__shell,
+.lecturer-console[data-workspace-mode="fullscreen-drawer"] .lecturer-console__shell,
+.lecturer-console[data-workspace-mode="drawer"] .lecturer-console__workspace,
+.lecturer-console[data-workspace-mode="fullscreen-drawer"] .lecturer-console__workspace {
+  overflow: visible;
+}
+
+.lecturer-console[data-workspace-mode="drawer"] .lecturer-console__calendar-shell,
+.lecturer-console[data-workspace-mode="fullscreen-drawer"] .lecturer-console__calendar-shell {
+  min-height: calc(100dvh - var(--admin-appbar-height) - 1.5rem);
+}
+
+@media (max-width: 1280px) {
+  .lecturer-console__surface-header,
+  .lecturer-console__surface-actions,
+  .lecturer-console__panel-header,
+  .lecturer-console__panel-strip,
+  .lecturer-console__panel-footer,
+  .lecturer-console__room-editor,
+  .lecturer-console__row-actions,
+  .lecturer-console__composer,
+  .lecturer-console__message-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lecturer-console__panel-header-actions,
+  .lecturer-console__surface-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .lecturer-console__shell {
+    padding: 0.5rem;
+  }
+
+  .lecturer-console__surface-header,
+  .lecturer-console__panel-header,
+  .lecturer-console__panel-strip,
+  .lecturer-console__panel-section,
+  .lecturer-console__panel-footer {
+    padding-inline: 0.75rem;
+  }
+
+  .lecturer-console__appbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .lecturer-console__calendar-nav,
+  .lecturer-console__view-toggle {
+    flex-wrap: wrap;
+  }
+
+  .lecturer-console__drawer--details-stacked,
+  .lecturer-console__drawer--details,
+  .lecturer-console__drawer--attendance,
+  .lecturer-console__floating-panel {
+    right: 0.5rem;
+  }
+}
