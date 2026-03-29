@@ -4,7 +4,7 @@ import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
 import { reportTabletDisplayProfile } from '../services/displayProfileService';
 import { QRCodeCanvas } from 'qrcode.react';
-import { FaUserFriends } from 'react-icons/fa';
+
 import logo from '../../assets/ZUT_Logo.png';
 
 interface ScheduleEvent {
@@ -559,100 +559,10 @@ export default function Tablet() {
         setIsLoading(false);
       } catch (error) {
         console.error('[Tablet] fetchSchedule API ERROR:', error);
-        // Fallback to empty if not in preview, or proceed to mocks below
+        setScheduleItems([]);
+        setIsLoading(false);
       }
 
-      // -------------------------------------------------------------------------
-      // [TEMPORARY MOCK INJECTION] 
-      // Always use mock data for testing layout even if API fails or returns 0
-      // -------------------------------------------------------------------------
-      console.log('[Tablet] Injecting mock data for testing...');
-      const mockEvents: ScheduleEvent[] = [
-        {
-          id: 'mock-1',
-          startTime: '08:00',
-          endTime: '10:00',
-          description: 'Architektura Systemów Komputerowych',
-          instructor: 'dr inż. Jan Kowalski',
-          room: 'WI1-307',
-          form: 'W',
-          group_name: 'W1',
-          login: 'jkowalski',
-          color: '#039be5',
-          notifications: [
-            { body: 'Zapraszam na konsultacje po wykładzie', lecturer: 'dr inż. Jan Kowalski' },
-          ]
-        },
-        {
-          id: 'mock-2',
-          startTime: '10:00',
-          endTime: '12:00',
-          description: 'Inżynieria Oprogramowania',
-          instructor: 'prof. dr hab. Anna Nowak',
-          room: 'WI1-307',
-          form: 'L',
-          group_name: 'L2',
-          login: 'anowak',
-          color: '#e53935',
-          notifications: [
-            { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
-            { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
-            { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
-            { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
-            { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
-            { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' }
-          ]
-        },
-        {
-          id: 'mock-3',
-          startTime: '12:00',
-          endTime: '14:00',
-          description: 'Bazy Danych',
-          instructor: 'mgr inż. Piotr Wiśniewski',
-          room: 'WI1-307',
-          form: 'L',
-          group_name: 'L1',
-          login: 'pwisniewski',
-          color: '#43a047',
-          notifications: [
-            { body: 'Kolokwium odbędzie się za tydzień.', lecturer: 'mgr inż. Piotr Wiśniewski' }
-          ]
-        },
-        {
-          id: 'mock-4',
-          startTime: '14:00',
-          endTime: '16:00',
-          description: 'Programowanie Obiektowe',
-          instructor: 'dr inż. Krzysztof Krawczyk',
-          room: 'WI1-307',
-          form: 'W',
-          group_name: 'W1',
-          login: 'kkrawczyk',
-          color: '#8e24aa',
-          notifications: [
-            { body: 'Spóźnię się około 15 minut.', lecturer: 'dr inż. Krzysztof Krawczyk' },
-            { body: 'Zmiana Sali', isRoomChange: true, newRoom: 'WI1-308' }
-          ]
-        },
-        {
-          id: 'mock-5',
-          startTime: '19:00',
-          endTime: '20:00',
-          description: 'Seminarium Dyplomowe',
-          instructor: 'prof. dr hab. Jan Kowalski',
-          room: 'WI1-307',
-          form: 'S',
-          group_name: 'S1',
-          login: 'jkowalski',
-          color: '#f97316',
-          notifications: [
-            { body: 'Zajęcia przeniesione wyjątkowo na Teams', lecturer: 'prof. dr hab. Jan Kowalski' }
-          ]
-        }
-      ];
-
-      setScheduleItems(mockEvents);
-      setIsLoading(false);
     };
 
     if (roomInfo.room && !isNightModeActive) {
