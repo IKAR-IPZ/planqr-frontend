@@ -8,15 +8,18 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    user-select: none; /* Non-touch */
-    cursor: default !important; /* No pointer cursors */
+    user-select: none;
+    /* Non-touch */
+    cursor: default !important;
+    /* No pointer cursors */
   }
 
   ::-webkit-scrollbar {
     display: none !important;
   }
 
-  body, html {
+  body,
+  html {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
@@ -31,7 +34,6 @@
     height: 100vh;
     background-color: #0b0f19;
     position: relative;
-    border: 4px solid #14b8a6; /* Subtle accent border around the whole screen like the mockup */
     border-radius: 20px;
     overflow: hidden;
   }
@@ -49,12 +51,44 @@
     border-right: 1px solid rgba(255, 255, 255, 0.05);
   }
 
-  .tablet-clock {
+  .tablet-header-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    width: 100%;
     margin-bottom: 2rem;
   }
 
+  .tablet-logo {
+    height: 60px;
+    object-fit: contain;
+    align-self: flex-start;
+  }
+
+  .tablet-clock-row {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .qr-wrapper-mini {
+    background: white;
+    padding: 0.6rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(20, 184, 166, 0.2);
+  }
+
+  .tablet-clock {
+    text-align: left;
+  }
+
   .tablet-time {
-    font-size: 5.5rem;
+    font-size: 4rem;
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.02em;
@@ -64,12 +98,17 @@
     font-size: 1.2rem;
     font-weight: 300;
     color: #94a3b8;
-    margin-top: 0.5rem;
+    margin-top: 0.3rem;
     letter-spacing: 0.02em;
   }
 
-  .tablet-room-info {
-    margin-bottom: 3rem;
+  .tablet-room-info-centered {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2rem;
   }
 
   .tablet-room-capacity {
@@ -77,17 +116,130 @@
     align-items: center;
     gap: 0.5rem;
     color: #94a3b8;
-    font-size: 1rem;
-    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
   }
 
   .tablet-room-name {
-    font-size: 2.2rem;
-    font-weight: 600;
+    font-size: 5rem;
+    font-weight: 800;
+    color: #f8fafc;
+    text-align: center;
+    letter-spacing: 0.02em;
+  }
+
+  .tablet-class-status {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+    text-align: center;
+  }
+
+  .current-class-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(20, 184, 166, 0.15);
+    border: 1px solid rgba(20, 184, 166, 0.3);
+    padding: 1.4rem 3.5rem;
+    border-radius: 16px;
+  }
+
+  .current-class-info .status-label {
+    font-size: 1.6rem;
+    color: #14b8a6;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0;
+  }
+
+  .class-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    width: 100%;
+    margin-bottom: 0.8rem;
+  }
+
+  .class-group-top {
+    font-size: 2.0rem;
+    color: #f8fafc;
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 0.6rem 1.6rem;
+    border-radius: 12px;
+  }
+
+  .current-class-info .class-name {
+    font-size: 2.6rem;
+    font-weight: 800;
     color: #f8fafc;
   }
 
-/* =============================================================================
+  .class-group {
+    font-size: 1.4rem;
+    color: #cbd5e1;
+    margin-top: 0.5rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .next-class-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1.4rem 3.5rem;
+    border-radius: 16px;
+  }
+
+  .next-class-info.is-secondary {
+    padding: 1rem 2.5rem;
+    background: transparent;
+  }
+
+  .next-class-info .status-label {
+    font-size: 1.4rem;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0;
+  }
+
+  .next-class-info .class-group-top {
+    font-size: 1.8rem;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.4rem 1.2rem;
+    border-radius: 8px;
+  }
+
+  .next-class-info.is-secondary .status-label {
+    font-size: 1.3rem;
+  }
+
+  .next-class-info.is-secondary .class-group-top {
+    font-size: 1.5rem;
+    padding: 0.3rem 1rem;
+  }
+
+  .next-class-info .class-name {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #e2e8f0;
+  }
+
+  .next-class-info.is-secondary .class-name {
+    font-size: 1.8rem;
+  }
+
+  /* =============================================================================
     MESSAGES SECTION (Left Panel)
     ============================================================================= */
   .tablet-messages-section {
@@ -99,11 +251,11 @@
     margin-bottom: 1.5rem;
     flex: 1;
     min-height: 100px;
-    
+
     /* DODANE ZAMIAST overflow-y: auto */
     display: flex;
     flex-direction: column;
-    overflow: hidden; 
+    overflow: hidden;
   }
 
   .tablet-messages-header {
@@ -112,7 +264,8 @@
     color: #fbbf24;
     margin-bottom: 1rem;
     letter-spacing: 0.02em;
-    z-index: 2; /* Trzyma nagłówek na wierzchu */
+    z-index: 2;
+    /* Trzyma nagłówek na wierzchu */
   }
 
   /* NOWA KLASA: Viewport do przycinania animacji w pionie */
@@ -145,8 +298,13 @@
 
   /* Animacja plynna bez pustej przestrzeni na poczatku */
   @keyframes seamless-scroll {
-    0%   { transform: translateY(0); }
-    100% { transform: translateY(calc(-50% - 0.4rem)); }
+    0% {
+      transform: translateY(0);
+    }
+
+    100% {
+      transform: translateY(calc(-50% - 0.4rem));
+    }
   }
 
   .tablet-message-item {
@@ -195,7 +353,8 @@
 
   /* QR Code Section (The Red Area from Mockup) */
   .tablet-qr-section {
-    margin-top: auto; /* Pushes to bottom */
+    margin-top: auto;
+    /* Pushes to bottom */
     display: flex;
     align-items: center;
     gap: 2rem;
@@ -233,7 +392,8 @@
   .tablet-right {
     width: 55%;
     height: 100%;
-    background-color: #111827; /* Slightly lighter/different dark */
+    background-color: #111827;
+    /* Slightly lighter/different dark */
     position: relative;
     overflow: hidden;
   }
@@ -253,7 +413,8 @@
   }
 
   .time-slot {
-    height: 120px; /* Base height for 1 hour */
+    height: 120px;
+    /* Base height for 1 hour */
     display: flex;
     position: relative;
   }
@@ -264,7 +425,8 @@
     color: #94a3b8;
     text-align: right;
     padding-right: 1.5rem;
-    transform: translateY(-50%); /* Center on the line */
+    transform: translateY(-50%);
+    /* Center on the line */
     font-weight: 300;
   }
 
@@ -310,16 +472,18 @@
   /* Events */
   .timeline-event {
     position: absolute;
-    left: 120px; /* Past the time labels */
+    left: 120px;
+    /* Past the time labels */
     right: 2rem;
-    background-color: #f8fafc; /* White blocks like in the mockup */
+    background-color: #f8fafc;
+    /* White blocks like in the mockup */
     color: #0f172a;
     border-radius: 12px;
     padding: 1rem 1.5rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     z-index: 5;
     overflow: hidden;
   }
@@ -330,7 +494,10 @@
     color: #94a3b8;
     box-shadow: none;
   }
-  .timeline-event.past .event-time { color: #64748b; }
+
+  .timeline-event.past .event-time {
+    color: #64748b;
+  }
 
   .event-title {
     font-size: 1.25rem;
@@ -353,17 +520,27 @@
     color: #64748b;
   }
 
-  .event-message-badge {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.7rem;
-    background: #fbbf24;
+  .event-notifications-container {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    /* allow wrapping to show multiple */
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  .event-notification-pill {
+    font-size: 0.85rem;
     color: #0f172a;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.2rem 0.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
+    background-color: rgba(251, 191, 36, 0.9);
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(251, 191, 36, 0.2);
   }
 
   /* =============================================================================
@@ -411,7 +588,7 @@
 
   .room-change-overlay p {
     font-size: 1.2rem;
-    background: rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0, 0.2);
     padding: 0.8rem 1.5rem;
     border-radius: 12px;
     line-height: 1.4;
@@ -420,13 +597,27 @@
   }
 
   @keyframes slideDownFade {
-    from { top: -100px; opacity: 0; transform: translateX(-50%) scale(0.9); }
-    to { top: 2rem; opacity: 1; transform: translateX(-50%) scale(1); }
+    from {
+      top: -100px;
+      opacity: 0;
+      transform: translateX(-50%) scale(0.9);
+    }
+
+    to {
+      top: 2rem;
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+    }
   }
 
   @keyframes pulseShadow {
-    0% { box-shadow: 0 10px 30px rgba(220, 38, 38, 0.4); }
-    100% { box-shadow: 0 15px 50px rgba(220, 38, 38, 0.7); }
+    0% {
+      box-shadow: 0 10px 30px rgba(220, 38, 38, 0.4);
+    }
+
+    100% {
+      box-shadow: 0 15px 50px rgba(220, 38, 38, 0.7);
+    }
   }
 
   /* Global Loading & Error */

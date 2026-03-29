@@ -5,6 +5,7 @@ import { fetchMessages } from '../services/messageService';
 import { reportTabletDisplayProfile } from '../services/displayProfileService';
 import { QRCodeCanvas } from 'qrcode.react';
 import { FaUserFriends } from 'react-icons/fa';
+import logo from '../../assets/ZUT_Logo.png';
 
 interface ScheduleEvent {
   id: string;
@@ -42,14 +43,6 @@ interface ScheduleApiEvent {
   lesson_form_short?: string;
 }
 
-interface TimelineMessage {
-  body: string;
-  lecturer: string;
-  createdAt: string;
-  eventTitle: string;
-  isRoomChange?: boolean;
-  newRoom?: string;
-}
 
 interface TabletNightModeConfig {
   enabled: boolean;
@@ -81,7 +74,6 @@ interface TabletCommandPayload {
 const TABLET_RELOAD_PARAM = '_tabletReload';
 const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
 const TABLET_PREVIEW_PARAM = 'preview';
-const SHOW_MESSAGES_ALL_DAY = true;
 const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
   enabled: false,
   startTime: '22:00',
@@ -222,7 +214,7 @@ export default function Tablet() {
   const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() =>
     isPreviewMode ? DEFAULT_TABLET_NIGHT_MODE_CONFIG : readStoredNightModeConfig()
   );
-  
+
   // States
   const [currentDateTime, setCurrentDateTime] = useState({
     date: '', time: '', dayName: '', dayNumber: 0
@@ -546,7 +538,7 @@ export default function Tablet() {
             } catch {
               messages = [];
             }
-            
+
             return {
               id: event.id,
               startTime: new Date(event.start ?? '').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
@@ -565,7 +557,76 @@ export default function Tablet() {
 
         console.log('[Tablet] Formatted events:', formattedEvents.length, formattedEvents);
 
-        setScheduleItems(formattedEvents.sort((a, b) => a.startTime.localeCompare(b.startTime)));
+        const mockEvents: ScheduleEvent[] = [
+          {
+            id: 'mock-1',
+            startTime: '08:00',
+            endTime: '10:00',
+            description: 'Architektura Systemów Komputerowych',
+            instructor: 'dr inż. Jan Kowalski',
+            room: 'WI1-307',
+            form: 'W',
+            group_name: 'W1',
+            login: 'jkowalski',
+            color: '#039be5',
+            notifications: [
+              { body: 'Zapraszam na konsultacje po wykładzie', lecturer: 'dr inż. Jan Kowalski' },
+            ]
+          },
+          {
+            id: 'mock-2',
+            startTime: '10:00',
+            endTime: '12:00',
+            description: 'Inżynieria Oprogramowania',
+            instructor: 'prof. dr hab. Anna Nowak',
+            room: 'WI1-307',
+            form: 'L',
+            group_name: 'L2',
+            login: 'anowak',
+            color: '#e53935',
+            notifications: [
+              { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
+              { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
+              { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
+              { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
+              { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
+              { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' }
+            ]
+          },
+          {
+            id: 'mock-3',
+            startTime: '12:00',
+            endTime: '14:00',
+            description: 'Bazy Danych',
+            instructor: 'mgr inż. Piotr Wiśniewski',
+            room: 'WI1-307',
+            form: 'L',
+            group_name: 'L1',
+            login: 'pwisniewski',
+            color: '#43a047',
+            notifications: [
+              { body: 'Kolokwium odbędzie się za tydzień.', lecturer: 'mgr inż. Piotr Wiśniewski' }
+            ]
+          },
+          {
+            id: 'mock-4',
+            startTime: '14:00',
+            endTime: '16:00',
+            description: 'Programowanie Obiektowe',
+            instructor: 'dr inż. Krzysztof Krawczyk',
+            room: 'WI1-307',
+            form: 'W',
+            group_name: 'W1',
+            login: 'kkrawczyk',
+            color: '#8e24aa',
+            notifications: [
+              { body: 'Spóźnię się około 15 minut.', lecturer: 'dr inż. Krzysztof Krawczyk' },
+              { body: 'Zmiana Sali', isRoomChange: true, newRoom: 'WI1-308' }
+            ]
+          }
+        ];
+
+        setScheduleItems(mockEvents);
         setIsLoading(false);
       } catch (error) {
         console.error('[Tablet] fetchSchedule ERROR:', error);
@@ -590,57 +651,8 @@ export default function Tablet() {
   const now = new Date();
   const nowVal = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
 
-  // Aggregate all messages from all today's events (including room changes)
-  const allMessages = useMemo(() => {
-     const msgs: TimelineMessage[] = [];
-     const now = new Date();
-
-     scheduleItems.forEach(ev => {
-        let isRelevant = SHOW_MESSAGES_ALL_DAY;
-        if (!isRelevant) {
-           const eventStart = new Date(ev.startTime);
-           const eventEnd = new Date(ev.endTime);
-           // Pokaż na 15 minut przed rozpoczęciem i przez cały czas trwania
-           const fifteenMinsBefore = new Date(eventStart.getTime() - 15 * 60000);
-           
-           if (now >= fifteenMinsBefore && now <= eventEnd) {
-              isRelevant = true;
-           }
-        }
-
-        if (isRelevant) {
-           ev.notifications?.forEach((message) => {
-              msgs.push({
-                 body: message.body,
-                 lecturer: message.lecturer || 'Wykładowca',
-                 createdAt: message.createdAt || '',
-                 eventTitle: ev.description,
-                 isRoomChange: message.isRoomChange,
-                 newRoom: message.newRoom
-              });
-           });
-        }
-     });
-     return msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-	   }, [scheduleItems]);
-
-  // Handle seamless marquee scroll
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
   const timelineViewportRef = useRef<HTMLDivElement>(null);
   const [timelineViewportHeight, setTimelineViewportHeight] = useState(0);
-
-  useEffect(() => {
-     if (viewportRef.current && contentRef.current) {
-        // Evaluate if the original list is taller than the viewport
-        if (contentRef.current.scrollHeight > viewportRef.current.clientHeight) {
-           setIsOverflowing(true);
-        } else {
-           setIsOverflowing(false);
-        }
-     }
-  }, [allMessages]);
 
   useEffect(() => {
     const viewport = timelineViewportRef.current;
@@ -676,6 +688,11 @@ export default function Tablet() {
     const eventEnd = parseTime(ev.endTime);
     return nowVal >= eventStart && nowVal <= eventEnd;
   });
+
+  const nextTimelineEvent = scheduleItems.find((ev: ScheduleEvent) => {
+    return parseTime(ev.startTime) > nowVal;
+  });
+
   const activeTimelineEventStartOffset = activeTimelineEvent
     ? Math.max(0, (parseTime(activeTimelineEvent.startTime) - calendarStartHour) * slotHeight)
     : 0;
@@ -702,154 +719,129 @@ export default function Tablet() {
 
   if (isLoading) return <div className="fullscreen-msg">Wczytywanie systemu...</div>;
 
-  const renderMessages = (messages: typeof allMessages, keyPrefix: string) => (
-    <>
-      {messages.map((msg, i) => (
-        <div 
-          key={`${keyPrefix}-${i}`} 
-          className="tablet-message-item"
-          style={msg.isRoomChange ? { background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' } : {}}
-        >
-          <div className="tablet-message-meta">
-            {msg.isRoomChange ? (
-              <span className="tablet-message-lecturer" style={{color: '#fca5a5', fontWeight: 800}}>⚠️ ZMIANA SALI</span>
-            ) : (
-              <span className="tablet-message-lecturer">{msg.lecturer}</span>
-            )}
-            <span className="tablet-message-event">• {msg.eventTitle}</span>
-          </div>
-          <div className="tablet-message-body" style={msg.isRoomChange ? { color: '#fca5a5', fontWeight: 600 } : {}}>
-             {msg.isRoomChange ? `Zajęcia przeniesione do: ${msg.newRoom}` : msg.body}
-             {msg.isRoomChange && msg.body && msg.body.indexOf('Zajęcia przeniesione do') === -1 && <div style={{marginTop: '4px', fontWeight: 400, color: '#f87171'}}>{msg.body}</div>}
-          </div>
-          {msg.createdAt && (
-            <div className="tablet-message-time">
-              {new Date(msg.createdAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          )}
-        </div>
-      ))}
-    </>
-  );
-
   return (
     <div className="tablet-wrapper">
-      
+
 
 
       {/* LEFT PANEL */}
       <div className="tablet-left">
-         <div className="tablet-clock">
-            <div className="tablet-time">{currentDateTime.time.substring(0, 5)}</div>
-            <div className="tablet-date">{currentDateTime.date} • {currentDateTime.dayName}</div>
-         </div>
-
-         <div className="tablet-room-info">
-            <div className="tablet-room-capacity"><FaUserFriends /> Ekran Informacyjny</div>
-            <div className="tablet-room-name">Sala {roomInfo.building}-{roomInfo.room}</div>
-         </div>
-
-         {/* Messages Section - widoczne tylko gdy są wiadomości */}
-         {allMessages.length > 0 && (
-            <div className="tablet-messages-section">
-               <div className="tablet-messages-header">📢 Wiadomości od prowadzącego</div>
-               <div className="tablet-messages-viewport" ref={viewportRef}>
-                  <div className={`tablet-messages-scroller ${isOverflowing ? 'is-overflowing' : ''}`}>
-                     <div className="tablet-messages-list" ref={contentRef}>
-                        {renderMessages(allMessages, 'orig')}
-                     </div>
-                     {isOverflowing && (
-                        <div className="tablet-messages-list" aria-hidden="true">
-                           {renderMessages(allMessages, 'dup')}
-                        </div>
-                     )}
-                  </div>
-               </div>
+        <div className="tablet-header-section">
+          <img src={logo} alt="ZUT Logo" className="tablet-logo" />
+          <div className="tablet-clock-row">
+            <div className="qr-wrapper-mini">
+              <QRCodeCanvas
+                value={`https://plan.zut.edu.pl/#${encodeURIComponent(roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`)}&&&&`}
+                size={80}
+                fgColor="#0f172a"
+              />
             </div>
-         )}
+            <div className="tablet-clock">
+              <div className="tablet-time">{currentDateTime.time.substring(0, 5)}</div>
+              <div className="tablet-date">{currentDateTime.date} • {currentDateTime.dayName}</div>
+            </div>
+          </div>
+        </div>
 
-         {/* QR Code Location */}
-         <div className="tablet-qr-section">
-            <div className="qr-wrapper">
-               <QRCodeCanvas 
-                 value={`https://plan.zut.edu.pl/#${encodeURIComponent(roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`)}&&&&`} 
-                 size={110} 
-                 fgColor="#0f172a"
-               />
-            </div>
-            <div className="qr-text">
-               <h3>Zeskanuj Kod QR</h3>
-               <p>Zobacz pełny harmonogram na swoim urządzeniu.</p>
-            </div>
-         </div>
+        <div className="tablet-room-info-centered">
+          <div className="tablet-room-capacity"><FaUserFriends /> Ekran Informacyjny</div>
+          <div className="tablet-room-name">
+            {roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`}
+          </div>
+
+          <div className="tablet-class-status">
+            {activeTimelineEvent && (
+              <div className="current-class-info">
+                <div className="class-header-row">
+                  <span className="status-label">Aktualnie:</span>
+                  {activeTimelineEvent.group_name && <span className="class-group-top">Grupa: {activeTimelineEvent.group_name}</span>}
+                </div>
+                <span className="class-name">{activeTimelineEvent.description}</span>
+              </div>
+            )}
+            {nextTimelineEvent && (
+              <div className={`next-class-info ${activeTimelineEvent ? 'is-secondary' : ''}`}>
+                <div className="class-header-row">
+                  <span className="status-label">Następne zajęcia:</span>
+                  {nextTimelineEvent.group_name && <span className="class-group-top">Grupa: {nextTimelineEvent.group_name}</span>}
+                </div>
+                <span className="class-name">{nextTimelineEvent.description} ({nextTimelineEvent.startTime}-{nextTimelineEvent.endTime})</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* RIGHT PANEL: TIMELINE */}
       <div className="tablet-right">
-         <div className="timeline-viewport" ref={timelineViewportRef}>
-            {showCurrentTimeLine && (
-               <div className="current-time-line" style={{ top: `${currentTimeLineTop}px` }}>
-                  <div className="current-time-label">{currentDateTime.time.substring(0, 5)}</div>
-                  <div className="current-time-dot"></div>
-               </div>
-            )}
+        <div className="timeline-viewport" ref={timelineViewportRef}>
+          {showCurrentTimeLine && (
+            <div className="current-time-line" style={{ top: `${currentTimeLineTop}px` }}>
+              <div className="current-time-label">{currentDateTime.time.substring(0, 5)}</div>
+              <div className="current-time-dot"></div>
+            </div>
+          )}
 
-            <div
-               className="timeline-container"
-               style={{
-                  height: `${timelineContentHeight}px`,
-                  transform: `translateY(-${timelineOffset}px)`,
-               }}
-            >
-            
+          <div
+            className="timeline-container"
+            style={{
+              height: `${timelineContentHeight}px`,
+              transform: `translateY(-${timelineOffset}px)`,
+            }}
+          >
+
             {/* Background Grid */}
             {Array.from({ length: timeSlotsCount }).map((_, i) => (
-               <div
-                  key={i}
-                  className="time-slot"
-                  style={{
-                     top: timelineMarkerOffset + i * slotHeight + 'px',
-                     position: 'absolute',
-                     width: '100%',
-                  }}
-               >
-                  <div className="time-label">{calendarStartHour + i}:00</div>
-                  <div className="time-line"></div>
-               </div>
+              <div
+                key={i}
+                className="time-slot"
+                style={{
+                  top: timelineMarkerOffset + i * slotHeight + 'px',
+                  position: 'absolute',
+                  width: '100%',
+                }}
+              >
+                <div className="time-label">{calendarStartHour + i}:00</div>
+                <div className="time-line"></div>
+              </div>
             ))}
 
             {/* Render Events */}
-            {scheduleItems.map((ev, i) => {
-               const st = parseTime(ev.startTime);
-               const et = parseTime(ev.endTime);
-               const dur = et - st;
-               const top = (st - calendarStartHour) * slotHeight;
-               const height = dur * slotHeight;
-               const isPast = nowVal > et;
+            {scheduleItems.map((ev: ScheduleEvent, i: number) => {
+              const st = parseTime(ev.startTime);
+              const et = parseTime(ev.endTime);
+              const dur = et - st;
+              const top = (st - calendarStartHour) * slotHeight;
+              const height = dur * slotHeight;
+              const isPast = nowVal > et;
 
-               return (
-                  <div 
-                     key={i} 
-                     className={`timeline-event ${isPast ? 'past' : ''}`}
-                     style={{
-                        top: timelineMarkerOffset + top + 'px',
-                        height: (height - 4) + 'px', // tiny gap
-                     }}
-                  >
-                     <div className="event-title">{ev.description} ({ev.form})</div>
-                     <div className="event-time">{ev.startTime} - {ev.endTime}</div>
-                     <div className="event-instructor">{ev.instructor} • {ev.group_name}</div>
-                     {ev.notifications?.filter(n => !n.isRoomChange).length > 0 && (
-                        <div className="event-message-badge">
-                           📢 {ev.notifications.filter(n => !n.isRoomChange).length}
+              return (
+                <div
+                  key={i}
+                  className={`timeline-event ${isPast ? 'past' : ''}`}
+                  style={{
+                    top: timelineMarkerOffset + top + 'px',
+                    height: (height - 4) + 'px', // tiny gap
+                  }}
+                >
+                  <div className="event-title">{ev.description} ({ev.form})</div>
+                  <div className="event-time">{ev.startTime} - {ev.endTime}</div>
+                  <div className="event-instructor">{ev.instructor} • {ev.group_name}</div>
+                  {ev.notifications && ev.notifications.length > 0 && (
+                    <div className="event-notifications-container">
+                      {ev.notifications.map((n: TabletMessageNotification, idx: number) => (
+                        <div key={idx} className="event-notification-pill" style={n.isRoomChange ? { backgroundColor: '#ef4444', color: '#fff' } : {}}>
+                          {n.isRoomChange ? `⚠️ ZMIANA SALI: ${n.newRoom || n.body}` : `📢 ${n.body}`}
                         </div>
-                     )}
-                  </div>
-               );
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
             })}
 
-            </div>
-         </div>
+          </div>
+        </div>
       </div>
     </div>
   );
