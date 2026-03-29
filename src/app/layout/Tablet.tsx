@@ -744,7 +744,6 @@ export default function Tablet() {
         </div>
 
         <div className="tablet-room-info-centered">
-          <div className="tablet-room-capacity"><FaUserFriends /> Ekran Informacyjny</div>
           <div className="tablet-room-name">
             {roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`}
           </div>

@@ -111,15 +111,6 @@
     margin-bottom: 2rem;
   }
 
-  .tablet-room-capacity {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #94a3b8;
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
-  }
-
   .tablet-room-name {
     font-size: 5rem;
     font-weight: 800;
