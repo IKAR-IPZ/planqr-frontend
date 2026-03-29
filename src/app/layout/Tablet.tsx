@@ -555,83 +555,104 @@ export default function Tablet() {
           })
         );
 
-        console.log('[Tablet] Formatted events:', formattedEvents.length, formattedEvents);
-
-        const mockEvents: ScheduleEvent[] = [
-          {
-            id: 'mock-1',
-            startTime: '08:00',
-            endTime: '10:00',
-            description: 'Architektura Systemów Komputerowych',
-            instructor: 'dr inż. Jan Kowalski',
-            room: 'WI1-307',
-            form: 'W',
-            group_name: 'W1',
-            login: 'jkowalski',
-            color: '#039be5',
-            notifications: [
-              { body: 'Zapraszam na konsultacje po wykładzie', lecturer: 'dr inż. Jan Kowalski' },
-            ]
-          },
-          {
-            id: 'mock-2',
-            startTime: '10:00',
-            endTime: '12:00',
-            description: 'Inżynieria Oprogramowania',
-            instructor: 'prof. dr hab. Anna Nowak',
-            room: 'WI1-307',
-            form: 'L',
-            group_name: 'L2',
-            login: 'anowak',
-            color: '#e53935',
-            notifications: [
-              { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
-              { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
-              { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
-              { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
-              { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
-              { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' }
-            ]
-          },
-          {
-            id: 'mock-3',
-            startTime: '12:00',
-            endTime: '14:00',
-            description: 'Bazy Danych',
-            instructor: 'mgr inż. Piotr Wiśniewski',
-            room: 'WI1-307',
-            form: 'L',
-            group_name: 'L1',
-            login: 'pwisniewski',
-            color: '#43a047',
-            notifications: [
-              { body: 'Kolokwium odbędzie się za tydzień.', lecturer: 'mgr inż. Piotr Wiśniewski' }
-            ]
-          },
-          {
-            id: 'mock-4',
-            startTime: '14:00',
-            endTime: '16:00',
-            description: 'Programowanie Obiektowe',
-            instructor: 'dr inż. Krzysztof Krawczyk',
-            room: 'WI1-307',
-            form: 'W',
-            group_name: 'W1',
-            login: 'kkrawczyk',
-            color: '#8e24aa',
-            notifications: [
-              { body: 'Spóźnię się około 15 minut.', lecturer: 'dr inż. Krzysztof Krawczyk' },
-              { body: 'Zmiana Sali', isRoomChange: true, newRoom: 'WI1-308' }
-            ]
-          }
-        ];
-
-        setScheduleItems(mockEvents);
+        setScheduleItems(formattedEvents);
         setIsLoading(false);
       } catch (error) {
-        console.error('[Tablet] fetchSchedule ERROR:', error);
-        setIsLoading(false);
+        console.error('[Tablet] fetchSchedule API ERROR:', error);
+        // Fallback to empty if not in preview, or proceed to mocks below
       }
+
+      // -------------------------------------------------------------------------
+      // [TEMPORARY MOCK INJECTION] 
+      // Always use mock data for testing layout even if API fails or returns 0
+      // -------------------------------------------------------------------------
+      console.log('[Tablet] Injecting mock data for testing...');
+      const mockEvents: ScheduleEvent[] = [
+        {
+          id: 'mock-1',
+          startTime: '08:00',
+          endTime: '10:00',
+          description: 'Architektura Systemów Komputerowych',
+          instructor: 'dr inż. Jan Kowalski',
+          room: 'WI1-307',
+          form: 'W',
+          group_name: 'W1',
+          login: 'jkowalski',
+          color: '#039be5',
+          notifications: [
+            { body: 'Zapraszam na konsultacje po wykładzie', lecturer: 'dr inż. Jan Kowalski' },
+          ]
+        },
+        {
+          id: 'mock-2',
+          startTime: '10:00',
+          endTime: '12:00',
+          description: 'Inżynieria Oprogramowania',
+          instructor: 'prof. dr hab. Anna Nowak',
+          room: 'WI1-307',
+          form: 'L',
+          group_name: 'L2',
+          login: 'anowak',
+          color: '#e53935',
+          notifications: [
+            { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
+            { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
+            { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
+            { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' },
+            { body: 'Proszę przygotować środowisko Docker przed zajęciami!', lecturer: 'prof. dr hab. Anna Nowak' },
+            { body: 'Prezentacja z poprzednich zajęć jest na Moodle', lecturer: 'prof. dr hab. Anna Nowak' }
+          ]
+        },
+        {
+          id: 'mock-3',
+          startTime: '12:00',
+          endTime: '14:00',
+          description: 'Bazy Danych',
+          instructor: 'mgr inż. Piotr Wiśniewski',
+          room: 'WI1-307',
+          form: 'L',
+          group_name: 'L1',
+          login: 'pwisniewski',
+          color: '#43a047',
+          notifications: [
+            { body: 'Kolokwium odbędzie się za tydzień.', lecturer: 'mgr inż. Piotr Wiśniewski' }
+          ]
+        },
+        {
+          id: 'mock-4',
+          startTime: '14:00',
+          endTime: '16:00',
+          description: 'Programowanie Obiektowe',
+          instructor: 'dr inż. Krzysztof Krawczyk',
+          room: 'WI1-307',
+          form: 'W',
+          group_name: 'W1',
+          login: 'kkrawczyk',
+          color: '#8e24aa',
+          notifications: [
+            { body: 'Spóźnię się około 15 minut.', lecturer: 'dr inż. Krzysztof Krawczyk' },
+            { body: 'Zmiana Sali', isRoomChange: true, newRoom: 'WI1-308' }
+          ]
+        },
+        {
+          id: 'mock-5',
+          startTime: '19:00',
+          endTime: '20:00',
+          description: 'Seminarium Dyplomowe',
+          instructor: 'prof. dr hab. Jan Kowalski',
+          room: 'WI1-307',
+          form: 'S',
+          group_name: 'S1',
+          login: 'jkowalski',
+          color: '#f97316',
+          notifications: [
+            { body: 'Zajęcia przeniesione wyjątkowo na Teams', lecturer: 'prof. dr hab. Jan Kowalski' }
+          ]
+        }
+      ];
+
+      setScheduleItems(mockEvents);
+      setIsLoading(false);
     };
 
     if (roomInfo.room && !isNightModeActive) {
@@ -643,6 +664,20 @@ export default function Tablet() {
   }, [isNightModeActive, roomInfo]);
 
   // View Helpers
+  const hexToRgba = (hex: string, alpha: number) => {
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+      r = parseInt(hex[1] + hex[1], 16);
+      g = parseInt(hex[2] + hex[2], 16);
+      b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+      r = parseInt(hex.substring(1, 3), 16);
+      g = parseInt(hex.substring(3, 5), 16);
+      b = parseInt(hex.substring(5, 7), 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   const parseTime = (timeStr: string) => {
     const [h, m] = timeStr.split(':').map(Number);
     return h + m / 60;
@@ -704,6 +739,28 @@ export default function Tablet() {
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
 
+  // Oblicz ukryte powiadomienia (poza aktualnym widokiem)
+  const unseenNotifications = scheduleItems.filter((ev: ScheduleEvent) => {
+    const st = parseTime(ev.startTime);
+    const et = parseTime(ev.endTime);
+    const top = timelineMarkerOffset + (st - calendarStartHour) * slotHeight;
+    const bottom = top + ((et - st) * slotHeight);
+
+    // Sprawdza czy element nachodzi na aktualnie wyscrollowany obszar (nawet odrobinę)
+    const isVisible = bottom >= timelineOffset && top <= timelineOffset + timelineViewportHeight;
+
+    // Jeśli nie jest widoczny zdefiniowanych wyżej przedziałach i posiada dodane notyfikacje, zapiszmy je.
+    return !isVisible && ev.notifications && ev.notifications.length > 0;
+  }).flatMap((ev: ScheduleEvent) =>
+    (ev.notifications || []).map(n => ({
+      ...n,
+      time: ev.startTime,
+      eventName: ev.description,
+      groupName: ev.group_name,
+      color: ev.color || '#3b82f6'
+    }))
+  );
+
   if (isNightModeActive || isBlackScreenAfterScheduleEndActive) {
     return (
       <div
@@ -727,7 +784,6 @@ export default function Tablet() {
       {/* LEFT PANEL */}
       <div className="tablet-left">
         <div className="tablet-header-section">
-          <img src={logo} alt="ZUT Logo" className="tablet-logo" />
           <div className="tablet-clock-row">
             <div className="qr-wrapper-mini">
               <QRCodeCanvas
@@ -768,6 +824,10 @@ export default function Tablet() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="tablet-footer-logo">
+          <img src={logo} alt="ZUT Logo" className="tablet-logo-bottom" />
         </div>
       </div>
 
@@ -841,6 +901,33 @@ export default function Tablet() {
 
           </div>
         </div>
+
+        {/* UNSEEN NOTIFICATIONS BAR */}
+        {unseenNotifications.length > 0 && (
+          <div className="unseen-notifications-bar">
+            <div className="unseen-marquee">
+              <div className="unseen-marquee-content">
+                {[...unseenNotifications, ...unseenNotifications, ...unseenNotifications].map((n, i) => (
+                  <div className="unseen-notification-item" key={i}>
+                    <span
+                      className="unseen-time-badge"
+                      style={{
+                        backgroundColor: `${hexToRgba(n.color, 0.2)}`,
+                        color: n.color,
+                        border: `1px solid ${hexToRgba(n.color, 0.4)}`
+                      }}
+                    >
+                      {n.time}
+                    </span>
+                    <span className="unseen-group-name" style={{ color: n.color }}>[{n.groupName}]</span>
+                    <span className="unseen-event-name" style={{ color: n.color }}>{n.eventName}</span>
+                    <span className="unseen-body">{n.body}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

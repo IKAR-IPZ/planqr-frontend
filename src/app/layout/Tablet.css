@@ -49,6 +49,7 @@
     flex-direction: column;
     background: linear-gradient(135deg, #0f172a 0%, #0b0f19 100%);
     border-right: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
   }
 
   .tablet-header-section {
@@ -126,6 +127,21 @@
     align-items: center;
     gap: 0.8rem;
     text-align: center;
+  }
+
+  .tablet-footer-logo {
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 2rem;
+  }
+
+  .tablet-logo-bottom {
+    height: 60px;
+    width: auto;
+    opacity: 0.8;
+    filter: brightness(0) invert(1); /* Ensure it's white/visible on dark */
   }
 
   .current-class-info {
@@ -627,4 +643,76 @@
     width: 100vw;
     height: 100vh;
     background: #000000;
+  }
+
+  /* =============================================================================
+     UNSEEN NOTIFICATIONS MARQUEE
+     ============================================================================= */
+  
+  .unseen-notifications-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.85); /* semi-transparent slate-900 */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.4rem 2rem;
+    z-index: 100;
+    display: flex;
+    overflow: hidden;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .unseen-marquee {
+    display: flex;
+    overflow: hidden;
+    width: 100%;
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  }
+
+  .unseen-marquee-content {
+    display: flex;
+    gap: 4rem;
+    white-space: nowrap;
+    animation: scroll-marquee 45s linear infinite; /* Adjusted to 45s */
+    align-items: center;
+    will-change: transform;
+  }
+
+  @keyframes scroll-marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-33.33%); }
+  }
+
+  .unseen-notification-item {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    font-size: 1.5rem;
+  }
+
+  .unseen-time-badge {
+    padding: 0.3rem 0.8rem;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+  }
+
+  .unseen-group-name {
+    font-weight: 800;
+    opacity: 0.8;
+  }
+
+  .unseen-event-name {
+    font-weight: 800;
+  }
+
+  .unseen-body {
+    color: #e2e8f0;
+    font-weight: 500;
+    font-size: 1.5rem;
   }
