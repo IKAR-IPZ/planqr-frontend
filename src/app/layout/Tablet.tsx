@@ -562,32 +562,17 @@ export default function Tablet() {
         setScheduleItems([]);
         setIsLoading(false);
       }
-
     };
 
     if (roomInfo.room && !isNightModeActive) {
       fetchSchedule();
-      // TODO: [PROD] Change interval to 60000ms (1 min) or higher for production
-      const intervalId = setInterval(fetchSchedule, 2000); // 2s for dev — fast message sync
+      // Production setting: refresh every minute (60000ms)
+      const intervalId = setInterval(fetchSchedule, 60000);
       return () => clearInterval(intervalId);
     }
   }, [isNightModeActive, roomInfo]);
 
   // View Helpers
-  const hexToRgba = (hex: string, alpha: number) => {
-    let r = 0, g = 0, b = 0;
-    if (hex.length === 4) {
-      r = parseInt(hex[1] + hex[1], 16);
-      g = parseInt(hex[2] + hex[2], 16);
-      b = parseInt(hex[3] + hex[3], 16);
-    } else if (hex.length === 7) {
-      r = parseInt(hex.substring(1, 3), 16);
-      g = parseInt(hex.substring(3, 5), 16);
-      b = parseInt(hex.substring(5, 7), 16);
-    }
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
   const parseTime = (timeStr: string) => {
     const [h, m] = timeStr.split(':').map(Number);
     return h + m / 60;
@@ -638,6 +623,25 @@ export default function Tablet() {
     return parseTime(ev.startTime) > nowVal;
   });
 
+  let classToShowOnLeftPanel: ScheduleEvent | null = null;
+  let leftPanelStatus = '';
+
+  if (activeTimelineEvent) {
+    const et = parseTime(activeTimelineEvent.endTime);
+    // Jeśli z zajęć zostało 30 minut lub mniej i istnieje jakieś kolejne wydarzenie,
+    // pokaż kolejne jako najbliższe.
+    if (et - nowVal <= 0.5 && nextTimelineEvent) {
+      classToShowOnLeftPanel = nextTimelineEvent;
+      leftPanelStatus = 'Następne zajęcia:';
+    } else {
+      classToShowOnLeftPanel = activeTimelineEvent;
+      leftPanelStatus = 'Aktualnie:';
+    }
+  } else if (nextTimelineEvent) {
+    classToShowOnLeftPanel = nextTimelineEvent;
+    leftPanelStatus = 'Następne zajęcia:';
+  }
+
   const activeTimelineEventStartOffset = activeTimelineEvent
     ? Math.max(0, (parseTime(activeTimelineEvent.startTime) - calendarStartHour) * slotHeight)
     : 0;
@@ -649,27 +653,7 @@ export default function Tablet() {
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
 
-  // Oblicz ukryte powiadomienia (poza aktualnym widokiem)
-  const unseenNotifications = scheduleItems.filter((ev: ScheduleEvent) => {
-    const st = parseTime(ev.startTime);
-    const et = parseTime(ev.endTime);
-    const top = timelineMarkerOffset + (st - calendarStartHour) * slotHeight;
-    const bottom = top + ((et - st) * slotHeight);
 
-    // Sprawdza czy element nachodzi na aktualnie wyscrollowany obszar (nawet odrobinę)
-    const isVisible = bottom >= timelineOffset && top <= timelineOffset + timelineViewportHeight;
-
-    // Jeśli nie jest widoczny zdefiniowanych wyżej przedziałach i posiada dodane notyfikacje, zapiszmy je.
-    return !isVisible && ev.notifications && ev.notifications.length > 0;
-  }).flatMap((ev: ScheduleEvent) =>
-    (ev.notifications || []).map(n => ({
-      ...n,
-      time: ev.startTime,
-      eventName: ev.description,
-      groupName: ev.group_name,
-      color: ev.color || '#3b82f6'
-    }))
-  );
 
   if (isNightModeActive || isBlackScreenAfterScheduleEndActive) {
     return (
@@ -693,21 +677,7 @@ export default function Tablet() {
 
       {/* LEFT PANEL */}
       <div className="tablet-left">
-        <div className="tablet-header-section">
-          <div className="tablet-clock-row">
-            <div className="qr-wrapper-mini">
-              <QRCodeCanvas
-                value={`https://plan.zut.edu.pl/#${encodeURIComponent(roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`)}&&&&`}
-                size={80}
-                fgColor="#0f172a"
-              />
-            </div>
-            <div className="tablet-clock">
-              <div className="tablet-time">{currentDateTime.time.substring(0, 5)}</div>
-              <div className="tablet-date">{currentDateTime.date} • {currentDateTime.dayName}</div>
-            </div>
-          </div>
-        </div>
+
 
         <div className="tablet-room-info-centered">
           <div className="tablet-room-name">
@@ -715,25 +685,57 @@ export default function Tablet() {
           </div>
 
           <div className="tablet-class-status">
-            {activeTimelineEvent && (
-              <div className="current-class-info">
-                <div className="class-header-row">
-                  <span className="status-label">Aktualnie:</span>
-                  {activeTimelineEvent.group_name && <span className="class-group-top">Grupa: {activeTimelineEvent.group_name}</span>}
+            {classToShowOnLeftPanel && (
+              <div 
+                className="current-class-info"
+                style={{
+                  borderLeftColor: classToShowOnLeftPanel.color || '#14b8a6',
+                  backgroundColor: `${classToShowOnLeftPanel.color || '#14b8a6'}26`
+                }}
+              >
+                <div className="class-stacked-info">
+                  <div className="class-stacked-line status-line">
+                    {leftPanelStatus === 'Aktualnie:' ? 'Aktualne zajęcia:' : 'Następne zajęcia:'}
+                  </div>
+                  <div className="class-stacked-line">
+                    <span className="stacked-label">Przedmiot:</span>
+                    <span className="stacked-val subject">
+                      {classToShowOnLeftPanel.description} {classToShowOnLeftPanel.form ? `(${classToShowOnLeftPanel.form})` : ''}
+                    </span>
+                  </div>
+                  {classToShowOnLeftPanel.group_name && (
+                    <div className="class-stacked-line">
+                      <span className="stacked-label">Grupa:</span>
+                      <span className="stacked-val">{classToShowOnLeftPanel.group_name}</span>
+                    </div>
+                  )}
                 </div>
-                <span className="class-name">{activeTimelineEvent.description}</span>
-              </div>
-            )}
-            {nextTimelineEvent && (
-              <div className={`next-class-info ${activeTimelineEvent ? 'is-secondary' : ''}`}>
-                <div className="class-header-row">
-                  <span className="status-label">Następne zajęcia:</span>
-                  {nextTimelineEvent.group_name && <span className="class-group-top">Grupa: {nextTimelineEvent.group_name}</span>}
-                </div>
-                <span className="class-name">{nextTimelineEvent.description} ({nextTimelineEvent.startTime}-{nextTimelineEvent.endTime})</span>
               </div>
             )}
           </div>
+
+          {classToShowOnLeftPanel?.notifications && classToShowOnLeftPanel.notifications.length > 0 && (
+            <div className="tablet-messages-section">
+              <div className="tablet-messages-header">🔔 Powiadomienia:</div>
+              <div className="tablet-messages-viewport">
+                <div className={`tablet-messages-scroller ${classToShowOnLeftPanel.notifications.length >= 2 ? 'is-overflowing' : ''}`}>
+                  <div className="tablet-messages-list">
+                    {classToShowOnLeftPanel.notifications.map((n, idx) => (
+                      <div className="tablet-message-item" key={`msg-${idx}`}>
+                        <div className="tablet-message-meta">
+                          {n.lecturer && <span className="tablet-message-lecturer">{n.lecturer}</span>}
+                          {n.isRoomChange && <span className="tablet-message-event" style={{ color: '#ef4444', fontWeight: 'bold' }}>ZMIANA SALI</span>}
+                        </div>
+                        <div className="tablet-message-body">{n.body}</div>
+                        {n.createdAt && <div className="tablet-message-time">{n.createdAt}</div>}
+                      </div>
+                    ))}
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="tablet-footer-logo">
@@ -791,6 +793,10 @@ export default function Tablet() {
                   style={{
                     top: timelineMarkerOffset + top + 'px',
                     height: (height - 4) + 'px', // tiny gap
+                    backgroundColor: isPast ? (ev.color ? `${ev.color}20` : 'rgba(255, 255, 255, 0.05)') : (ev.color || '#334155'),
+                    color: isPast ? '#94a3b8' : '#ffffff',
+                    borderLeft: isPast && ev.color ? `4px solid ${ev.color}60` : undefined,
+                    boxShadow: !isPast && ev.color ? `0 4px 15px ${ev.color}40` : 'none'
                   }}
                 >
                   <div className="event-title">{ev.description} ({ev.form})</div>
@@ -812,32 +818,20 @@ export default function Tablet() {
           </div>
         </div>
 
-        {/* UNSEEN NOTIFICATIONS BAR */}
-        {unseenNotifications.length > 0 && (
-          <div className="unseen-notifications-bar">
-            <div className="unseen-marquee">
-              <div className="unseen-marquee-content">
-                {[...unseenNotifications, ...unseenNotifications, ...unseenNotifications].map((n, i) => (
-                  <div className="unseen-notification-item" key={i}>
-                    <span
-                      className="unseen-time-badge"
-                      style={{
-                        backgroundColor: `${hexToRgba(n.color, 0.2)}`,
-                        color: n.color,
-                        border: `1px solid ${hexToRgba(n.color, 0.4)}`
-                      }}
-                    >
-                      {n.time}
-                    </span>
-                    <span className="unseen-group-name" style={{ color: n.color }}>[{n.groupName}]</span>
-                    <span className="unseen-event-name" style={{ color: n.color }}>{n.eventName}</span>
-                    <span className="unseen-body">{n.body}</span>
-                  </div>
-                ))}
-              </div>
+        {/* FLOATING WIDGET (QR Only) */}
+        <div className="floating-clock-widget" style={{ padding: '0.8rem 1rem' }}>
+          <div className="qr-container-column">
+            <div className="qr-wrapper-mini">
+              <QRCodeCanvas
+                value={`https://plan.zut.edu.pl/#${encodeURIComponent(roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`)}&&&&`}
+                size={58}
+                fgColor="#0f172a"
+              />
             </div>
+            <span className="qr-label-below" style={{ color: 'rgba(255,255,255,0.7)' }}>Odwiedź wirtualny<br />plan sali</span>
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );
