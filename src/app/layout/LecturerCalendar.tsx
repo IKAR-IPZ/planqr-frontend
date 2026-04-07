@@ -42,7 +42,9 @@ import {
   type MessageRecord,
 } from "../services/messageService";
 import {
+  canOpenLecturerPlan,
   fetchSession,
+  getLecturerDisplayName,
   logout,
   type SessionInfo,
 } from "../services/authService";
@@ -553,7 +555,7 @@ export default function LecturerCalendar() {
         return;
       }
 
-      if (!currentSession || !currentSession.access.canAccessLecturerPlan) {
+      if (!currentSession || !canOpenLecturerPlan(currentSession)) {
         navigate("/access-denied", {
           replace: true,
           state: { reason: "lecturer" },
@@ -561,17 +563,7 @@ export default function LecturerCalendar() {
         return;
       }
 
-      const fullName =
-        currentSession.displayName ||
-        `${currentSession.surname} ${currentSession.givenName}`.trim();
-
-      if (!fullName) {
-        navigate("/access-denied", {
-          replace: true,
-          state: { reason: "lecturer" },
-        });
-        return;
-      }
+      const fullName = getLecturerDisplayName(currentSession);
 
       setSession(currentSession);
       setActualLogin(currentSession.login);
