@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logo from "../../../assets/ZUT_Logo.png";
-import { fetchSession, logout, type SessionInfo } from "../../services/authService";
+import {
+  canOpenLecturerPlan,
+  fetchSession,
+  logout,
+  type SessionInfo,
+} from "../../services/authService";
 import "./AdminRegistry.css";
 import AdminPairingScanner from "./adminPanel/AdminPairingScanner";
 import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
@@ -152,6 +157,7 @@ const AdminRegistry = () => {
         : devices.find((device) => device.id === previewModal.deviceId) ?? null,
     [devices, previewModal],
   );
+  const lecturerPanelHref = canOpenLecturerPlan(session) ? "/lecturerPlan" : null;
 
   useEffect(() => {
     window.localStorage.setItem(ADMIN_THEME_STORAGE_KEY, adminTheme);
@@ -1231,9 +1237,14 @@ const AdminRegistry = () => {
 
         <div className="admin-console__appbar-actions">
           <AdminPanelThemeToggle theme={adminTheme} onChange={setAdminTheme} />
-          <a className="admin-button admin-button--ghost admin-button--small" href="/">
-            Powrót
-          </a>
+          {lecturerPanelHref ? (
+            <a
+              className="admin-button admin-button--ghost admin-button--small"
+              href={lecturerPanelHref}
+            >
+              Panel Dydaktyka
+            </a>
+          ) : null}
           <button
             type="button"
             className="admin-button admin-button--ghost admin-button--small"
@@ -1395,13 +1406,15 @@ const AdminRegistry = () => {
               <AdminPanelThemeToggle theme={adminTheme} onChange={setAdminTheme} />
 
               <div className="admin-mobile-panel__actions">
-                <a
-                  className="admin-button admin-button--ghost"
-                  href="/"
-                  onClick={closeMobilePanels}
-                >
-                  Powrót
-                </a>
+                {lecturerPanelHref ? (
+                  <a
+                    className="admin-button admin-button--ghost"
+                    href={lecturerPanelHref}
+                    onClick={closeMobilePanels}
+                  >
+                    Panel Dydaktyka
+                  </a>
+                ) : null}
                 <button
                   type="button"
                   className="admin-button admin-button--ghost"

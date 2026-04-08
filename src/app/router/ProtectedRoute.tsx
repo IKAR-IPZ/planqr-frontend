@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { fetchSession, type SessionInfo } from '../services/authService';
+import { canOpenLecturerPlan, fetchSession, type SessionInfo } from '../services/authService';
 
 type AccessRequirement = 'admin' | 'lecturer';
 
@@ -14,7 +14,7 @@ const hasRequiredAccess = (session: SessionInfo, requirement: AccessRequirement)
     return session.access.isAdmin;
   }
 
-  return session.access.canAccessLecturerPlan;
+  return canOpenLecturerPlan(session);
 };
 
 export default function ProtectedRoute({ requirement, children }: ProtectedRouteProps) {
