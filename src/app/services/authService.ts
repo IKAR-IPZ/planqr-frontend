@@ -1,10 +1,7 @@
 export interface SessionAccess {
   roles: string[];
   isAdmin: boolean;
-  isLecturer: boolean;
-  lecturerStatusResolved: boolean;
   canAccessLecturerPlan: boolean;
-  lecturerAccessSource: 'env' | 'ldap';
 }
 
 export interface SessionInfo {

@@ -46,7 +46,7 @@ const MOBILE_BREAKPOINT_PX = 720;
 const SCROLL_TOP_VISIBILITY_THRESHOLD_PX = 160;
 const SCROLL_TOP_TOAST_GAP_PX = 12;
 
-type AdminNavigationKey = AdminPanelView | "pairing";
+type AdminNavigationKey = AdminPanelView | "pairing" | "lecturer-preview";
 
 interface NavigationItem {
   key: AdminNavigationKey;
@@ -1133,6 +1133,12 @@ const AdminRegistry = () => {
       icon: "fas fa-camera",
       active: false,
     },
+    {
+      key: "lecturer-preview",
+      label: "Podgląd dydaktyka",
+      icon: "fas fa-user-tie",
+      active: false,
+    },
   ];
 
   const handleNavigationSelect = (key: AdminNavigationKey) => {
@@ -1140,6 +1146,11 @@ const AdminRegistry = () => {
 
     if (key === "pairing") {
       openPairingScanner();
+      return;
+    }
+
+    if (key === "lecturer-preview") {
+      navigate("/lecturerPlan?mode=admin-preview");
       return;
     }
 

@@ -1,7 +1,9 @@
 import type { AdminPanelView } from "./types";
 
+type AdminNavigationKey = AdminPanelView | "pairing" | "lecturer-preview";
+
 interface NavigationItem {
-  key: AdminPanelView | "pairing";
+  key: AdminNavigationKey;
   label: string;
   icon: string;
   active?: boolean;
@@ -9,7 +11,7 @@ interface NavigationItem {
 
 interface AdminPanelSidebarProps {
   navigationItems: NavigationItem[];
-  onItemSelect: (key: AdminPanelView | "pairing") => void;
+  onItemSelect: (key: AdminNavigationKey) => void;
   className?: string;
 }
 
