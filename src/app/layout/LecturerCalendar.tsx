@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -61,6 +61,7 @@ const DOUBLE_DOCKED_MIN_WIDTH = 1280;
 const DOUBLE_DOCKED_MIN_HEIGHT = 760;
 const FULLSCREEN_DRAWER_MAX_WIDTH = 720;
 const TOAST_DURATION_MS = 4500;
+const ADMIN_PREVIEW_MODE = "admin-preview";
 
 type CalendarView = "timeGridDay" | "timeGridWeek" | "dayGridMonth";
 type LecturerToastTone = "success" | "warning" | "danger" | "neutral";
@@ -106,6 +107,12 @@ const messageTimeFormatter = new Intl.DateTimeFormat("pl-PL", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+const normalizePreviewFieldValue = (value: string | null | undefined) =>
+  value?.trim().replace(/\s+/g, " ") ?? "";
+
+const buildPreviewTeacherName = (surname: string, givenName: string) =>
+  surname && givenName ? `${surname} ${givenName}` : "";
 
 const resolveWorkspaceMode = (
   width: number,
@@ -300,6 +307,7 @@ const getEventTextColor = (color?: string) => {
 
 export default function LecturerCalendar() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { theme, toggleTheme } = useTheme();
   const calendarRef = useRef<FullCalendar | null>(null);
   const calendarShellRef = useRef<HTMLElement | null>(null);
@@ -310,6 +318,7 @@ export default function LecturerCalendar() {
   const toastTimeoutRef = useRef(new Map<number, number>());
 
   const [session, setSession] = useState<SessionInfo | null>(null);
+  const [isSessionReady, setSessionReady] = useState(false);
   const [actualLogin, setActualLogin] = useState<string | null>(null);
   const [activeTeacher, setActiveTeacher] = useState<string | null>(null);
   const [events, setEvents] = useState<LessonEvent[]>([]);
@@ -343,6 +352,17 @@ export default function LecturerCalendar() {
         ? "timeGridWeek"
         : "timeGridDay",
     );
+  const [previewFullNameInput, setPreviewFullNameInput] = useState("");
+
+  const isAdminPreviewMode =
+    searchParams.get("mode") === ADMIN_PREVIEW_MODE;
+  const previewTeacherName =
+    normalizePreviewFieldValue(searchParams.get("fullName")) ||
+    buildPreviewTeacherName(
+      normalizePreviewFieldValue(searchParams.get("surname")),
+      normalizePreviewFieldValue(searchParams.get("givenName")),
+    );
+  const hasActiveTeacher = Boolean(activeTeacher);
 
   const workspaceMode = resolveWorkspaceMode(viewport.width, viewport.height);
   const isTripleDocked = workspaceMode === "triple-docked";
@@ -369,6 +389,11 @@ export default function LecturerCalendar() {
   const currentAttendanceDraft = selectedLesson
     ? attendanceDrafts[selectedLesson.id] ?? null
     : null;
+  const calendarSubtitle =
+    calendarTitle ||
+    (isAdminPreviewMode
+      ? "Uzupełnij pełną nazwę prowadzącego, aby wczytać plan."
+      : "");
 
   const scheduleCalendarResize = () => {
     const calendarApi = calendarRef.current?.getApi();
@@ -549,13 +574,27 @@ export default function LecturerCalendar() {
     let isMounted = true;
 
     const loadSession = async () => {
+      setSessionReady(false);
       const currentSession = await fetchSession();
 
       if (!isMounted) {
         return;
       }
 
-      if (!currentSession || !canOpenLecturerPlan(currentSession)) {
+      if (!currentSession) {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      if (isAdminPreviewMode) {
+        if (!currentSession.access.isAdmin) {
+          navigate("/access-denied", {
+            replace: true,
+            state: { reason: "admin" },
+          });
+          return;
+        }
+      } else if (!canOpenLecturerPlan(currentSession)) {
         navigate("/access-denied", {
           replace: true,
           state: { reason: "lecturer" },
@@ -563,11 +602,9 @@ export default function LecturerCalendar() {
         return;
       }
 
-      const fullName = getLecturerDisplayName(currentSession);
-
       setSession(currentSession);
       setActualLogin(currentSession.login);
-      setActiveTeacher(fullName);
+      setSessionReady(true);
     };
 
     void loadSession();
@@ -575,13 +612,62 @@ export default function LecturerCalendar() {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, [isAdminPreviewMode, navigate]);
 
   useEffect(() => {
+    setPreviewFullNameInput(previewTeacherName);
+  }, [previewTeacherName]);
+
+  useEffect(() => {
+    if (!session) {
+      setActiveTeacher(null);
+      return;
+    }
+
+    if (isAdminPreviewMode) {
+      setActiveTeacher(previewTeacherName);
+      return;
+    }
+
+    setActiveTeacher(getLecturerDisplayName(session));
+  }, [isAdminPreviewMode, previewTeacherName, session]);
+
+  useEffect(() => {
+    if (!isSessionReady) {
+      return;
+    }
+
+    if (isAdminPreviewMode) {
+      document.title = activeTeacher
+        ? `Podgląd dydaktyka - ${activeTeacher}`
+        : "Podgląd dydaktyka";
+      return;
+    }
+
     if (activeTeacher) {
       document.title = `Plan prowadzącego - ${activeTeacher}`;
     }
-  }, [activeTeacher]);
+  }, [activeTeacher, isAdminPreviewMode, isSessionReady]);
+
+  useEffect(() => {
+    setEvents([]);
+    setSelectedLesson(null);
+    setMessages([]);
+    setIsMessagesLoading(false);
+    setIsEditingRoom(false);
+    setEditedRoom("");
+    setIsAttendancePanelOpen(false);
+    setNewMessage("");
+    setEditingMessageId(null);
+    setEditingMessageBody("");
+    setMessageMutationId(null);
+
+    if (!activeTeacher) {
+      setCalendarTitle(
+        isAdminPreviewMode ? "Wybierz dydaktyka do podglądu" : "",
+      );
+    }
+  }, [activeTeacher, isAdminPreviewMode]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -617,6 +703,13 @@ export default function LecturerCalendar() {
     };
 
     void syncSchedule();
+
+    if (!activeTeacher) {
+      return () => {
+        isCancelled = true;
+      };
+    }
+
     const intervalId = window.setInterval(() => {
       void syncSchedule();
     }, 15 * 60 * 1000);
@@ -704,6 +797,24 @@ export default function LecturerCalendar() {
     setEditingMessageBody("");
     setIsEditingRoom(false);
     setIsAttendancePanelOpen(false);
+  };
+
+  const handlePreviewApply = () => {
+    const nextFullName = normalizePreviewFieldValue(previewFullNameInput);
+    const nextSearchParams = new URLSearchParams();
+
+    nextSearchParams.set("mode", ADMIN_PREVIEW_MODE);
+
+    if (nextFullName) {
+      nextSearchParams.set("fullName", nextFullName);
+    }
+
+    setSearchParams(nextSearchParams);
+  };
+
+  const handlePreviewClear = () => {
+    setPreviewFullNameInput("");
+    setSearchParams({ mode: ADMIN_PREVIEW_MODE });
   };
 
   const handleEventClick = (info: EventClickArg) => {
@@ -1212,7 +1323,7 @@ export default function LecturerCalendar() {
     />
   ) : null;
 
-  if (!activeTeacher) {
+  if (!isSessionReady) {
     return (
       <div className="admin-console lecturer-console" data-admin-theme={theme}>
         <div className="lecturer-console__loading">Ładowanie...</div>
@@ -1225,12 +1336,17 @@ export default function LecturerCalendar() {
       className="admin-console lecturer-console"
       data-admin-theme={theme}
       data-workspace-mode={workspaceMode}
+      data-admin-preview={isAdminPreviewMode ? "true" : "false"}
     >
       <header className="admin-console__appbar lecturer-console__appbar">
         <div className="admin-console__brand">
           <img className="admin-console__brand-logo" src={logo} alt="ZUT" />
           <div className="admin-console__brand-copy">
-            <strong>Plan prowadzącego</strong>
+            <strong>
+              {isAdminPreviewMode
+                ? "Podgląd Plan prowadzącego"
+                : "Plan prowadzącego"}
+            </strong>
             <span className="admin-console__brand-user">
               {activeTeacher}
               {session?.login ? ` · ${session.login}` : ""}
@@ -1238,13 +1354,54 @@ export default function LecturerCalendar() {
           </div>
         </div>
 
+        {isAdminPreviewMode ? (
+          <form
+            className="lecturer-console__appbar-preview"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handlePreviewApply();
+            }}
+          >
+            <input
+              className="lecturer-console__preview-input"
+              type="text"
+              placeholder="Pełne imię i nazwisko"
+              aria-label="Pełne imię i nazwisko"
+              value={previewFullNameInput}
+              onChange={(event) => setPreviewFullNameInput(event.target.value)}
+              autoComplete="off"
+            />
+
+            <button
+              type="submit"
+              className="admin-button admin-button--primary admin-button--small"
+            >
+              Zastosuj
+            </button>
+            <button
+              type="button"
+              className="admin-button admin-button--ghost admin-button--small"
+              onClick={handlePreviewClear}
+            >
+              Wyczyść
+            </button>
+            <button
+              type="button"
+              className="admin-button admin-button--ghost admin-button--small"
+              onClick={() => navigate("/adminpanel")}
+            >
+              Wróć do adminpanel
+            </button>
+          </form>
+        ) : null}
+
         <div className="admin-console__appbar-actions lecturer-console__appbar-actions">
           <AdminPanelThemeToggle
             theme={theme}
             onChange={(nextTheme) => applyTheme(nextTheme)}
           />
 
-          {session?.access.isAdmin ? (
+          {session?.access.isAdmin && !isAdminPreviewMode ? (
             <button
               type="button"
               className="admin-button admin-button--ghost admin-button--small"
@@ -1282,7 +1439,7 @@ export default function LecturerCalendar() {
               <header className="lecturer-console__surface-header">
                 <div className="lecturer-console__surface-title">
                   <h1>Plan zajęć</h1>
-                  <span>{calendarTitle}</span>
+                  <span>{calendarSubtitle}</span>
                 </div>
 
                 <div className="lecturer-console__surface-actions">
@@ -1291,6 +1448,7 @@ export default function LecturerCalendar() {
                       type="button"
                       className="admin-button admin-button--ghost admin-button--small"
                       onClick={() => handleCalendarMove("prev")}
+                      disabled={!hasActiveTeacher}
                     >
                       Wstecz
                     </button>
@@ -1298,6 +1456,7 @@ export default function LecturerCalendar() {
                       type="button"
                       className="admin-button admin-button--ghost admin-button--small"
                       onClick={() => handleCalendarMove("today")}
+                      disabled={!hasActiveTeacher}
                     >
                       Dzisiaj
                     </button>
@@ -1305,6 +1464,7 @@ export default function LecturerCalendar() {
                       type="button"
                       className="admin-button admin-button--ghost admin-button--small"
                       onClick={() => handleCalendarMove("next")}
+                      disabled={!hasActiveTeacher}
                     >
                       Dalej
                     </button>
@@ -1325,6 +1485,7 @@ export default function LecturerCalendar() {
                             : ""
                         }`}
                         onClick={() => setPreferredCalendarView(view as CalendarView)}
+                        disabled={!hasActiveTeacher}
                       >
                         {label}
                       </button>
@@ -1335,6 +1496,7 @@ export default function LecturerCalendar() {
                     type="button"
                     className="admin-button admin-button--secondary admin-button--small"
                     onClick={() => void handleRefreshPlan()}
+                    disabled={!hasActiveTeacher}
                   >
                     <FaSyncAlt />
                     {isSyncingPlan ? "Ładowanie..." : "Odśwież"}
@@ -1343,58 +1505,68 @@ export default function LecturerCalendar() {
               </header>
 
               <div className="lecturer-console__calendar-frame">
-                <FullCalendar
-                  ref={calendarRef}
-                  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                  initialView={effectiveCalendarView}
-                  headerToolbar={false}
-                  events={calendarEvents}
-                  locale={plLocale}
-                  firstDay={1}
-                  height="100%"
-                  allDaySlot={false}
-                  nowIndicator
-                  dayMaxEvents
-                  slotMinTime="07:00:00"
-                  slotMaxTime="21:00:00"
-                  eventTimeFormat={{
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  }}
-                  slotLabelFormat={{
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  }}
-                  dayHeaderFormat={dayHeaderFormat}
-                  eventClick={handleEventClick}
-                  eventContent={renderEventContent}
-                  datesSet={(info) => {
-                    setCalendarTitle(info.view.title);
-                    setCurrentDates((current) => {
-                      if (
-                        current.start === info.startStr &&
-                        current.end === info.endStr
-                      ) {
-                        return current;
-                      }
+                {!hasActiveTeacher && isAdminPreviewMode ? (
+                  <div className="lecturer-console__empty-state">
+                    <strong>Wybierz dydaktyka</strong>
+                    <p>
+                      Uzupełnij pełne imię i nazwisko w pasku podglądu, aby
+                      wczytać plan zajęć.
+                    </p>
+                  </div>
+                ) : (
+                  <FullCalendar
+                    ref={calendarRef}
+                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                    initialView={effectiveCalendarView}
+                    headerToolbar={false}
+                    events={calendarEvents}
+                    locale={plLocale}
+                    firstDay={1}
+                    height="100%"
+                    allDaySlot={false}
+                    nowIndicator
+                    dayMaxEvents
+                    slotMinTime="07:00:00"
+                    slotMaxTime="21:00:00"
+                    eventTimeFormat={{
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    }}
+                    slotLabelFormat={{
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    }}
+                    dayHeaderFormat={dayHeaderFormat}
+                    eventClick={handleEventClick}
+                    eventContent={renderEventContent}
+                    datesSet={(info) => {
+                      setCalendarTitle(info.view.title);
+                      setCurrentDates((current) => {
+                        if (
+                          current.start === info.startStr &&
+                          current.end === info.endStr
+                        ) {
+                          return current;
+                        }
 
-                      return { start: info.startStr, end: info.endStr };
-                    });
-                  }}
-                  eventDidMount={(info) => {
-                    const isTouch = "ontouchstart" in window;
-
-                    if (!isTouch) {
-                      tippy(info.el, {
-                        content: `${info.event.title} • Sala ${String(info.event.extendedProps.room || "-")}`,
-                        placement: "top",
-                        theme: "light-border",
+                        return { start: info.startStr, end: info.endStr };
                       });
-                    }
-                  }}
-                />
+                    }}
+                    eventDidMount={(info) => {
+                      const isTouch = "ontouchstart" in window;
+
+                      if (!isTouch) {
+                        tippy(info.el, {
+                          content: `${info.event.title} • Sala ${String(info.event.extendedProps.room || "-")}`,
+                          placement: "top",
+                          theme: "light-border",
+                        });
+                      }
+                    }}
+                  />
+                )}
               </div>
             </section>
 

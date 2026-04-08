@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { canOpenLecturerPlan, fetchSession, type SessionInfo } from '../services/authService';
 
 type AccessRequirement = 'admin' | 'lecturer';
+type AccessDeniedReason = AccessRequirement;
 
 interface ProtectedRouteProps {
   requirement: AccessRequirement;
@@ -15,6 +16,22 @@ const hasRequiredAccess = (session: SessionInfo, requirement: AccessRequirement)
   }
 
   return canOpenLecturerPlan(session);
+};
+
+const getAccessDeniedReason = (
+  session: SessionInfo,
+  requirement: AccessRequirement,
+  location: ReturnType<typeof useLocation>,
+): AccessDeniedReason | null => {
+  if (
+    requirement === 'lecturer' &&
+    location.pathname === '/lecturerPlan' &&
+    new URLSearchParams(location.search).get('mode') === 'admin-preview'
+  ) {
+    return session.access.isAdmin ? null : 'admin';
+  }
+
+  return hasRequiredAccess(session, requirement) ? null : requirement;
 };
 
 export default function ProtectedRoute({ requirement, children }: ProtectedRouteProps) {
@@ -46,8 +63,10 @@ export default function ProtectedRoute({ requirement, children }: ProtectedRoute
     return <Navigate to="/" replace />;
   }
 
-  if (!hasRequiredAccess(session, requirement)) {
-    return <Navigate to="/access-denied" replace state={{ reason: requirement }} />;
+  const accessDeniedReason = getAccessDeniedReason(session, requirement, location);
+
+  if (accessDeniedReason) {
+    return <Navigate to="/access-denied" replace state={{ reason: accessDeniedReason }} />;
   }
 
   return <>{children}</>;

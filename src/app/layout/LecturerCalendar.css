@@ -39,6 +39,10 @@ body.lecturer-console-scroll-root {
   box-shadow: none;
 }
 
+.lecturer-console[data-admin-preview="true"] .lecturer-console__appbar {
+  flex-wrap: wrap;
+}
+
 .lecturer-console__appbar-actions {
   gap: 0.5rem;
 }
@@ -160,6 +164,37 @@ body.lecturer-console-scroll-root {
   min-height: 0;
   padding: 0;
   overflow: hidden;
+}
+
+.lecturer-console__appbar-preview {
+  flex: 1 1 34rem;
+  min-width: min(100%, 26rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lecturer-console__preview-input {
+  width: min(100%, 18rem);
+  min-height: 38px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+}
+
+.lecturer-console__preview-input:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-soft);
+}
+
+.lecturer-console__appbar-preview .admin-button {
+  flex-shrink: 0;
 }
 
 .lecturer-console__calendar-frame .fc {
@@ -445,6 +480,27 @@ body.lecturer-console-scroll-root {
   font-size: 0.84rem;
 }
 
+.lecturer-console__empty-state {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 0.45rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.lecturer-console__empty-state strong {
+  color: var(--admin-text);
+  font-size: 1rem;
+}
+
+.lecturer-console__empty-state p {
+  max-width: 26rem;
+  margin: 0;
+  color: var(--admin-text-muted);
+  line-height: 1.5;
+}
+
 .lecturer-console__message {
   padding: 0.8rem 0;
   border-bottom: 1px solid var(--admin-border);
@@ -581,6 +637,15 @@ body.lecturer-console-scroll-root {
 }
 
 @media (max-width: 1280px) {
+  .lecturer-console__appbar-preview {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .lecturer-console__preview-input {
+    width: min(100%, 18rem);
+  }
+
   .lecturer-console__surface-header,
   .lecturer-console__surface-actions,
   .lecturer-console__panel-header,
@@ -601,6 +666,18 @@ body.lecturer-console-scroll-root {
 }
 
 @media (max-width: 720px) {
+  .lecturer-console .admin-console__appbar {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .lecturer-console .admin-console__brand,
+  .lecturer-console .admin-console__appbar-actions {
+    display: flex;
+  }
+
   .lecturer-console__shell {
     padding: 0.5rem;
   }
@@ -616,6 +693,16 @@ body.lecturer-console-scroll-root {
   .lecturer-console__appbar-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .lecturer-console__appbar-preview {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .lecturer-console__preview-input {
+    width: 100%;
   }
 
   .lecturer-console__calendar-nav,
