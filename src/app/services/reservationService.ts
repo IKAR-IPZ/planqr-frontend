@@ -8,6 +8,11 @@ export interface RoomReservation {
   status: 'reserved' | 'occupied' | 'free';
 }
 
+interface ScheduleEventWindow {
+  start?: string;
+  end?: string;
+}
+
 export const checkRoomStatus = async (room: string, department: string, dateTime: Date): Promise<'occupied' | 'free' | 'reserved'> => {
   try {
     // Check if there's a scheduled event at this time
@@ -22,7 +27,11 @@ export const checkRoomStatus = async (room: string, department: string, dateTime
       const currentTime = dateTime.getTime();
       
       // Check if there's an event at this time
-      const hasEvent = events.some((event: any) => {
+      const hasEvent = events.some((event: ScheduleEventWindow) => {
+        if (!event.start || !event.end) {
+          return false;
+        }
+
         const eventStart = new Date(event.start).getTime();
         const eventEnd = new Date(event.end).getTime();
         return currentTime >= eventStart && currentTime < eventEnd;

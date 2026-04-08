@@ -1,10 +1,10 @@
 export interface SessionAccess {
   roles: string[];
   isAdmin: boolean;
-  isLecturer: boolean | null;
+  isLecturer: boolean;
   lecturerStatusResolved: boolean;
   canAccessLecturerPlan: boolean;
-  lecturerAccessSource: 'env' | 'role' | 'ldap' | 'unknown';
+  lecturerAccessSource: 'env' | 'ldap';
 }
 
 export interface SessionInfo {
@@ -45,17 +45,28 @@ export const logout = async () => {
   }
 };
 
+export const getLecturerDisplayName = (session: SessionInfo | null) => {
+  if (!session) {
+    return '';
+  }
+
+  return session.displayName || `${session.surname} ${session.givenName}`.trim();
+};
+
+export const canOpenLecturerPlan = (session: SessionInfo | null) =>
+  Boolean(session?.access.canAccessLecturerPlan && getLecturerDisplayName(session));
+
 export const getPreferredRoute = (session: SessionInfo | null) => {
   if (!session) {
     return null;
   }
 
-  if (session.access.isAdmin) {
-    return '/adminpanel';
+  if (canOpenLecturerPlan(session)) {
+    return '/lecturerPlan';
   }
 
-  if (session.access.canAccessLecturerPlan) {
-    return '/lecturerPlan';
+  if (session.access.isAdmin) {
+    return '/adminpanel';
   }
 
   return null;
