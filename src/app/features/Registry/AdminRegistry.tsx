@@ -70,6 +70,19 @@ interface PreviewModalState {
   requestedAt: number | null;
 }
 
+const PAIRING_MESSAGE = {
+  staleDevice: "Tablet już sparowany.",
+  codeInvalid: "Błędny kod.",
+  codeNotFound: "Nie znaleziono.",
+  lookupError: "Błąd wyszukiwania.",
+  lookupConnectionError: "Błąd połączenia.",
+  found: "Tablet znaleziony.",
+  roomRequired: "Wpisz salę.",
+  roomInvalid: "Sala nie istnieje.",
+  assignError: "Nie zapisano zmian.",
+  assigned: "Tablet przypisany.",
+} as const;
+
 const getActiveView = (value: string | null): AdminPanelView => {
   if (value === "admins" || value === "schedule") {
     return value;
@@ -128,13 +141,14 @@ const AdminRegistry = () => {
   const [pairingCode, setPairingCode] = useState("");
   const [pairingDeviceId, setPairingDeviceId] = useState<number | null>(null);
   const [pairingRoom, setPairingRoom] = useState("");
-  const [pairingRoomError, setPairingRoomError] = useState("");
   const [pairingRoomSuggestions, setPairingRoomSuggestions] = useState<string[]>([]);
   const [pairingShowRoomSuggestions, setPairingShowRoomSuggestions] = useState(false);
   const [pairingSelectedSuggestion, setPairingSelectedSuggestion] = useState<string | null>(null);
   const [pairingSearchingRooms, setPairingSearchingRooms] = useState(false);
   const [pairingLookingUp, setPairingLookingUp] = useState(false);
   const [pairingAssigning, setPairingAssigning] = useState(false);
+  const [pairingCodeTone, setPairingCodeTone] = useState<Tone>("neutral");
+  const [pairingRoomTone, setPairingRoomTone] = useState<Tone>("neutral");
   const [pairingFeedback, setPairingFeedback] = useState<string | null>(null);
   const [pairingFeedbackTone, setPairingFeedbackTone] = useState<Tone>("neutral");
   const [toasts, setToasts] = useState<AdminToast[]>([]);
@@ -387,12 +401,13 @@ const AdminRegistry = () => {
     pairingRoomSearchRequestIdRef.current += 1;
     setPairingDeviceId(null);
     setPairingRoom("");
-    setPairingRoomError("");
     setPairingRoomSuggestions([]);
     setPairingShowRoomSuggestions(false);
     setPairingSelectedSuggestion(null);
     setPairingSearchingRooms(false);
-    setPairingFeedback("Wybrany tablet nie oczekuje już na rejestrację.");
+    setPairingCodeTone("danger");
+    setPairingRoomTone("neutral");
+    setPairingFeedback(PAIRING_MESSAGE.staleDevice);
     setPairingFeedbackTone("warning");
   }, [pairingDevice, pairingDeviceId]);
 
@@ -442,24 +457,19 @@ const AdminRegistry = () => {
     setPairingRoomSuggestions([]);
     setPairingSearchingRooms(false);
     setPairingSelectedSuggestion(null);
-    setPairingRoomError("");
   };
 
-  const resetPairingSelection = (options?: {
-    keepCode?: boolean;
-    keepFeedback?: boolean;
-  }) => {
+  const resetPairingSelection = (options?: { keepCode?: boolean }) => {
     resetPairingRoomSearch();
     setPairingDeviceId(null);
     setPairingRoom("");
+    setPairingCodeTone("neutral");
+    setPairingRoomTone("neutral");
+    setPairingFeedback(null);
+    setPairingFeedbackTone("neutral");
 
     if (!options?.keepCode) {
       setPairingCode("");
-    }
-
-    if (!options?.keepFeedback) {
-      setPairingFeedback(null);
-      setPairingFeedbackTone("neutral");
     }
   };
 
@@ -1052,9 +1062,11 @@ const AdminRegistry = () => {
         return {
           ok: false as const,
           message:
-            typeof data.message === "string"
-              ? data.message
-              : "Nie udało się wyszukać tabletu po kodzie.",
+            response.status === 400
+              ? PAIRING_MESSAGE.codeInvalid
+              : response.status === 404
+                ? PAIRING_MESSAGE.codeNotFound
+                : PAIRING_MESSAGE.lookupError,
         };
       }
 
@@ -1073,7 +1085,7 @@ const AdminRegistry = () => {
       console.error("Error looking up pending device:", error);
       return {
         ok: false as const,
-        message: "Nie udało się połączyć z serwerem podczas wyszukiwania tabletu.",
+        message: PAIRING_MESSAGE.lookupConnectionError,
       };
     }
   };
@@ -1090,9 +1102,9 @@ const AdminRegistry = () => {
     setPairingCode(formatPairingDeviceId(device.deviceId));
     setPairingDeviceId(device.id);
     setPairingRoom("");
-    setPairingFeedback(
-      `Znaleziono tablet ${formatPairingDeviceId(device.deviceId)}. Wpisz salę i kliknij Przydziel.`,
-    );
+    setPairingCodeTone("success");
+    setPairingRoomTone("neutral");
+    setPairingFeedback(PAIRING_MESSAGE.found);
     setPairingFeedbackTone("success");
   };
 
@@ -1100,12 +1112,14 @@ const AdminRegistry = () => {
     const deviceId = rawDeviceId ?? pairingCode;
 
     setPairingLookingUp(true);
+    setPairingCodeTone("neutral");
     setPairingFeedback(null);
     setPairingFeedbackTone("neutral");
 
     const result = await lookupPendingDeviceByCode(deviceId);
 
     if (!result.ok) {
+      setPairingCodeTone("danger");
       setPairingFeedback(result.message);
       setPairingFeedbackTone("danger");
       setPairingLookingUp(false);
@@ -1177,7 +1191,9 @@ const AdminRegistry = () => {
     const sanitizedRoom = sanitizeRoomValue(pairingRoom);
 
     if (!device || !sanitizedRoom) {
-      setPairingRoomError("Wprowadź nazwę sali.");
+      setPairingRoomTone("danger");
+      setPairingFeedback(PAIRING_MESSAGE.roomRequired);
+      setPairingFeedbackTone("danger");
       return;
     }
 
@@ -1190,28 +1206,33 @@ const AdminRegistry = () => {
       (await validateRoom(sanitizedRoom));
 
     if (!isValid) {
-      setPairingRoomError("Wybrana sala nie istnieje w planie.");
+      setPairingRoomTone("danger");
+      setPairingFeedback(PAIRING_MESSAGE.roomInvalid);
+      setPairingFeedbackTone("danger");
       return;
     }
 
     try {
       setPairingAssigning(true);
+      setPairingRoomTone("success");
+      setPairingFeedback(null);
+      setPairingFeedbackTone("neutral");
       const result = await updateDeviceRoomAssignment(device.id, sanitizedRoom);
       if (!result.ok) {
-        setPairingRoomError(result.message);
+        setPairingRoomTone("danger");
+        setPairingFeedback(PAIRING_MESSAGE.assignError);
+        setPairingFeedbackTone("danger");
         return;
       }
 
-      const deviceLabel = formatPairingDeviceId(device.deviceId);
-      resetPairingSelection({ keepFeedback: true });
-      setPairingFeedback(`Tablet ${deviceLabel} został przypisany do sali ${sanitizedRoom}.`);
+      resetPairingSelection();
+      setPairingFeedback(PAIRING_MESSAGE.assigned);
       setPairingFeedbackTone("success");
-      pushToast(`Tablet ${deviceLabel} został przypisany do sali ${sanitizedRoom}.`, "success");
       await fetchDevices();
     } catch (error) {
       console.error("Error assigning pending device:", error);
-      setPairingRoomError("Nie udało się przypisać tabletu.");
-      setPairingFeedback("Nie udało się zapisać zmian tabletu.");
+      setPairingRoomTone("danger");
+      setPairingFeedback(PAIRING_MESSAGE.assignError);
       setPairingFeedbackTone("danger");
     } finally {
       setPairingAssigning(false);
@@ -1220,6 +1241,7 @@ const AdminRegistry = () => {
 
   const handlePairingCodeChange = (value: string) => {
     setPairingCode(formatPairingDeviceInput(value));
+    setPairingCodeTone("neutral");
     setPairingFeedback(null);
     setPairingFeedbackTone("neutral");
   };
@@ -1227,8 +1249,10 @@ const AdminRegistry = () => {
   const handlePairingRoomChange = (value: string) => {
     setPairingRoom(value);
     setPairingSelectedSuggestion(null);
-    setPairingRoomError("");
+    setPairingRoomTone("neutral");
     setPairingShowRoomSuggestions(true);
+    setPairingFeedback(null);
+    setPairingFeedbackTone("neutral");
   };
 
   const handleResetPairing = () => {
@@ -1567,12 +1591,13 @@ const AdminRegistry = () => {
               pairingSuggestions={pairingSuggestions}
               pairingDevice={pairingDevice}
               pairingRoom={pairingRoom}
-              pairingRoomError={pairingRoomError}
               pairingRoomSuggestions={pairingRoomSuggestions}
               pairingShowRoomSuggestions={pairingShowRoomSuggestions}
               pairingLookingUp={pairingLookingUp}
               pairingAssigning={pairingAssigning}
               pairingSearchingRooms={pairingSearchingRooms}
+              pairingCodeTone={pairingCodeTone}
+              pairingRoomTone={pairingRoomTone}
               pairingFeedback={pairingFeedback}
               pairingFeedbackTone={pairingFeedbackTone}
               onSearchTermChange={setSearchTerm}
@@ -1599,7 +1624,9 @@ const AdminRegistry = () => {
               onPairingRoomSuggestionSelect={(room) => {
                 setPairingRoom(room);
                 setPairingSelectedSuggestion(room);
-                setPairingRoomError("");
+                setPairingRoomTone("success");
+                setPairingFeedback(null);
+                setPairingFeedbackTone("neutral");
                 setPairingShowRoomSuggestions(false);
                 setPairingRoomSuggestions([]);
               }}

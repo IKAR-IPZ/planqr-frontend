@@ -41,12 +41,13 @@ interface DevicesViewProps {
   pairingSuggestions: Device[];
   pairingDevice: Device | null;
   pairingRoom: string;
-  pairingRoomError: string;
   pairingRoomSuggestions: string[];
   pairingShowRoomSuggestions: boolean;
   pairingLookingUp: boolean;
   pairingAssigning: boolean;
   pairingSearchingRooms: boolean;
+  pairingCodeTone: Tone;
+  pairingRoomTone: Tone;
   pairingFeedback: string | null;
   pairingFeedbackTone: Tone;
   onSearchTermChange: (value: string) => void;
@@ -95,12 +96,13 @@ const DevicesView = ({
   pairingSuggestions,
   pairingDevice,
   pairingRoom,
-  pairingRoomError,
   pairingRoomSuggestions,
   pairingShowRoomSuggestions,
   pairingLookingUp,
   pairingAssigning,
   pairingSearchingRooms,
+  pairingCodeTone,
+  pairingRoomTone,
   pairingFeedback,
   pairingFeedbackTone,
   onSearchTermChange,
@@ -228,12 +230,13 @@ const DevicesView = ({
           codeSuggestions={pairingSuggestions}
           selectedDevice={pairingDevice}
           roomValue={pairingRoom}
-          roomError={pairingRoomError}
           roomSuggestions={pairingRoomSuggestions}
           showRoomSuggestions={pairingShowRoomSuggestions}
           isLookingUp={pairingLookingUp}
           isAssigning={pairingAssigning}
           isSearchingRooms={pairingSearchingRooms}
+          codeTone={pairingCodeTone}
+          roomTone={pairingRoomTone}
           feedback={pairingFeedback}
           feedbackTone={pairingFeedbackTone}
           onCodeChange={onPairingCodeChange}

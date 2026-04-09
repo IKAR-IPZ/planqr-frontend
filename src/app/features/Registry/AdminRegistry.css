@@ -700,6 +700,30 @@ body.admin-console-scroll-root #root {
   border-color: var(--admin-accent);
 }
 
+.admin-form-field__input--success {
+  border-color: rgba(32, 128, 80, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(32, 128, 80, 0.2);
+}
+
+.admin-form-field__input--success:focus {
+  border-color: rgba(32, 128, 80, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(32, 128, 80, 0.24),
+    0 0 0 3px rgba(32, 128, 80, 0.12);
+}
+
+.admin-form-field__input--danger {
+  border-color: rgba(180, 35, 24, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(180, 35, 24, 0.18);
+}
+
+.admin-form-field__input--danger:focus {
+  border-color: rgba(180, 35, 24, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(180, 35, 24, 0.22),
+    0 0 0 3px rgba(180, 35, 24, 0.12);
+}
+
 .admin-form-field--search .admin-form-field__input {
   padding-left: 2.3rem;
 }
@@ -783,8 +807,19 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-devices-view__overview {
+  --admin-device-assignment-code-width: calc(7ch + 1.55rem);
+  --admin-device-assignment-add-width: 5.5rem;
+  --admin-device-assignment-reset-width: 7.8rem;
+  --admin-device-assignment-inline-width: calc(
+    var(--admin-device-assignment-code-width) +
+    var(--admin-device-assignment-add-width) +
+    var(--admin-device-assignment-reset-width) +
+    1.5rem
+  );
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(calc(var(--admin-device-assignment-inline-width) + 2rem), 22rem);
   gap: 1rem;
   align-items: stretch;
 }
@@ -808,22 +843,34 @@ body.admin-console-scroll-root #root {
 
 .admin-device-assignment__code-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: max-content auto auto;
   gap: 0.75rem;
   align-items: end;
 }
 
 .admin-device-assignment__code-field {
-  width: 10.75rem;
+  width: var(--admin-device-assignment-code-width);
 }
 
 .admin-device-assignment__code-input {
-  text-align: center;
+  text-align: left;
   font-size: 1.02rem;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.admin-device-assignment__code-row .admin-button {
+  white-space: nowrap;
+}
+
+.admin-device-assignment__code-row .admin-button--primary {
+  min-width: var(--admin-device-assignment-add-width);
+}
+
+.admin-device-assignment__code-row .admin-button--ghost {
+  min-width: var(--admin-device-assignment-reset-width);
 }
 
 .admin-device-assignment__room-row {
@@ -833,39 +880,30 @@ body.admin-console-scroll-root #root {
   align-items: end;
 }
 
-.admin-device-assignment__summary {
-  padding: 0.85rem 0.95rem;
-  border: 1px dashed var(--admin-border);
-  border-radius: var(--admin-radius);
-  background: var(--admin-surface-muted);
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+.admin-device-assignment__status-slot {
+  min-height: 3.15rem;
 }
 
-.admin-device-assignment__summary-copy,
-.admin-device-assignment__summary-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+.admin-device-assignment__status {
+  margin: 0;
 }
 
-.admin-device-assignment__summary-copy strong {
-  color: var(--admin-text);
-}
-
-.admin-device-assignment__summary-copy span,
-.admin-device-assignment__summary-meta span {
-  color: var(--admin-text-muted);
-  line-height: 1.4;
+.admin-device-assignment__status--hidden {
+  visibility: hidden;
+  border-color: transparent;
+  background: transparent;
 }
 
 .admin-device-assignment__suggestion {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.9rem;
+  justify-content: flex-start;
   text-align: left;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 .admin-device-assignment__suggestion-code {

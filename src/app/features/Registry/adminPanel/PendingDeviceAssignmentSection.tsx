@@ -1,10 +1,5 @@
 import AdminPanelSection from "./AdminPanelSection";
-import {
-  formatLastSeen,
-  formatPairingDeviceId,
-  getDeviceDisplayName,
-  getDeviceSecondaryName,
-} from "./helpers";
+import { formatPairingDeviceId } from "./helpers";
 import type { Device, Tone } from "./types";
 
 interface PendingDeviceAssignmentSectionProps {
@@ -13,12 +8,13 @@ interface PendingDeviceAssignmentSectionProps {
   codeSuggestions: Device[];
   selectedDevice: Device | null;
   roomValue: string;
-  roomError: string;
   roomSuggestions: string[];
   showRoomSuggestions: boolean;
   isLookingUp: boolean;
   isAssigning: boolean;
   isSearchingRooms: boolean;
+  codeTone: Tone;
+  roomTone: Tone;
   feedback: string | null;
   feedbackTone: Tone;
   onCodeChange: (value: string) => void;
@@ -36,12 +32,13 @@ const PendingDeviceAssignmentSection = ({
   codeSuggestions,
   selectedDevice,
   roomValue,
-  roomError,
   roomSuggestions,
   showRoomSuggestions,
   isLookingUp,
   isAssigning,
   isSearchingRooms,
+  codeTone,
+  roomTone,
   feedback,
   feedbackTone,
   onCodeChange,
@@ -52,8 +49,6 @@ const PendingDeviceAssignmentSection = ({
   onRoomSuggestionSelect,
   onAssign,
 }: PendingDeviceAssignmentSectionProps) => {
-  const deviceDisplayName = selectedDevice ? getDeviceDisplayName(selectedDevice) : null;
-  const deviceSecondaryName = selectedDevice ? getDeviceSecondaryName(selectedDevice) : null;
   const hasCodeSuggestions = !selectedDevice && codeSuggestions.length > 0 && codeValue.trim();
 
   return (
@@ -74,9 +69,15 @@ const PendingDeviceAssignmentSection = ({
               <span className="admin-form-field__label">Kod tabletu</span>
               <div className="admin-autocomplete">
                 <input
-                  className="admin-form-field__input admin-device-assignment__code-input"
+                  className={[
+                    "admin-form-field__input",
+                    "admin-device-assignment__code-input",
+                    codeTone !== "neutral" ? `admin-form-field__input--${codeTone}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   inputMode="numeric"
-                  placeholder="np. 123 456"
+                  placeholder="123 456"
                   value={codeValue}
                   onChange={(event) => onCodeChange(event.target.value)}
                   disabled={selectedDevice !== null}
@@ -90,12 +91,7 @@ const PendingDeviceAssignmentSection = ({
                         className="admin-autocomplete__item admin-device-assignment__suggestion"
                         onClick={() => onCodeSuggestionSelect(device)}
                       >
-                        <span className="admin-device-assignment__suggestion-code">
-                          {formatPairingDeviceId(device.deviceId)}
-                        </span>
-                        <span className="admin-device-assignment__suggestion-copy">
-                          {formatLastSeen(device.lastSeen)}
-                        </span>
+                        {formatPairingDeviceId(device.deviceId)}
                       </button>
                     ))}
                   </div>
@@ -122,35 +118,17 @@ const PendingDeviceAssignmentSection = ({
             </button>
           </div>
 
-          {feedback ? (
-            <p className={`admin-feedback admin-feedback--${feedbackTone}`}>
-              {feedback}
-            </p>
-          ) : null}
-
-          {selectedDevice ? (
-            <div className="admin-device-assignment__summary">
-              <div className="admin-device-assignment__summary-copy">
-                <strong>{`Tablet ${formatPairingDeviceId(selectedDevice.deviceId)}`}</strong>
-                <span>
-                  {deviceSecondaryName
-                    ? `${deviceDisplayName} • ${deviceSecondaryName}`
-                    : deviceDisplayName}
-                </span>
-              </div>
-              <div className="admin-device-assignment__summary-meta">
-                <span>Ostatni heartbeat: {formatLastSeen(selectedDevice.lastSeen)}</span>
-                <span>Model: {selectedDevice.deviceModel || "brak danych"}</span>
-              </div>
-            </div>
-          ) : null}
-
           <div className="admin-device-assignment__room-row">
             <label className="admin-form-field admin-form-field--grow">
               <span className="admin-form-field__label">Sala</span>
               <div className="admin-autocomplete">
                 <input
-                  className="admin-form-field__input"
+                  className={[
+                    "admin-form-field__input",
+                    roomTone !== "neutral" ? `admin-form-field__input--${roomTone}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   placeholder="np. WI WI1-308"
                   value={roomValue}
                   onChange={(event) => onRoomChange(event.target.value)}
@@ -188,9 +166,17 @@ const PendingDeviceAssignmentSection = ({
             </button>
           </div>
 
-          {roomError ? (
-            <p className="admin-feedback admin-feedback--danger">{roomError}</p>
-          ) : null}
+          <div className="admin-device-assignment__status-slot" aria-live="polite">
+            <p
+              className={[
+                "admin-feedback",
+                "admin-device-assignment__status",
+                feedback ? `admin-feedback--${feedbackTone}` : "admin-device-assignment__status--hidden",
+              ].join(" ")}
+            >
+              {feedback ?? "\u00A0"}
+            </p>
+          </div>
         </div>
       </div>
     </AdminPanelSection>
