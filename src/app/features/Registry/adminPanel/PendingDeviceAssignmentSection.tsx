@@ -68,17 +68,13 @@ const PendingDeviceAssignmentSection = ({
       }
     >
       <div className="admin-device-assignment">
-        <p className="admin-note admin-device-assignment__note">
-          Wpisz 6-cyfrowy kod tabletu oczekującego na rejestrację, a potem przypisz mu salę.
-        </p>
-
         <div className="admin-device-assignment__form">
           <div className="admin-device-assignment__code-row">
-            <label className="admin-form-field admin-form-field--grow">
+            <label className="admin-form-field admin-device-assignment__code-field">
               <span className="admin-form-field__label">Kod tabletu</span>
               <div className="admin-autocomplete">
                 <input
-                  className="admin-form-field__input"
+                  className="admin-form-field__input admin-device-assignment__code-input"
                   inputMode="numeric"
                   placeholder="np. 123 456"
                   value={codeValue}

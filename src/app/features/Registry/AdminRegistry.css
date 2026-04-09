@@ -786,7 +786,11 @@ body.admin-console-scroll-root #root {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
+}
+
+.admin-devices-view__overview > .admin-surface {
+  height: 100%;
 }
 
 .admin-device-assignment {
@@ -794,10 +798,6 @@ body.admin-console-scroll-root #root {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.admin-device-assignment__note {
-  margin: 0;
 }
 
 .admin-device-assignment__form {
@@ -811,6 +811,19 @@ body.admin-console-scroll-root #root {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.75rem;
   align-items: end;
+}
+
+.admin-device-assignment__code-field {
+  width: 10.75rem;
+}
+
+.admin-device-assignment__code-input {
+  text-align: center;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 .admin-device-assignment__room-row {
