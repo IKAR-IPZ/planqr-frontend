@@ -28,6 +28,16 @@ export const formatPairingDeviceId = (value: string) => {
   return `${match[1]} ${match[2]}`;
 };
 
+export const formatPairingDeviceInput = (value: string) => {
+  const normalizedValue = sanitizePairingDeviceId(value).slice(0, 6);
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  return normalizedValue.replace(/(\d{3})(?=\d)/g, "$1 ").trim();
+};
+
 export const normalizeRoomValue = (value: string) =>
   sanitizeRoomValue(value).toUpperCase();
 
