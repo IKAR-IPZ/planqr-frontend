@@ -5,7 +5,9 @@ export interface Device {
   deviceId: string;
   status: "PENDING" | "ACTIVE";
   displayTheme: "light" | "dark";
-  forceBlackScreen: boolean;
+  blackScreenMode: "follow" | "on" | "off";
+  scheduledBlackScreen: boolean;
+  effectiveBlackScreen: boolean;
   connectionStatus: "PENDING" | "ONLINE" | "OFFLINE";
   isConnected: boolean;
   lastSeen: string;

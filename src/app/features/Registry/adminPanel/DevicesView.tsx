@@ -29,6 +29,7 @@ interface DevicesViewProps {
   batchUpdating: boolean;
   batchThemeUpdating: boolean;
   themeMutationDeviceId: number | null;
+  blackScreenMutationDeviceId: number | null;
   batchThemeValue: Device["displayTheme"];
   selectedDeviceIds: number[];
   searchTerm: string;
@@ -60,6 +61,7 @@ interface DevicesViewProps {
   onEditDevice: (device: Device) => void;
   onPreviewDevice: (device: Device) => void;
   onDeviceThemeChange: (device: Device, theme: Device["displayTheme"]) => void;
+  onDeviceBlackScreenToggle: (device: Device, checked: boolean) => void;
   onDeleteDevice: (device: Device) => void;
   onPairingCodeChange: (value: string) => void;
   onPairingSuggestionSelect: (device: Device) => void;
@@ -90,6 +92,7 @@ const DevicesView = ({
   batchUpdating,
   batchThemeUpdating,
   themeMutationDeviceId,
+  blackScreenMutationDeviceId,
   batchThemeValue,
   selectedDeviceIds,
   searchTerm,
@@ -121,6 +124,7 @@ const DevicesView = ({
   onEditDevice,
   onPreviewDevice,
   onDeviceThemeChange,
+  onDeviceBlackScreenToggle,
   onDeleteDevice,
   onPairingCodeChange,
   onPairingSuggestionSelect,
@@ -195,6 +199,14 @@ const DevicesView = ({
       ),
       ariaSort: sortButtonState.ariaSort,
     };
+  };
+
+  const getBlackScreenStatusLabel = (device: Device) => {
+    if (device.blackScreenMode === "follow") {
+      return "Harmonogram";
+    }
+
+    return device.blackScreenMode === "on" ? "Ręcznie włączony" : "Ręcznie wyłączony";
   };
 
   useEffect(() => {
@@ -440,13 +452,24 @@ const DevicesView = ({
                     </select>
                   </td>
                   <td data-label="Czarny ekran" className="admin-table__cell--center">
-                    <span
-                      className={`admin-status-pill admin-status-pill--${
-                        device.forceBlackScreen ? "warning" : "neutral"
-                      }`}
-                    >
-                      {device.forceBlackScreen ? "Włączony" : "Wyłączony"}
-                    </span>
+                    <div className="admin-table__toggle-stack">
+                      <label className="admin-switch" aria-label={`Czarny ekran ${displayName}`}>
+                        <input
+                          type="checkbox"
+                          checked={device.effectiveBlackScreen}
+                          disabled={blackScreenMutationDeviceId === device.id}
+                          onChange={(event) =>
+                            onDeviceBlackScreenToggle(device, event.target.checked)
+                          }
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        />
+                        <span>{device.effectiveBlackScreen ? "Włączony" : "Wyłączony"}</span>
+                      </label>
+                      <span className="admin-table__secondary">
+                        {getBlackScreenStatusLabel(device)}
+                      </span>
+                    </div>
                   </td>
                   <td data-label="Akcje" className="admin-table__cell--actions">
                     <div className="admin-table__actions">

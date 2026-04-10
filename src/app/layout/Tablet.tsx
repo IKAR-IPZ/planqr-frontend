@@ -52,6 +52,7 @@ interface TabletNightModeConfig {
 }
 
 type TabletDisplayTheme = 'light' | 'dark';
+type TabletBlackScreenMode = 'follow' | 'on' | 'off';
 
 interface DisplaySettingsResponse {
   nightMode?: TabletNightModeConfig | null;
@@ -59,7 +60,7 @@ interface DisplaySettingsResponse {
 
 interface PreviewDeviceResponse {
   displayTheme?: TabletDisplayTheme | null;
-  forceBlackScreen?: boolean | null;
+  blackScreenMode?: TabletBlackScreenMode | null;
 }
 
 interface DeviceStatusResponse {
@@ -69,7 +70,7 @@ interface DeviceStatusResponse {
     secretUrl?: string | null;
     nightMode?: TabletNightModeConfig | null;
     displayTheme?: TabletDisplayTheme | null;
-    forceBlackScreen?: boolean | null;
+    blackScreenMode?: TabletBlackScreenMode | null;
   } | null;
 }
 
@@ -83,9 +84,11 @@ interface TabletCommandPayload {
 const TABLET_RELOAD_PARAM = '_tabletReload';
 const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
 const TABLET_THEME_STORAGE_KEY = 'tablet_display_theme';
-const TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY = 'tablet_force_black_screen';
+const TABLET_BLACK_SCREEN_MODE_STORAGE_KEY = 'tablet_black_screen_mode';
+const LEGACY_TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY = 'tablet_force_black_screen';
 const TABLET_PREVIEW_PARAM = 'preview';
 const DEFAULT_TABLET_DISPLAY_THEME: TabletDisplayTheme = 'dark';
+const DEFAULT_TABLET_BLACK_SCREEN_MODE: TabletBlackScreenMode = 'follow';
 const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
   enabled: false,
   startTime: '22:00',
@@ -98,6 +101,17 @@ const buildTabletPath = (room: string, secretUrl: string) =>
 
 const normalizeDisplayTheme = (theme?: string | null): TabletDisplayTheme =>
   theme === 'light' ? 'light' : DEFAULT_TABLET_DISPLAY_THEME;
+
+const normalizeBlackScreenMode = (
+  mode?: string | null,
+  legacyForceBlackScreen?: boolean | null
+): TabletBlackScreenMode => {
+  if (mode === 'follow' || mode === 'on' || mode === 'off') {
+    return mode;
+  }
+
+  return legacyForceBlackScreen === true ? 'on' : DEFAULT_TABLET_BLACK_SCREEN_MODE;
+};
 
 const normalizeNightModeConfig = (
   nightMode?: TabletNightModeConfig | null
@@ -165,29 +179,32 @@ const readStoredDisplayTheme = (): TabletDisplayTheme => {
   return normalizeDisplayTheme(window.localStorage.getItem(TABLET_THEME_STORAGE_KEY));
 };
 
-const persistForceBlackScreen = (forceBlackScreen: boolean) => {
+const persistBlackScreenMode = (blackScreenMode: TabletBlackScreenMode) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(
-    TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY,
-    JSON.stringify(forceBlackScreen),
-  );
+  window.localStorage.setItem(TABLET_BLACK_SCREEN_MODE_STORAGE_KEY, blackScreenMode);
+  window.localStorage.removeItem(LEGACY_TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY);
 };
 
-const readStoredForceBlackScreen = () => {
+const readStoredBlackScreenMode = (): TabletBlackScreenMode => {
   if (typeof window === 'undefined') {
-    return false;
+    return DEFAULT_TABLET_BLACK_SCREEN_MODE;
   }
 
-  const rawValue = window.localStorage.getItem(TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY);
-  return rawValue === 'true';
+  const rawValue = window.localStorage.getItem(TABLET_BLACK_SCREEN_MODE_STORAGE_KEY);
+  if (rawValue) {
+    return normalizeBlackScreenMode(rawValue);
+  }
+
+  const legacyValue = window.localStorage.getItem(LEGACY_TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY);
+  return normalizeBlackScreenMode(undefined, legacyValue === 'true');
 };
 
 const clearDeviceDisplaySettings = () => {
   persistDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
-  persistForceBlackScreen(false);
+  persistBlackScreenMode(DEFAULT_TABLET_BLACK_SCREEN_MODE);
 };
 
 const parseNightModeTimeToMinutes = (time: string) => {
@@ -272,8 +289,8 @@ export default function Tablet() {
   const [displayTheme, setDisplayTheme] = useState<TabletDisplayTheme>(() =>
     isPreviewMode ? DEFAULT_TABLET_DISPLAY_THEME : readStoredDisplayTheme()
   );
-  const [forceBlackScreen, setForceBlackScreen] = useState(() =>
-    isPreviewMode ? false : readStoredForceBlackScreen()
+  const [blackScreenMode, setBlackScreenMode] = useState<TabletBlackScreenMode>(() =>
+    isPreviewMode ? DEFAULT_TABLET_BLACK_SCREEN_MODE : readStoredBlackScreenMode()
   );
   const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() =>
     isPreviewMode ? DEFAULT_TABLET_NIGHT_MODE_CONFIG : readStoredNightModeConfig()
@@ -324,16 +341,14 @@ export default function Tablet() {
 
   const applyDeviceDisplayConfig = useCallback((config?: DeviceStatusResponse['config']) => {
     const nextDisplayTheme = normalizeDisplayTheme(config?.displayTheme);
-    const nextForceBlackScreen = typeof config?.forceBlackScreen === 'boolean'
-      ? config.forceBlackScreen
-      : false;
+    const nextBlackScreenMode = normalizeBlackScreenMode(config?.blackScreenMode);
 
     setDisplayTheme(nextDisplayTheme);
-    setForceBlackScreen(nextForceBlackScreen);
+    setBlackScreenMode(nextBlackScreenMode);
 
     if (!isPreviewMode) {
       persistDisplayTheme(nextDisplayTheme);
-      persistForceBlackScreen(nextForceBlackScreen);
+      persistBlackScreenMode(nextBlackScreenMode);
     }
   }, [isPreviewMode]);
 
@@ -367,7 +382,7 @@ export default function Tablet() {
 
           const deviceData = (await deviceResponse.json()) as PreviewDeviceResponse;
           setDisplayTheme(normalizeDisplayTheme(deviceData.displayTheme));
-          setForceBlackScreen(Boolean(deviceData.forceBlackScreen));
+          setBlackScreenMode(normalizeBlackScreenMode(deviceData.blackScreenMode));
         }
       } catch (error) {
         console.error('[Tablet] Failed to load preview display settings:', error);
@@ -451,7 +466,7 @@ export default function Tablet() {
           clearDeviceDisplaySettings();
           setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
           setDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
-          setForceBlackScreen(false);
+          setBlackScreenMode(DEFAULT_TABLET_BLACK_SCREEN_MODE);
           forceHardReload(payload.path || '/registry');
           return;
         }
@@ -522,7 +537,7 @@ export default function Tablet() {
           clearDeviceDisplaySettings();
           setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
           setDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
-          setForceBlackScreen(false);
+          setBlackScreenMode(DEFAULT_TABLET_BLACK_SCREEN_MODE);
           forceHardReload('/registry');
           return;
         }
@@ -599,6 +614,14 @@ export default function Tablet() {
     return currentMinutes >= lastLessonEndMinutes;
   }, [currentDateTime.time, nightModeConfig.blackScreenAfterScheduleEnd, scheduleItems]);
 
+  const scheduledBlackScreen = isNightModeActive || isBlackScreenAfterScheduleEndActive;
+  const effectiveBlackScreen =
+    blackScreenMode === 'on'
+      ? true
+      : blackScreenMode === 'off'
+        ? false
+        : scheduledBlackScreen;
+
   // 3. Fetch Schedule & Messages
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -673,13 +696,13 @@ export default function Tablet() {
       }
     };
 
-    if (roomInfo.room && !isNightModeActive && !forceBlackScreen) {
+    if (roomInfo.room && blackScreenMode !== 'on') {
       fetchSchedule();
       // Production setting: refresh every minute (60000ms)
       const intervalId = setInterval(fetchSchedule, 60000);
       return () => clearInterval(intervalId);
     }
-  }, [forceBlackScreen, isNightModeActive, roomInfo]);
+  }, [blackScreenMode, roomInfo]);
 
   // View Helpers
   const parseTime = (timeStr: string) => {
@@ -761,12 +784,12 @@ export default function Tablet() {
   const timelineOffset = Math.min(Math.max(rawTimelineOffset, 0), maxTimelineOffset);
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
-  if (forceBlackScreen || isNightModeActive || isBlackScreenAfterScheduleEndActive) {
+  if (effectiveBlackScreen) {
     return (
       <div
         className="tablet-night-screen"
         aria-label={
-          forceBlackScreen
+          blackScreenMode === 'on'
             ? 'Czarny ekran wymuszony przez administratora'
             : isNightModeActive
             ? 'Tryb nocny aktywny'

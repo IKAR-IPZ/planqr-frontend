@@ -129,6 +129,9 @@ const AdminRegistry = () => {
   const [batchThemeValue, setBatchThemeValue] = useState<Device["displayTheme"]>("dark");
   const [batchThemeLoading, setBatchThemeLoading] = useState(false);
   const [themeMutationDeviceId, setThemeMutationDeviceId] = useState<number | null>(null);
+  const [blackScreenMutationDeviceId, setBlackScreenMutationDeviceId] = useState<number | null>(
+    null,
+  );
   const [newAdminUsername, setNewAdminUsername] = useState("");
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
   const [adminFeedbackTone, setAdminFeedbackTone] = useState<Tone>("neutral");
@@ -716,7 +719,7 @@ const AdminRegistry = () => {
 
   const handleDeviceDisplaySettingsUpdate = async (
     deviceId: number,
-    payload: Partial<Pick<Device, "displayTheme" | "forceBlackScreen">>,
+    payload: Partial<Pick<Device, "displayTheme" | "blackScreenMode">>,
   ) => {
     const response = await fetch(`/api/devices/${deviceId}/display-settings`, {
       method: "PATCH",
@@ -764,6 +767,40 @@ const AdminRegistry = () => {
       );
     } finally {
       setThemeMutationDeviceId(null);
+    }
+  };
+
+  const handleDeviceBlackScreenToggle = async (device: Device, checked: boolean) => {
+    if (checked === device.effectiveBlackScreen) {
+      return;
+    }
+
+    const nextBlackScreenMode: Device["blackScreenMode"] =
+      checked === device.scheduledBlackScreen ? "follow" : checked ? "on" : "off";
+
+    try {
+      setBlackScreenMutationDeviceId(device.id);
+      await handleDeviceDisplaySettingsUpdate(device.id, {
+        blackScreenMode: nextBlackScreenMode,
+      });
+
+      const toastMessage =
+        nextBlackScreenMode === "follow"
+          ? `Tablet ${getDeviceDisplayName(device)} wrócił do harmonogramu czarnego ekranu.`
+          : nextBlackScreenMode === "on"
+            ? `Włączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`
+            : `Wyłączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`;
+
+      pushToast(toastMessage, "success");
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zmienić stanu czarnego ekranu.",
+        "danger",
+      );
+    } finally {
+      setBlackScreenMutationDeviceId(null);
     }
   };
 
@@ -1774,6 +1811,7 @@ const AdminRegistry = () => {
               batchUpdating={batchMutationLoading}
               batchThemeUpdating={batchThemeLoading}
               themeMutationDeviceId={themeMutationDeviceId}
+              blackScreenMutationDeviceId={blackScreenMutationDeviceId}
               batchThemeValue={batchThemeValue}
               selectedDeviceIds={selectedDeviceIds}
               searchTerm={searchTerm}
@@ -1810,6 +1848,9 @@ const AdminRegistry = () => {
               }}
               onDeviceThemeChange={(device, theme) => {
                 void handleDeviceThemeChange(device, theme);
+              }}
+              onDeviceBlackScreenToggle={(device, checked) => {
+                void handleDeviceBlackScreenToggle(device, checked);
               }}
               onDeleteDevice={handleDeleteDevice}
               onPairingCodeChange={handlePairingCodeChange}

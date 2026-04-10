@@ -54,7 +54,7 @@ interface TabletPreviewViewProps {
   onRetryProfile: () => void;
   onUpdateDeviceDisplaySettings: (
     deviceId: number,
-    payload: Partial<Pick<Device, "displayTheme" | "forceBlackScreen">>,
+    payload: Partial<Pick<Device, "displayTheme" | "blackScreenMode">>,
   ) => Promise<void>;
   onToast: (message: string, tone: Tone) => void;
 }
@@ -121,6 +121,17 @@ const getScheduleRange = () => {
     start: dayBefore.toISOString().split("T")[0],
     end: twoDaysAfter.toISOString().split("T")[0],
   };
+};
+
+const getBlackScreenModeForToggle = (device: Device, checked: boolean): Device["blackScreenMode"] =>
+  checked === device.scheduledBlackScreen ? "follow" : checked ? "on" : "off";
+
+const getBlackScreenStatusLabel = (device: Device) => {
+  if (device.blackScreenMode === "follow") {
+    return device.scheduledBlackScreen ? "Harmonogram włączony" : "Harmonogram wyłączony";
+  }
+
+  return device.blackScreenMode === "on" ? "Ręcznie włączony" : "Ręcznie wyłączony";
 };
 
 const TabletPreviewCanvas = ({
@@ -192,7 +203,7 @@ const TabletPreviewCanvas = ({
           }}
         >
           <iframe
-            key={`${device.id}:${device.displayTheme}:${device.forceBlackScreen}:${state?.phase}`}
+            key={`${device.id}:${device.displayTheme}:${device.blackScreenMode}:${device.effectiveBlackScreen}:${state?.phase}`}
             className="admin-preview__frame"
             src={previewHref}
             title={`Podgląd ${getDeviceDisplayName(device)}`}
@@ -361,17 +372,23 @@ const TabletPreviewView = ({
   };
 
   const handleBlackScreenToggle = async (checked: boolean) => {
-    if (!device || checked === device.forceBlackScreen) {
+    if (!device || checked === device.effectiveBlackScreen) {
       return;
     }
 
+    const nextBlackScreenMode = getBlackScreenModeForToggle(device, checked);
+
     try {
       setSettingsMutationKey("black-screen");
-      await onUpdateDeviceDisplaySettings(device.id, { forceBlackScreen: checked });
+      await onUpdateDeviceDisplaySettings(device.id, {
+        blackScreenMode: nextBlackScreenMode,
+      });
       onToast(
-        checked
-          ? `Włączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`
-          : `Wyłączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`,
+        nextBlackScreenMode === "follow"
+          ? `Tablet ${getDeviceDisplayName(device)} wrócił do harmonogramu czarnego ekranu.`
+          : checked
+            ? `Włączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`
+            : `Wyłączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`,
         "success",
       );
     } catch (error) {
@@ -541,7 +558,7 @@ const TabletPreviewView = ({
                 <label className="admin-switch">
                   <input
                     type="checkbox"
-                    checked={device.forceBlackScreen}
+                    checked={device.effectiveBlackScreen}
                     onChange={(event) =>
                       void handleBlackScreenToggle(event.target.checked)
                     }
@@ -549,6 +566,9 @@ const TabletPreviewView = ({
                   />
                   <span>Włącz czarny ekran dla tego tabletu</span>
                 </label>
+                <span className="admin-table__secondary">
+                  {getBlackScreenStatusLabel(device)}
+                </span>
               </div>
             </div>
           ) : (

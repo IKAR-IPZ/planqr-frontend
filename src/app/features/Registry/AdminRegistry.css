@@ -1481,6 +1481,13 @@ body.admin-console-scroll-root #root {
   min-width: 118px;
 }
 
+.admin-table__toggle-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .admin-table__cell--actions {
   text-align: right;
   vertical-align: middle;

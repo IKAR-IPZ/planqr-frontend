@@ -337,7 +337,7 @@ const compareDeviceValues = (left: Device, right: Device, sortState: DeviceSortS
   }
 
   if (column === "blackScreen") {
-    comparison = Number(left.forceBlackScreen) - Number(right.forceBlackScreen);
+    comparison = Number(left.effectiveBlackScreen) - Number(right.effectiveBlackScreen);
   }
 
   if (comparison === 0) {
