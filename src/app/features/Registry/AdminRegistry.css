@@ -886,6 +886,9 @@ body.admin-console-scroll-root #root {
 
 .admin-device-assignment__status {
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-device-assignment__status--hidden {

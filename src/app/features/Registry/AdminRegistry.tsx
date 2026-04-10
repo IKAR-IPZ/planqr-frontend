@@ -153,6 +153,8 @@ const AdminRegistry = () => {
   const [pairingFeedbackTone, setPairingFeedbackTone] = useState<Tone>("neutral");
   const [toasts, setToasts] = useState<AdminToast[]>([]);
   const [isPairingScannerOpen, setPairingScannerOpen] = useState(false);
+  const [pairingReturnMode, setPairingReturnMode] =
+    useState<"none" | "after-save">("none");
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const [isMobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [isScrollTopVisible, setScrollTopVisible] = useState(false);
@@ -481,6 +483,7 @@ const AdminRegistry = () => {
   };
 
   const handleDrawerClose = () => {
+    setPairingReturnMode("none");
     closeDrawer();
   };
 
@@ -990,6 +993,7 @@ const AdminRegistry = () => {
     closeMobilePanels();
     closePreviewModal();
     closeDrawer();
+    setPairingReturnMode("none");
     setPairingScannerOpen(true);
   };
 
@@ -1048,7 +1052,7 @@ const AdminRegistry = () => {
     if (!/^\d{6}$/.test(normalizedDeviceId)) {
       return {
         ok: false as const,
-        message: "Kod tabletu musi składać się z dokładnie 6 cyfr.",
+        message: PAIRING_MESSAGE.codeInvalid,
       };
     }
 
@@ -1133,10 +1137,14 @@ const AdminRegistry = () => {
   };
 
   const handlePairingLookup = async (deviceId: string) => {
-    const result = await handleLookupPendingPairingDevice(deviceId);
+    const result = await lookupPendingDeviceByCode(deviceId);
     if (!result.ok) {
       return result;
     }
+
+    setPairingScannerOpen(false);
+    setPairingReturnMode("after-save");
+    openDeviceEditor(result.device);
 
     return { ok: true as const };
   };
@@ -1176,9 +1184,15 @@ const AdminRegistry = () => {
         return;
       }
 
+      const shouldReturnToScanner = pairingReturnMode === "after-save";
+      setPairingReturnMode("none");
       closeDrawer();
       pushToast(`Zapisano zmiany dla tabletu ${deviceLabel}.`, "success");
       await fetchDevices();
+
+      if (shouldReturnToScanner) {
+        setPairingScannerOpen(true);
+      }
     } catch (error) {
       console.error("Error registering device", error);
       setRoomError("Nie udało się zapisać zmian.");
@@ -1278,6 +1292,8 @@ const AdminRegistry = () => {
     try {
       const deviceLabel =
         device.deviceClassroom || device.deviceName || formatPairingDeviceId(device.deviceId);
+      const shouldReturnToScanner =
+        pairingReturnMode === "after-save" && drawerDeviceId === device.id;
       const response = await fetch(`/api/devices/${device.id}`, { method: "DELETE" });
       if (!response.ok) {
         pushToast("Nie udało się usunąć urządzenia.", "danger");
@@ -1293,9 +1309,16 @@ const AdminRegistry = () => {
       if (pairingDeviceId === device.id) {
         resetPairingSelection();
       }
+      if (shouldReturnToScanner) {
+        setPairingReturnMode("none");
+      }
 
       pushToast(`Usunięto tablet ${deviceLabel}.`, "success");
       await fetchDevices();
+
+      if (shouldReturnToScanner) {
+        setPairingScannerOpen(true);
+      }
     } catch (error) {
       console.error("Error deleting device:", error);
       pushToast("Wystąpił błąd podczas usuwania urządzenia.", "danger");
@@ -1383,6 +1406,7 @@ const AdminRegistry = () => {
     closeMobilePanels();
     closeDrawer();
     closePreviewModal();
+    setPairingReturnMode("none");
     setPairingScannerOpen(false);
 
     if (view === "devices") {
@@ -1791,6 +1815,7 @@ const AdminRegistry = () => {
       {isPairingScannerOpen ? (
         <AdminPairingScanner
           onClose={() => {
+            setPairingReturnMode("none");
             setPairingScannerOpen(false);
           }}
           onPair={handlePairingLookup}
