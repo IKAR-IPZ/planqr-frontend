@@ -9,6 +9,8 @@ import {
   getConnectionLabel,
   getConnectionTone,
   getDeviceDisplayName,
+  sanitizeRoomValue,
+  splitDeviceClassroom,
 } from "./helpers";
 import {
   deleteMessage,
@@ -134,6 +136,27 @@ const getBlackScreenStatusLabel = (device: Device) => {
   return device.blackScreenMode === "on" ? "Ręcznie włączony" : "Ręcznie wyłączony";
 };
 
+const matchesDevicePickerQuery = (device: Device, rawQuery: string) => {
+  const query = sanitizeRoomValue(rawQuery).toLowerCase();
+  if (!query) {
+    return true;
+  }
+
+  const roomParts = splitDeviceClassroom(device.deviceClassroom);
+  const searchIndex = [
+    getDeviceDisplayName(device),
+    roomParts.fullLabel,
+    roomParts.roomLabel,
+    roomParts.facultyCode,
+    formatPairingDeviceId(device.deviceId),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return searchIndex.includes(query);
+};
+
 const TabletPreviewCanvas = ({
   device,
   state,
@@ -250,6 +273,8 @@ const TabletPreviewView = ({
   const [settingsMutationKey, setSettingsMutationKey] = useState<
     "theme" | "black-screen" | null
   >(null);
+  const [deviceQuery, setDeviceQuery] = useState("");
+  const [showDeviceSuggestions, setShowDeviceSuggestions] = useState(false);
 
   const sortedDevices = useMemo(
     () =>
@@ -261,6 +286,17 @@ const TabletPreviewView = ({
       ),
     [activeDevices],
   );
+  const filteredDevices = useMemo(
+    () =>
+      sortedDevices
+        .filter((activeDevice) => matchesDevicePickerQuery(activeDevice, deviceQuery))
+        .slice(0, 8),
+    [deviceQuery, sortedDevices],
+  );
+
+  useEffect(() => {
+    setDeviceQuery(device ? getDeviceDisplayName(device) : "");
+  }, [device?.id, device?.deviceClassroom, device?.deviceId]);
 
   useEffect(() => {
     if (!device?.deviceClassroom) {
@@ -454,7 +490,11 @@ const TabletPreviewView = ({
     }
   };
 
-  const selectedDeviceId = device?.id ?? "";
+  const handleDeviceSuggestionSelect = (nextDevice: Device) => {
+    setDeviceQuery(getDeviceDisplayName(nextDevice));
+    setShowDeviceSuggestions(false);
+    onSelectDevice(nextDevice.id);
+  };
 
   return (
     <div className="tablet-preview-view">
@@ -464,21 +504,66 @@ const TabletPreviewView = ({
           actions={
             <label className="admin-form-field admin-form-field--compact tablet-preview-view__select">
               <span className="admin-form-field__label">Tablet</span>
-              <select
-                className="admin-form-field__input"
-                value={selectedDeviceId}
-                onChange={(event) => onSelectDevice(Number(event.target.value))}
-                disabled={sortedDevices.length === 0}
-              >
-                {sortedDevices.length === 0 ? (
-                  <option value="">Brak sparowanych tabletów</option>
+              <div className="admin-autocomplete">
+                <input
+                  className="admin-form-field__input"
+                  placeholder={
+                    sortedDevices.length === 0
+                      ? "Brak sparowanych tabletów"
+                      : "Wpisz salę"
+                  }
+                  value={deviceQuery}
+                  onChange={(event) => {
+                    setDeviceQuery(event.target.value);
+                    setShowDeviceSuggestions(true);
+                  }}
+                  onFocus={() => {
+                    if (sortedDevices.length > 0) {
+                      setShowDeviceSuggestions(true);
+                    }
+                  }}
+                  onBlur={() => {
+                    window.setTimeout(() => setShowDeviceSuggestions(false), 120);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setShowDeviceSuggestions(false);
+                    }
+
+                    if (event.key === "Enter" && filteredDevices.length > 0) {
+                      event.preventDefault();
+                      handleDeviceSuggestionSelect(filteredDevices[0]);
+                    }
+                  }}
+                  disabled={sortedDevices.length === 0}
+                  aria-label="Wybierz tablet po sali"
+                />
+                {showDeviceSuggestions && filteredDevices.length > 0 ? (
+                  <div className="admin-autocomplete__list">
+                    {filteredDevices.map((activeDevice) => {
+                      const roomParts = splitDeviceClassroom(activeDevice.deviceClassroom);
+
+                      return (
+                        <button
+                          key={activeDevice.id}
+                          type="button"
+                          className="admin-autocomplete__item"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            handleDeviceSuggestionSelect(activeDevice);
+                          }}
+                        >
+                          {getDeviceDisplayName(activeDevice)}
+                          {roomParts.facultyCode
+                            ? ` · ${roomParts.facultyCode}`
+                            : ""}
+                          {` · ${formatPairingDeviceId(activeDevice.deviceId)}`}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : null}
-                {sortedDevices.map((activeDevice) => (
-                  <option key={activeDevice.id} value={activeDevice.id}>
-                    {getDeviceDisplayName(activeDevice)} · {formatPairingDeviceId(activeDevice.deviceId)}
-                  </option>
-                ))}
-              </select>
+              </div>
             </label>
           }
         >
