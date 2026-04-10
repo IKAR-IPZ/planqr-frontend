@@ -5,6 +5,8 @@ export interface Device {
   deviceURL: string | null;
   deviceId: string;
   status: "PENDING" | "ACTIVE";
+  displayTheme: "light" | "dark";
+  forceBlackScreen: boolean;
   connectionStatus: "PENDING" | "ONLINE" | "OFFLINE";
   isConnected: boolean;
   lastSeen: string;
@@ -38,7 +40,7 @@ export interface AdminRecord {
   canBeRemovedFromPanel: boolean;
 }
 
-export type AdminPanelView = "devices" | "admins" | "schedule";
+export type AdminPanelView = "devices" | "tablet-preview" | "admins" | "schedule";
 export type AdminPanelTheme = "light" | "dark";
 export type DeviceSortOption = "name" | "status" | "lastSeen";
 

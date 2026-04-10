@@ -13,9 +13,9 @@ import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
 import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
 import AdminsView from "./adminPanel/AdminsView";
 import DeviceDrawer from "./adminPanel/DeviceDrawer";
-import DevicePreviewModal from "./adminPanel/DevicePreviewModal";
 import DevicesView from "./adminPanel/DevicesView";
 import ScheduleView from "./adminPanel/ScheduleView";
+import TabletPreviewView from "./adminPanel/TabletPreviewView";
 import {
   adminViewMeta,
   defaultAdminPanelTheme,
@@ -84,11 +84,16 @@ const PAIRING_MESSAGE = {
 } as const;
 
 const getActiveView = (value: string | null): AdminPanelView => {
-  if (value === "admins" || value === "schedule") {
+  if (value === "admins" || value === "schedule" || value === "tablet-preview") {
     return value;
   }
 
   return "devices";
+};
+
+const getPreviewDeviceId = (value: string | null) => {
+  const parsedValue = Number(value);
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
 };
 
 const getStoredAdminTheme = (): AdminPanelTheme => {
@@ -104,6 +109,7 @@ const AdminRegistry = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = getActiveView(searchParams.get("view"));
+  const previewDeviceId = getPreviewDeviceId(searchParams.get("deviceId"));
 
   const [adminTheme, setAdminTheme] = useState<AdminPanelTheme>(getStoredAdminTheme);
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -131,7 +137,7 @@ const AdminRegistry = () => {
 
   const [drawerMode, setDrawerMode] = useState<"details" | "edit" | null>(null);
   const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
-  const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
+  const [previewState, setPreviewState] = useState<PreviewModalState | null>(null);
   const [formClassroom, setFormClassroom] = useState("");
   const [roomError, setRoomError] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -182,10 +188,11 @@ const AdminRegistry = () => {
 
   const previewDevice = useMemo(
     () =>
-      previewModal === null
+      previewDeviceId === null
         ? null
-        : devices.find((device) => device.id === previewModal.deviceId) ?? null,
-    [devices, previewModal],
+        : devices.find((device) => device.id === previewDeviceId && device.status === "ACTIVE") ??
+          null,
+    [devices, previewDeviceId],
   );
   const pairingDevice = useMemo(
     () =>
@@ -236,10 +243,10 @@ const AdminRegistry = () => {
   }, [drawerDevice, drawerDeviceId]);
 
   useEffect(() => {
-    if (previewModal !== null && !previewDevice) {
-      setPreviewModal(null);
+    if (previewState !== null && !previewDevice) {
+      setPreviewState(null);
     }
-  }, [previewDevice, previewModal]);
+  }, [previewDevice, previewState]);
 
   useEffect(() => {
     if (!isMobileNavOpen && !isMobileSettingsOpen) {
@@ -487,8 +494,16 @@ const AdminRegistry = () => {
     closeDrawer();
   };
 
-  const closePreviewModal = () => {
-    setPreviewModal(null);
+  const setTabletPreviewSearchParams = (deviceId?: number | null) => {
+    if (!deviceId) {
+      setSearchParams({ view: "tablet-preview" });
+      return;
+    }
+
+    setSearchParams({
+      view: "tablet-preview",
+      deviceId: String(deviceId),
+    });
   };
 
   const closeMobilePanels = () => {
@@ -608,8 +623,12 @@ const AdminRegistry = () => {
     device: Device,
     options?: { forceProfileRefresh?: boolean },
   ) => {
+    closeMobilePanels();
+    closeDrawer();
+    setTabletPreviewSearchParams(device.id);
+
     if (device.status !== "ACTIVE" || !device.deviceClassroom || !device.deviceURL) {
-      setPreviewModal({
+      setPreviewState({
         deviceId: device.id,
         phase: "error",
         message: "Tablet nie ma kompletnej konfiguracji do podglądu.",
@@ -619,7 +638,7 @@ const AdminRegistry = () => {
     }
 
     if (hasDeviceDisplayProfile(device) && !options?.forceProfileRefresh) {
-      setPreviewModal({
+      setPreviewState({
         deviceId: device.id,
         phase: "ready",
         message: null,
@@ -629,7 +648,7 @@ const AdminRegistry = () => {
     }
 
     if (device.connectionStatus !== "ONLINE") {
-      setPreviewModal({
+      setPreviewState({
         deviceId: device.id,
         phase: "error",
         message:
@@ -639,7 +658,7 @@ const AdminRegistry = () => {
       return;
     }
 
-    setPreviewModal({
+    setPreviewState({
       deviceId: device.id,
       phase: "loading-profile",
       message: "Pobieranie parametrów ekranu z tabletu...",
@@ -657,7 +676,7 @@ const AdminRegistry = () => {
       }
 
       if ((data.delivered ?? 0) < 1) {
-        setPreviewModal({
+        setPreviewState({
           deviceId: device.id,
           phase: "error",
           message: "Tablet nie odpowiedział na prośbę o przesłanie profilu ekranu.",
@@ -665,7 +684,7 @@ const AdminRegistry = () => {
         });
       }
     } catch (error) {
-      setPreviewModal({
+      setPreviewState({
         deviceId: device.id,
         phase: "error",
         message:
@@ -675,6 +694,32 @@ const AdminRegistry = () => {
         requestedAt: null,
       });
     }
+  };
+
+  const handleDeviceDisplaySettingsUpdate = async (
+    deviceId: number,
+    payload: Partial<Pick<Device, "displayTheme" | "forceBlackScreen">>,
+  ) => {
+    const response = await fetch(`/api/devices/${deviceId}/display-settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || "Nie udało się zapisać ustawień tabletu.");
+    }
+
+    if (data.device) {
+      const nextDevice = data.device as Device;
+      setDevices((current) =>
+        current.map((device) => (device.id === nextDevice.id ? nextDevice : device)),
+      );
+    }
+
+    return data;
   };
 
   const fetchAdmins = async () => {
@@ -803,17 +848,39 @@ const AdminRegistry = () => {
   }, [currentView]);
 
   useEffect(() => {
-    if (previewModal?.phase !== "loading-profile" || previewModal.requestedAt === null) {
+    if (currentView !== "tablet-preview") {
+      return;
+    }
+
+    if (activeDevices.length === 0) {
+      if (previewDeviceId !== null) {
+        setTabletPreviewSearchParams(null);
+      }
+      return;
+    }
+
+    if (previewDevice) {
+      if (!previewState || previewState.deviceId !== previewDevice.id) {
+        void openDevicePreview(previewDevice);
+      }
+      return;
+    }
+
+    void openDevicePreview(activeDevices[0]);
+  }, [activeDevices, currentView, previewDevice, previewDeviceId, previewState]);
+
+  useEffect(() => {
+    if (previewState?.phase !== "loading-profile" || previewState.requestedAt === null) {
       return;
     }
 
     let cancelled = false;
-    const deadlineAt = previewModal.requestedAt + 10_000;
-    const previewDeviceId = previewModal.deviceId;
+    const deadlineAt = previewState.requestedAt + 10_000;
+    const requestedPreviewDeviceId = previewState.deviceId;
 
     const pollForProfile = async () => {
       try {
-        const response = await fetch(`/api/devices/${previewDeviceId}`);
+        const response = await fetch(`/api/devices/${requestedPreviewDeviceId}`);
         if (!response.ok) {
           throw new Error("Nie udało się pobrać danych urządzenia.");
         }
@@ -828,8 +895,8 @@ const AdminRegistry = () => {
         );
 
         if (hasDeviceDisplayProfile(nextDevice)) {
-          setPreviewModal((current) =>
-            current && current.deviceId === previewDeviceId
+          setPreviewState((current) =>
+            current && current.deviceId === requestedPreviewDeviceId
               ? {
                   ...current,
                   phase: "ready",
@@ -849,8 +916,8 @@ const AdminRegistry = () => {
       }
 
       if (Date.now() >= deadlineAt) {
-        setPreviewModal((current) =>
-          current && current.deviceId === previewDeviceId
+        setPreviewState((current) =>
+          current && current.deviceId === requestedPreviewDeviceId
             ? {
                 ...current,
                 phase: "error",
@@ -871,7 +938,7 @@ const AdminRegistry = () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [previewModal]);
+  }, [previewState]);
 
   const handleLogout = async () => {
     try {
@@ -991,7 +1058,6 @@ const AdminRegistry = () => {
 
   const openPairingScanner = () => {
     closeMobilePanels();
-    closePreviewModal();
     closeDrawer();
     setPairingReturnMode("none");
     setPairingScannerOpen(true);
@@ -1100,7 +1166,6 @@ const AdminRegistry = () => {
     }
 
     closeDrawer();
-    closePreviewModal();
     setPairingScannerOpen(false);
     resetPairingRoomSearch();
     setPairingCode(formatPairingDeviceId(device.deviceId));
@@ -1303,8 +1368,9 @@ const AdminRegistry = () => {
       if (drawerDeviceId === device.id) {
         closeDrawer();
       }
-      if (previewModal?.deviceId === device.id) {
-        closePreviewModal();
+      if (previewDeviceId === device.id) {
+        setPreviewState(null);
+        setTabletPreviewSearchParams(null);
       }
       if (pairingDeviceId === device.id) {
         resetPairingSelection();
@@ -1387,8 +1453,9 @@ const AdminRegistry = () => {
         if (drawerDeviceId !== null && selectedDeviceIds.includes(drawerDeviceId)) {
           closeDrawer();
         }
-        if (previewModal !== null && selectedDeviceIds.includes(previewModal.deviceId)) {
-          closePreviewModal();
+        if (previewDeviceId !== null && selectedDeviceIds.includes(previewDeviceId)) {
+          setPreviewState(null);
+          setTabletPreviewSearchParams(null);
         }
 
         clearDeviceSelection();
@@ -1405,12 +1472,26 @@ const AdminRegistry = () => {
   const handleViewChange = (view: AdminPanelView) => {
     closeMobilePanels();
     closeDrawer();
-    closePreviewModal();
     setPairingReturnMode("none");
     setPairingScannerOpen(false);
 
     if (view === "devices") {
       setSearchParams({});
+      return;
+    }
+
+    if (view === "tablet-preview") {
+      if (previewDevice) {
+        void openDevicePreview(previewDevice);
+        return;
+      }
+
+      if (activeDevices.length > 0) {
+        void openDevicePreview(activeDevices[0]);
+        return;
+      }
+
+      setTabletPreviewSearchParams(null);
       return;
     }
 
@@ -1660,6 +1741,30 @@ const AdminRegistry = () => {
             />
           ) : null}
 
+          {currentView === "tablet-preview" ? (
+            <TabletPreviewView
+              activeDevices={pairedDevices}
+              device={previewDevice}
+              state={
+                previewState && previewDeviceId !== null && previewState.deviceId === previewDeviceId
+                  ? {
+                      phase: previewState.phase,
+                      message: previewState.message,
+                    }
+                  : null
+              }
+              onSelectDevice={(deviceId) => {
+                const nextDevice = pairedDevices.find((device) => device.id === deviceId);
+                if (nextDevice) {
+                  void openDevicePreview(nextDevice);
+                }
+              }}
+              onRetryProfile={handlePreviewRetry}
+              onUpdateDeviceDisplaySettings={handleDeviceDisplaySettingsUpdate}
+              onToast={pushToast}
+            />
+          ) : null}
+
           {currentView === "admins" ? (
             <AdminsView
               admins={admins}
@@ -1819,16 +1924,6 @@ const AdminRegistry = () => {
             setPairingScannerOpen(false);
           }}
           onPair={handlePairingLookup}
-        />
-      ) : null}
-
-      {previewModal && previewDevice ? (
-        <DevicePreviewModal
-          device={previewDevice}
-          phase={previewModal.phase}
-          message={previewModal.message}
-          onClose={closePreviewModal}
-          onRetry={handlePreviewRetry}
         />
       ) : null}
 

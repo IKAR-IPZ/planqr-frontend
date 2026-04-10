@@ -51,8 +51,15 @@ interface TabletNightModeConfig {
   blackScreenAfterScheduleEnd: boolean;
 }
 
+type TabletDisplayTheme = 'light' | 'dark';
+
 interface DisplaySettingsResponse {
   nightMode?: TabletNightModeConfig | null;
+}
+
+interface PreviewDeviceResponse {
+  displayTheme?: TabletDisplayTheme | null;
+  forceBlackScreen?: boolean | null;
 }
 
 interface DeviceStatusResponse {
@@ -61,6 +68,8 @@ interface DeviceStatusResponse {
     room?: string | null;
     secretUrl?: string | null;
     nightMode?: TabletNightModeConfig | null;
+    displayTheme?: TabletDisplayTheme | null;
+    forceBlackScreen?: boolean | null;
   } | null;
 }
 
@@ -73,7 +82,10 @@ interface TabletCommandPayload {
 
 const TABLET_RELOAD_PARAM = '_tabletReload';
 const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
+const TABLET_THEME_STORAGE_KEY = 'tablet_display_theme';
+const TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY = 'tablet_force_black_screen';
 const TABLET_PREVIEW_PARAM = 'preview';
+const DEFAULT_TABLET_DISPLAY_THEME: TabletDisplayTheme = 'dark';
 const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
   enabled: false,
   startTime: '22:00',
@@ -83,6 +95,9 @@ const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
 
 const buildTabletPath = (room: string, secretUrl: string) =>
   `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
+
+const normalizeDisplayTheme = (theme?: string | null): TabletDisplayTheme =>
+  theme === 'light' ? 'light' : DEFAULT_TABLET_DISPLAY_THEME;
 
 const normalizeNightModeConfig = (
   nightMode?: TabletNightModeConfig | null
@@ -132,6 +147,47 @@ const readStoredNightModeConfig = (): TabletNightModeConfig => {
 
 const clearNightModeConfig = () => {
   persistNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
+};
+
+const persistDisplayTheme = (theme: TabletDisplayTheme) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(TABLET_THEME_STORAGE_KEY, theme);
+};
+
+const readStoredDisplayTheme = (): TabletDisplayTheme => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_TABLET_DISPLAY_THEME;
+  }
+
+  return normalizeDisplayTheme(window.localStorage.getItem(TABLET_THEME_STORAGE_KEY));
+};
+
+const persistForceBlackScreen = (forceBlackScreen: boolean) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(
+    TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY,
+    JSON.stringify(forceBlackScreen),
+  );
+};
+
+const readStoredForceBlackScreen = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const rawValue = window.localStorage.getItem(TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY);
+  return rawValue === 'true';
+};
+
+const clearDeviceDisplaySettings = () => {
+  persistDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
+  persistForceBlackScreen(false);
 };
 
 const parseNightModeTimeToMinutes = (time: string) => {
@@ -204,13 +260,21 @@ const syncTabletRouteFromConfig = (
 export default function Tablet() {
   const params = useParams<{ room?: string; secretUrl?: string }>();
   const location = useLocation();
-  const isPreviewMode = new URLSearchParams(location.search).get(TABLET_PREVIEW_PARAM) === '1';
+  const searchParams = new URLSearchParams(location.search);
+  const isPreviewMode = searchParams.get(TABLET_PREVIEW_PARAM) === '1';
+  const previewDeviceId = Number(searchParams.get('deviceId') || '');
 
   const currentRouteRoom = params.room ? decodeURIComponent(params.room) : '';
   const currentRouteSecret = params.secretUrl ? decodeURIComponent(params.secretUrl) : '';
 
   const [roomInfo, setRoomInfo] = useState({ building: "", room: "" });
   const [deviceId, setDeviceId] = useState('');
+  const [displayTheme, setDisplayTheme] = useState<TabletDisplayTheme>(() =>
+    isPreviewMode ? DEFAULT_TABLET_DISPLAY_THEME : readStoredDisplayTheme()
+  );
+  const [forceBlackScreen, setForceBlackScreen] = useState(() =>
+    isPreviewMode ? false : readStoredForceBlackScreen()
+  );
   const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() =>
     isPreviewMode ? DEFAULT_TABLET_NIGHT_MODE_CONFIG : readStoredNightModeConfig()
   );
@@ -240,11 +304,36 @@ export default function Tablet() {
     setDeviceId(storedDeviceId);
   }, [isPreviewMode]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-tablet-theme', displayTheme);
+    document.body.setAttribute('data-tablet-theme', displayTheme);
+
+    return () => {
+      document.documentElement.removeAttribute('data-tablet-theme');
+      document.body.removeAttribute('data-tablet-theme');
+    };
+  }, [displayTheme]);
+
   const applyNightModeConfig = useCallback((config?: DeviceStatusResponse['config']) => {
     const nextNightModeConfig = normalizeNightModeConfig(config?.nightMode);
     setNightModeConfig(nextNightModeConfig);
     if (!isPreviewMode) {
       persistNightModeConfig(nextNightModeConfig);
+    }
+  }, [isPreviewMode]);
+
+  const applyDeviceDisplayConfig = useCallback((config?: DeviceStatusResponse['config']) => {
+    const nextDisplayTheme = normalizeDisplayTheme(config?.displayTheme);
+    const nextForceBlackScreen = typeof config?.forceBlackScreen === 'boolean'
+      ? config.forceBlackScreen
+      : false;
+
+    setDisplayTheme(nextDisplayTheme);
+    setForceBlackScreen(nextForceBlackScreen);
+
+    if (!isPreviewMode) {
+      persistDisplayTheme(nextDisplayTheme);
+      persistForceBlackScreen(nextForceBlackScreen);
     }
   }, [isPreviewMode]);
 
@@ -255,31 +344,42 @@ export default function Tablet() {
 
     let cancelled = false;
 
-    const loadPreviewNightModeConfig = async () => {
+    const loadPreviewDisplayConfig = async () => {
       try {
-        const response = await fetch('/api/devices/display-settings');
-        if (!response.ok) {
+        const nightModeResponse = await fetch('/api/devices/display-settings');
+        if (!nightModeResponse.ok) {
           return;
         }
 
-        const data = (await response.json()) as DisplaySettingsResponse;
+        const nightModeData = (await nightModeResponse.json()) as DisplaySettingsResponse;
         if (cancelled) {
           return;
         }
 
-        const nextNightModeConfig = normalizeNightModeConfig(data.nightMode);
+        const nextNightModeConfig = normalizeNightModeConfig(nightModeData.nightMode);
         setNightModeConfig(nextNightModeConfig);
+
+        if (Number.isInteger(previewDeviceId) && previewDeviceId > 0) {
+          const deviceResponse = await fetch(`/api/devices/${previewDeviceId}`);
+          if (!deviceResponse.ok || cancelled) {
+            return;
+          }
+
+          const deviceData = (await deviceResponse.json()) as PreviewDeviceResponse;
+          setDisplayTheme(normalizeDisplayTheme(deviceData.displayTheme));
+          setForceBlackScreen(Boolean(deviceData.forceBlackScreen));
+        }
       } catch (error) {
         console.error('[Tablet] Failed to load preview display settings:', error);
       }
     };
 
-    void loadPreviewNightModeConfig();
+    void loadPreviewDisplayConfig();
 
     return () => {
       cancelled = true;
     };
-  }, [isPreviewMode]);
+  }, [isPreviewMode, previewDeviceId]);
 
   // 1. Parse Room Info
   useEffect(() => {
@@ -348,13 +448,17 @@ export default function Tablet() {
 
         if (payload.type === 'registry-reset') {
           clearNightModeConfig();
+          clearDeviceDisplaySettings();
           setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
+          setDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
+          setForceBlackScreen(false);
           forceHardReload(payload.path || '/registry');
           return;
         }
 
         if (payload.type === 'config-updated') {
           applyNightModeConfig(payload.config);
+          applyDeviceDisplayConfig(payload.config);
           syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: payload.hardReload });
           return;
         }
@@ -362,6 +466,7 @@ export default function Tablet() {
         if (payload.type === 'reload') {
           if (payload.config) {
             applyNightModeConfig(payload.config);
+            applyDeviceDisplayConfig(payload.config);
             syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: true });
             return;
           }
@@ -389,7 +494,7 @@ export default function Tablet() {
       eventSource.removeEventListener('tablet-command', handleTabletCommand as EventListener);
       eventSource.close();
     };
-  }, [applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
+  }, [applyDeviceDisplayConfig, applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   useEffect(() => {
     if (!deviceId) return;
@@ -414,12 +519,16 @@ export default function Tablet() {
 
         if (data.status !== 'ACTIVE') {
           clearNightModeConfig();
+          clearDeviceDisplaySettings();
           setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
+          setDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
+          setForceBlackScreen(false);
           forceHardReload('/registry');
           return;
         }
 
         applyNightModeConfig(data.config);
+        applyDeviceDisplayConfig(data.config);
         syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, data.config);
       } catch (error) {
         console.error('[Tablet] Device status sync error:', error);
@@ -433,7 +542,7 @@ export default function Tablet() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
+  }, [applyDeviceDisplayConfig, applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   // 2. Clock
   useEffect(() => {
@@ -564,13 +673,13 @@ export default function Tablet() {
       }
     };
 
-    if (roomInfo.room && !isNightModeActive) {
+    if (roomInfo.room && !isNightModeActive && !forceBlackScreen) {
       fetchSchedule();
       // Production setting: refresh every minute (60000ms)
       const intervalId = setInterval(fetchSchedule, 60000);
       return () => clearInterval(intervalId);
     }
-  }, [isNightModeActive, roomInfo]);
+  }, [forceBlackScreen, isNightModeActive, roomInfo]);
 
   // View Helpers
   const parseTime = (timeStr: string) => {
@@ -652,15 +761,14 @@ export default function Tablet() {
   const timelineOffset = Math.min(Math.max(rawTimelineOffset, 0), maxTimelineOffset);
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
-
-
-
-  if (isNightModeActive || isBlackScreenAfterScheduleEndActive) {
+  if (forceBlackScreen || isNightModeActive || isBlackScreenAfterScheduleEndActive) {
     return (
       <div
         className="tablet-night-screen"
         aria-label={
-          isNightModeActive
+          forceBlackScreen
+            ? 'Czarny ekran wymuszony przez administratora'
+            : isNightModeActive
             ? 'Tryb nocny aktywny'
             : 'Czarny ekran po zakończeniu zajęć aktywny'
         }
@@ -671,7 +779,7 @@ export default function Tablet() {
   if (isLoading) return <div className="fullscreen-msg">Wczytywanie systemu...</div>;
 
   return (
-    <div className="tablet-wrapper">
+    <div className="tablet-wrapper" data-tablet-theme={displayTheme}>
 
 
 

@@ -99,6 +99,11 @@ export const adminViewMeta: Record<
     title: "Tablety",
     icon: "fas fa-tablet-alt",
   },
+  "tablet-preview": {
+    label: "Podgląd tabletu",
+    title: "Podgląd tabletu",
+    icon: "fas fa-tablet-alt",
+  },
   admins: {
     label: "Administratorzy",
     title: "Administratorzy",

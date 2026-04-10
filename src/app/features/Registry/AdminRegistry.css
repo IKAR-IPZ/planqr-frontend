@@ -1962,6 +1962,112 @@ body.admin-console-scroll-root #root {
   text-align: left;
 }
 
+.tablet-preview-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+  gap: 1rem;
+  min-width: 0;
+}
+
+.tablet-preview-view__main,
+.tablet-preview-view__sidebar {
+  min-width: 0;
+}
+
+.tablet-preview-view__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tablet-preview-view__select {
+  min-width: min(360px, 100%);
+}
+
+.tablet-preview-view__canvas {
+  min-height: min(72vh, 860px);
+  padding: 1rem;
+  background:
+    linear-gradient(135deg, rgba(32, 64, 144, 0.05), rgba(32, 128, 80, 0.04)),
+    var(--admin-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.tablet-preview-view__stack {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tablet-preview-view__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tablet-preview-view__summary strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 1rem;
+}
+
+.tablet-preview-view__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tablet-preview-view__lessons {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.tablet-preview-view__lesson {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface-muted);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.tablet-preview-view__lesson-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tablet-preview-view__lesson-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.tablet-preview-view__lesson-header p,
+.tablet-preview-view__lesson-meta {
+  margin: 0.25rem 0 0;
+  color: var(--admin-text-muted);
+  line-height: 1.4;
+}
+
+.tablet-preview-view__lesson-meta {
+  margin-top: -0.25rem;
+}
+
+.tablet-preview-view__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .admin-preview__overlay {
   position: fixed;
   inset: 0;
@@ -2088,6 +2194,10 @@ body.admin-console-scroll-root #root {
 
 @media (max-width: 1024px) {
   .admin-devices-view__overview {
+    grid-template-columns: 1fr;
+  }
+
+  .tablet-preview-view {
     grid-template-columns: 1fr;
   }
 
@@ -2318,6 +2428,18 @@ body.admin-console-scroll-root #root {
     white-space: nowrap;
   }
 
+  .tablet-preview-view__summary,
+  .tablet-preview-view__lesson-header {
+    flex-direction: column;
+  }
+
+  .tablet-preview-view__canvas,
+  .tablet-preview-view__stack,
+  .tablet-preview-view__lessons {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
   .admin-device-cards {
     gap: 0.65rem;
   }
@@ -2423,6 +2545,9 @@ body.admin-console-scroll-root #root {
   .admin-empty-state,
   .admin-feedback,
   .admin-note,
+  .tablet-preview-view__canvas,
+  .tablet-preview-view__stack,
+  .tablet-preview-view__lessons,
   .admin-device-card,
   .admin-device-cards__batch,
   .admin-detail-list__row,
