@@ -2025,17 +2025,35 @@ body.admin-console-scroll-root #root {
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
   gap: 1rem;
   min-width: 0;
+  min-height: min(78vh, 860px);
+  align-items: start;
 }
 
 .tablet-preview-view__main,
 .tablet-preview-view__sidebar {
   min-width: 0;
+  min-height: 0;
+}
+
+.tablet-preview-view__main {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
+.tablet-preview-view__main > .admin-surface {
+  height: min(78vh, 860px);
+  display: flex;
+  flex-direction: column;
 }
 
 .tablet-preview-view__sidebar {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-height: min(78vh, 860px);
+  overflow-y: auto;
+  padding-right: 0.15rem;
 }
 
 .tablet-preview-view__select {
@@ -2043,7 +2061,9 @@ body.admin-console-scroll-root #root {
 }
 
 .tablet-preview-view__canvas {
-  min-height: min(72vh, 860px);
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
   padding: 1rem;
   background:
     linear-gradient(135deg, rgba(32, 64, 144, 0.05), rgba(32, 128, 80, 0.04)),
@@ -2051,7 +2071,7 @@ body.admin-console-scroll-root #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .tablet-preview-view__stack {
@@ -2257,6 +2277,27 @@ body.admin-console-scroll-root #root {
 
   .tablet-preview-view {
     grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .tablet-preview-view__main {
+    position: static;
+  }
+
+  .tablet-preview-view__main > .admin-surface {
+    height: auto;
+  }
+
+  .tablet-preview-view__sidebar {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .tablet-preview-view__canvas {
+    min-height: min(72vh, 860px);
+    height: auto;
+    overflow: auto;
   }
 
   .admin-toolbar {
