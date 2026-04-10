@@ -27,7 +27,8 @@ export interface MessagePayload {
 }
 
 export interface UpdateMessagePayload {
-    body: string;
+    body?: string;
+    newRoom?: string;
 }
 
 export const fetchMessages = async (lessonId: string | number): Promise<MessageRecord[]> => {

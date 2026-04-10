@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "../../../layout/LecturerCalendar.css";
 import AdminPanelSection from "./AdminPanelSection";
 import {
+  ROOM_SEARCH_DEBOUNCE_MS,
+  ROOM_SEARCH_MIN_LENGTH,
   formatDevicePixelRatio,
   formatDisplayDimensions,
   formatLastSeen,
@@ -157,6 +159,34 @@ const matchesDevicePickerQuery = (device: Device, rawQuery: string) => {
   return searchIndex.includes(query);
 };
 
+const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
+  const sanitizedQuery = sanitizeRoomValue(query);
+  if (!sanitizedQuery) {
+    return [];
+  }
+
+  const response = await fetch(
+    `/schedule.php?kind=room&query=${encodeURIComponent(sanitizedQuery)}`,
+    { signal },
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return Array.isArray(data)
+    ? Array.from(
+        new Set(
+          data
+            .filter((item: { item?: unknown }) => typeof item?.item === "string")
+            .map((item: { item: string }) => sanitizeRoomValue(item.item))
+            .filter(Boolean),
+        ),
+      )
+    : [];
+};
+
 const TabletPreviewCanvas = ({
   device,
   state,
@@ -269,12 +299,18 @@ const TabletPreviewView = ({
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageBody, setEditingMessageBody] = useState("");
+  const [editingMessageRoom, setEditingMessageRoom] = useState("");
+  const [editingRoomSuggestions, setEditingRoomSuggestions] = useState<string[]>([]);
+  const [showEditingRoomSuggestions, setShowEditingRoomSuggestions] = useState(false);
+  const [searchingEditingRooms, setSearchingEditingRooms] = useState(false);
   const [messageMutationId, setMessageMutationId] = useState<number | null>(null);
   const [settingsMutationKey, setSettingsMutationKey] = useState<
     "theme" | "black-screen" | null
   >(null);
   const [deviceQuery, setDeviceQuery] = useState("");
   const [showDeviceSuggestions, setShowDeviceSuggestions] = useState(false);
+  const editingRoomSearchAbortRef = useRef<AbortController | null>(null);
+  const editingRoomSearchRequestIdRef = useRef(0);
 
   const sortedDevices = useMemo(
     () =>
@@ -297,6 +333,64 @@ const TabletPreviewView = ({
   useEffect(() => {
     setDeviceQuery(device ? getDeviceDisplayName(device) : "");
   }, [device?.id, device?.deviceClassroom, device?.deviceId]);
+
+  useEffect(() => {
+    const query = sanitizeRoomValue(editingMessageRoom);
+
+    if (!showEditingRoomSuggestions) {
+      editingRoomSearchAbortRef.current?.abort();
+      editingRoomSearchAbortRef.current = null;
+      editingRoomSearchRequestIdRef.current += 1;
+      setEditingRoomSuggestions([]);
+      setSearchingEditingRooms(false);
+      return;
+    }
+
+    if (query.length < ROOM_SEARCH_MIN_LENGTH) {
+      editingRoomSearchAbortRef.current?.abort();
+      editingRoomSearchAbortRef.current = null;
+      editingRoomSearchRequestIdRef.current += 1;
+      setEditingRoomSuggestions([]);
+      setSearchingEditingRooms(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      editingRoomSearchAbortRef.current?.abort();
+      const controller = new AbortController();
+      editingRoomSearchAbortRef.current = controller;
+      const requestId = editingRoomSearchRequestIdRef.current + 1;
+      editingRoomSearchRequestIdRef.current = requestId;
+
+      setSearchingEditingRooms(true);
+
+      void fetchRoomMatches(query, controller.signal)
+        .then((rooms) => {
+          if (
+            !controller.signal.aborted &&
+            requestId === editingRoomSearchRequestIdRef.current
+          ) {
+            setEditingRoomSuggestions(rooms);
+          }
+        })
+        .catch((error) => {
+          if (!(error instanceof DOMException && error.name === "AbortError")) {
+            console.error("Error searching message rooms:", error);
+          }
+
+          if (requestId === editingRoomSearchRequestIdRef.current) {
+            setEditingRoomSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (requestId === editingRoomSearchRequestIdRef.current) {
+            setSearchingEditingRooms(false);
+          }
+        });
+    }, ROOM_SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [editingMessageRoom, showEditingRoomSuggestions]);
 
   useEffect(() => {
     if (!device?.deviceClassroom) {
@@ -346,7 +440,7 @@ const TabletPreviewView = ({
         );
 
         if (!cancelled) {
-          setLessons(nextLessons);
+          setLessons(nextLessons.filter((lesson) => lesson.messages.length > 0));
         }
       } catch (error) {
         if (!cancelled) {
@@ -374,6 +468,10 @@ const TabletPreviewView = ({
   useEffect(() => {
     setEditingMessageId(null);
     setEditingMessageBody("");
+    setEditingMessageRoom("");
+    setEditingRoomSuggestions([]);
+    setShowEditingRoomSuggestions(false);
+    setSearchingEditingRooms(false);
     setMessageMutationId(null);
   }, [device?.id]);
 
@@ -381,6 +479,18 @@ const TabletPreviewView = ({
     updater: (currentLessons: PreviewLesson[]) => PreviewLesson[],
   ) => {
     setLessons((currentLessons) => updater(currentLessons));
+  };
+
+  const resetMessageEditing = () => {
+    editingRoomSearchAbortRef.current?.abort();
+    editingRoomSearchAbortRef.current = null;
+    editingRoomSearchRequestIdRef.current += 1;
+    setEditingMessageId(null);
+    setEditingMessageBody("");
+    setEditingMessageRoom("");
+    setEditingRoomSuggestions([]);
+    setShowEditingRoomSuggestions(false);
+    setSearchingEditingRooms(false);
   };
 
   const handleThemeChange = async (nextTheme: Device["displayTheme"]) => {
@@ -445,14 +555,15 @@ const TabletPreviewView = ({
     try {
       await deleteMessage(messageId);
       updateLessons((currentLessons) =>
-        currentLessons.map((lesson) => ({
-          ...lesson,
-          messages: lesson.messages.filter((message) => message.id !== messageId),
-        })),
+        currentLessons
+          .map((lesson) => ({
+            ...lesson,
+            messages: lesson.messages.filter((message) => message.id !== messageId),
+          }))
+          .filter((lesson) => lesson.messages.length > 0),
       );
       if (editingMessageId === messageId) {
-        setEditingMessageId(null);
-        setEditingMessageBody("");
+        resetMessageEditing();
       }
       onToast("Usunięto powiadomienie.", "success");
     } catch (error) {
@@ -462,26 +573,35 @@ const TabletPreviewView = ({
     }
   };
 
-  const handleSaveMessage = async (messageId: number) => {
+  const handleSaveMessage = async (message: MessageRecord) => {
     const nextBody = editingMessageBody.trim();
-    if (!nextBody) {
+    const nextRoom = sanitizeRoomValue(editingMessageRoom);
+    const isRoomChange = Boolean(message.isRoomChange);
+
+    if (!isRoomChange && !nextBody) {
       return;
     }
 
-    setMessageMutationId(messageId);
+    if (isRoomChange && !nextRoom) {
+      return;
+    }
+
+    setMessageMutationId(message.id);
 
     try {
-      const updatedMessage = await updateMessage(messageId, { body: nextBody });
+      const updatedMessage = await updateMessage(
+        message.id,
+        isRoomChange ? { newRoom: nextRoom } : { body: nextBody },
+      );
       updateLessons((currentLessons) =>
         currentLessons.map((lesson) => ({
           ...lesson,
           messages: lesson.messages.map((message) =>
-            message.id === messageId ? updatedMessage : message,
+            message.id === updatedMessage.id ? updatedMessage : message,
           ),
         })),
       );
-      setEditingMessageId(null);
-      setEditingMessageBody("");
+      resetMessageEditing();
       onToast("Zapisano zmiany w powiadomieniu.", "success");
     } catch (error) {
       onToast("Nie udało się zapisać zmian w powiadomieniu.", "danger");
@@ -494,6 +614,11 @@ const TabletPreviewView = ({
     setDeviceQuery(getDeviceDisplayName(nextDevice));
     setShowDeviceSuggestions(false);
     onSelectDevice(nextDevice.id);
+  };
+
+  const handleEditingRoomSuggestionSelect = (room: string) => {
+    setEditingMessageRoom(room);
+    setShowEditingRoomSuggestions(false);
   };
 
   return (
@@ -674,8 +799,8 @@ const TabletPreviewView = ({
             <p className="admin-feedback admin-feedback--danger">{notificationsError}</p>
           ) : lessons.length === 0 ? (
             <div className="admin-empty-state">
-              <h3>Brak zajęć lub powiadomień</h3>
-              <p>Dla dzisiejszego planu sali nie znaleziono żadnych wpisów.</p>
+              <h3>Brak powiadomień</h3>
+              <p>Dla dzisiejszego planu sali nie znaleziono żadnych aktywnych powiadomień.</p>
             </div>
           ) : (
             <div className="tablet-preview-view__lessons">
@@ -728,14 +853,76 @@ const TabletPreviewView = ({
                             </div>
 
                             {isEditing ? (
-                              <textarea
-                                className="lecturer-console__message-editor"
-                                rows={3}
-                                value={editingMessageBody}
-                                onChange={(event) =>
-                                  setEditingMessageBody(event.target.value)
-                                }
-                              />
+                              isRoomChange ? (
+                                <div className="admin-autocomplete">
+                                  <input
+                                    className="admin-form-field__input"
+                                    value={editingMessageRoom}
+                                    onChange={(event) => {
+                                      setEditingMessageRoom(event.target.value);
+                                      setShowEditingRoomSuggestions(true);
+                                    }}
+                                    onFocus={() => setShowEditingRoomSuggestions(true)}
+                                    onBlur={() => {
+                                      window.setTimeout(
+                                        () => setShowEditingRoomSuggestions(false),
+                                        120,
+                                      );
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Escape") {
+                                        setShowEditingRoomSuggestions(false);
+                                      }
+
+                                      if (
+                                        event.key === "Enter" &&
+                                        editingRoomSuggestions.length > 0
+                                      ) {
+                                        event.preventDefault();
+                                        handleEditingRoomSuggestionSelect(
+                                          editingRoomSuggestions[0],
+                                        );
+                                      }
+                                    }}
+                                    placeholder="Wpisz nową salę"
+                                  />
+                                  {searchingEditingRooms ? (
+                                    <span className="admin-autocomplete__loading">
+                                      <i
+                                        className="fas fa-spinner fa-spin"
+                                        aria-hidden="true"
+                                      />
+                                    </span>
+                                  ) : null}
+                                  {showEditingRoomSuggestions &&
+                                  editingRoomSuggestions.length > 0 ? (
+                                    <div className="admin-autocomplete__list">
+                                      {editingRoomSuggestions.map((room) => (
+                                        <button
+                                          key={room}
+                                          type="button"
+                                          className="admin-autocomplete__item"
+                                          onMouseDown={(event) => {
+                                            event.preventDefault();
+                                            handleEditingRoomSuggestionSelect(room);
+                                          }}
+                                        >
+                                          {room}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <textarea
+                                  className="lecturer-console__message-editor"
+                                  rows={3}
+                                  value={editingMessageBody}
+                                  onChange={(event) =>
+                                    setEditingMessageBody(event.target.value)
+                                  }
+                                />
+                              )
                             ) : (
                               <p className="lecturer-console__message-text">
                                 {isRoomChange
@@ -744,55 +931,58 @@ const TabletPreviewView = ({
                               </p>
                             )}
 
-                            {!isRoomChange ? (
-                              <div className="lecturer-console__message-actions">
-                                {isEditing ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="admin-button admin-button--primary admin-button--small"
-                                      disabled={isBusy || !editingMessageBody.trim()}
-                                      onClick={() => void handleSaveMessage(message.id)}
-                                    >
-                                      Zapisz
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="admin-button admin-button--ghost admin-button--small"
-                                      disabled={isBusy}
-                                      onClick={() => {
-                                        setEditingMessageId(null);
-                                        setEditingMessageBody("");
-                                      }}
-                                    >
-                                      Anuluj
-                                    </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="admin-button admin-button--ghost admin-button--small"
-                                      disabled={isBusy}
-                                      onClick={() => {
-                                        setEditingMessageId(message.id);
-                                        setEditingMessageBody(message.body);
-                                      }}
-                                    >
-                                      Edytuj
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="admin-button admin-button--ghost admin-button--small"
-                                      disabled={isBusy}
-                                      onClick={() => void handleDeleteMessage(message.id)}
-                                    >
-                                      Usuń
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            ) : null}
+                            <div className="lecturer-console__message-actions">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="admin-button admin-button--primary admin-button--small"
+                                    disabled={
+                                      isBusy ||
+                                      (isRoomChange
+                                        ? !sanitizeRoomValue(editingMessageRoom)
+                                        : !editingMessageBody.trim())
+                                    }
+                                    onClick={() => void handleSaveMessage(message)}
+                                  >
+                                    Zapisz
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="admin-button admin-button--ghost admin-button--small"
+                                    disabled={isBusy}
+                                    onClick={resetMessageEditing}
+                                  >
+                                    Anuluj
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="admin-button admin-button--ghost admin-button--small"
+                                    disabled={isBusy}
+                                    onClick={() => {
+                                      setEditingMessageId(message.id);
+                                      setEditingMessageBody(message.body);
+                                      setEditingMessageRoom(message.newRoom || "");
+                                      setShowEditingRoomSuggestions(false);
+                                      setEditingRoomSuggestions([]);
+                                    }}
+                                  >
+                                    Edytuj
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="admin-button admin-button--ghost admin-button--small"
+                                    disabled={isBusy}
+                                    onClick={() => void handleDeleteMessage(message.id)}
+                                  >
+                                    Usuń
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </article>
                         );
                       })}
