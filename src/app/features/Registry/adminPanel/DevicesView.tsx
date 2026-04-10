@@ -452,16 +452,6 @@ const DevicesView = ({
                     <div className="admin-table__actions">
                       <button
                         type="button"
-                        className="admin-button admin-button--ghost admin-button--small"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onViewDevice(device);
-                        }}
-                      >
-                        Szczegóły
-                      </button>
-                      <button
-                        type="button"
                         className="admin-button admin-button--secondary admin-button--small"
                         onClick={(event) => {
                           event.stopPropagation();
