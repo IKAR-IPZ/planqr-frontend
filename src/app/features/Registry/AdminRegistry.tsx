@@ -223,6 +223,18 @@ const AdminRegistry = () => {
       )
       .slice(0, 5);
   }, [devices, pairingCode, pairingDevice]);
+  const allPendingDevices = devices.filter((device) => device.status === "PENDING");
+  const pairedDevices = devices.filter((device) => device.status === "ACTIVE");
+  const activeDevices = sortDevices(
+    pairedDevices.filter((device) => matchesDeviceSearch(device, searchTerm)),
+    deviceSort,
+  );
+  const onlineDevicesCount = pairedDevices.filter(
+    (device) => device.connectionStatus === "ONLINE",
+  ).length;
+  const offlineDevicesCount = pairedDevices.filter(
+    (device) => device.connectionStatus === "OFFLINE",
+  ).length;
   const lecturerPanelHref = canOpenLecturerPlan(session) ? "/lecturerPlan" : null;
 
   useEffect(() => {
@@ -1580,19 +1592,6 @@ const AdminRegistry = () => {
 
     setSearchParams({ view });
   };
-
-  const allPendingDevices = devices.filter((device) => device.status === "PENDING");
-  const pairedDevices = devices.filter((device) => device.status === "ACTIVE");
-  const activeDevices = sortDevices(
-    pairedDevices.filter((device) => matchesDeviceSearch(device, searchTerm)),
-    deviceSort,
-  );
-  const onlineDevicesCount = pairedDevices.filter(
-    (device) => device.connectionStatus === "ONLINE",
-  ).length;
-  const offlineDevicesCount = pairedDevices.filter(
-    (device) => device.connectionStatus === "OFFLINE",
-  ).length;
 
   const navigationItems: NavigationItem[] = [
     ...(Object.keys(adminViewMeta) as AdminPanelView[]).map((key) => ({
