@@ -1177,8 +1177,8 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-table--devices {
-  table-layout: fixed;
-  width: 100%;
+  table-layout: auto;
+  width: max-content;
   min-width: 100%;
 }
 
@@ -1193,31 +1193,31 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-table--devices .admin-table__col--name {
-  width: 16%;
+  width: 240px;
 }
 
 .admin-table--devices .admin-table__col--device-id {
-  width: 14%;
+  width: 140px;
 }
 
 .admin-table--devices .admin-table__col--status {
-  width: 12%;
+  width: 140px;
 }
 
 .admin-table--devices .admin-table__col--heartbeat {
-  width: 14%;
+  width: 180px;
 }
 
 .admin-table--devices .admin-table__col--theme {
-  width: 12%;
+  width: 160px;
 }
 
 .admin-table--devices .admin-table__col--black-screen {
-  width: 12%;
+  width: 170px;
 }
 
 .admin-table--devices .admin-table__col--actions {
-  width: 20%;
+  width: 240px;
 }
 
 .admin-table--pending .admin-table__col--name {
@@ -1242,9 +1242,10 @@ body.admin-console-scroll-root #root {
 
 .admin-table--devices th,
 .admin-table--devices td {
-  min-width: 0;
+  min-width: max-content;
   height: 64px;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .admin-table--pending th,
@@ -1265,6 +1266,43 @@ body.admin-console-scroll-root #root {
 .admin-table--devices th:nth-child(2),
 .admin-table--devices td:nth-child(2) {
   text-align: left;
+}
+
+.admin-table--devices th:nth-child(1),
+.admin-table--devices td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+}
+
+.admin-table--devices th:nth-child(2),
+.admin-table--devices td:nth-child(2) {
+  position: sticky;
+  left: 48px;
+  z-index: 3;
+  box-shadow: 1px 0 0 var(--admin-border);
+}
+
+.admin-table--devices th:nth-child(1),
+.admin-table--devices th:nth-child(2) {
+  background: var(--admin-surface-muted);
+}
+
+.admin-table--devices td:nth-child(1),
+.admin-table--devices td:nth-child(2) {
+  background: var(--admin-surface);
+}
+
+.admin-table__row--interactive:hover td:nth-child(1),
+.admin-table__row--interactive:hover td:nth-child(2) {
+  background: var(--admin-neutral-soft);
+}
+
+.admin-table__row--selected td:nth-child(1),
+.admin-table__row--selected td:nth-child(2),
+.admin-table__row--selected:hover td:nth-child(1),
+.admin-table__row--selected:hover td:nth-child(2) {
+  background: var(--admin-accent-soft);
 }
 
 .admin-table--devices th:nth-child(3),
