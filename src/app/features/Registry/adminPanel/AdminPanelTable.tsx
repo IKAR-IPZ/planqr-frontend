@@ -8,7 +8,14 @@ const TOUCH_MOMENTUM_DECAY_TIME_MS = 220;
 
 interface AdminPanelTableProps {
   caption: string;
-  columns: ReactNode[];
+  columns: Array<
+    | ReactNode
+    | {
+        content: ReactNode;
+        ariaSort?: "none" | "ascending" | "descending";
+        className?: string;
+      }
+  >;
   className?: string;
   wrapperClassName?: string;
   columnGroup?: ReactNode;
@@ -22,8 +29,13 @@ const AdminPanelTable = ({
   wrapperClassName,
   columnGroup,
   children,
-}: AdminPanelTableProps) => {
+	}: AdminPanelTableProps) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const normalizedColumns = columns.map((column) =>
+    typeof column === "object" && column !== null && "content" in column
+      ? column
+      : { content: column },
+  );
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -209,9 +221,14 @@ const AdminPanelTable = ({
         {columnGroup}
         <thead>
           <tr>
-            {columns.map((column, index) => (
-              <th key={index} scope="col">
-                {column}
+            {normalizedColumns.map((column, index) => (
+              <th
+                key={index}
+                scope="col"
+                aria-sort={column.ariaSort}
+                className={column.className}
+              >
+                {column.content}
               </th>
             ))}
           </tr>

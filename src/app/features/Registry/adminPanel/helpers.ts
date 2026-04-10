@@ -3,7 +3,7 @@ import type {
   AdminPanelTheme,
   AdminRecord,
   Device,
-  DeviceSortOption,
+  DeviceSortState,
   NightModeSettings,
   Tone,
 } from "./types";
@@ -200,6 +200,33 @@ export const getDeviceDisplayName = (device: Device) =>
 
 export const getDeviceSecondaryName = (_device: Device) => null;
 
+export const splitDeviceClassroom = (value?: string | null) => {
+  const normalizedValue = sanitizeRoomValue(value || "");
+
+  if (!normalizedValue) {
+    return {
+      facultyCode: "",
+      roomLabel: "",
+      fullLabel: "",
+    };
+  }
+
+  const separatorIndex = normalizedValue.indexOf(" ");
+  if (separatorIndex === -1) {
+    return {
+      facultyCode: "",
+      roomLabel: normalizedValue,
+      fullLabel: normalizedValue,
+    };
+  }
+
+  return {
+    facultyCode: normalizedValue.slice(0, separatorIndex),
+    roomLabel: normalizedValue.slice(separatorIndex + 1).trim(),
+    fullLabel: normalizedValue,
+  };
+};
+
 const getConnectionRank = (device: Device) => {
   if (device.status !== "ACTIVE") {
     return 2;
@@ -228,22 +255,99 @@ export const matchesDeviceSearch = (device: Device, term: string) => {
   return searchable.includes(normalizedTerm);
 };
 
-export const sortDevices = (devices: Device[], sortBy: DeviceSortOption) =>
+export const defaultDeviceSortState: DeviceSortState = {
+  column: null,
+  direction: null,
+};
+
+export const getNextDeviceSortState = (
+  currentSort: DeviceSortState,
+  column: NonNullable<DeviceSortState["column"]>,
+): DeviceSortState => {
+  if (currentSort.column !== column) {
+    return {
+      column,
+      direction: "desc",
+    };
+  }
+
+  if (currentSort.direction === "desc") {
+    return {
+      column,
+      direction: "asc",
+    };
+  }
+
+  return defaultDeviceSortState;
+};
+
+const compareDeviceRooms = (left: Device, right: Device) => {
+  const leftRoom = splitDeviceClassroom(left.deviceClassroom);
+  const rightRoom = splitDeviceClassroom(right.deviceClassroom);
+
+  return (
+    collator.compare(leftRoom.roomLabel, rightRoom.roomLabel) ||
+    collator.compare(leftRoom.facultyCode, rightRoom.facultyCode) ||
+    collator.compare(leftRoom.fullLabel, rightRoom.fullLabel) ||
+    collator.compare(left.deviceId, right.deviceId)
+  );
+};
+
+const compareDeviceFaculties = (left: Device, right: Device) => {
+  const leftRoom = splitDeviceClassroom(left.deviceClassroom);
+  const rightRoom = splitDeviceClassroom(right.deviceClassroom);
+
+  return (
+    collator.compare(leftRoom.facultyCode, rightRoom.facultyCode) ||
+    compareDeviceRooms(left, right)
+  );
+};
+
+const compareDeviceValues = (left: Device, right: Device, sortState: DeviceSortState) => {
+  const { column, direction } = sortState;
+
+  if (!column || !direction) {
+    return compareDeviceRooms(left, right);
+  }
+
+  let comparison = 0;
+
+  if (column === "room") {
+    comparison = compareDeviceRooms(left, right);
+  }
+
+  if (column === "faculty") {
+    comparison = compareDeviceFaculties(left, right);
+  }
+
+  if (column === "deviceId") {
+    comparison = collator.compare(left.deviceId, right.deviceId);
+  }
+
+  if (column === "status") {
+    comparison = getConnectionRank(left) - getConnectionRank(right);
+  }
+
+  if (column === "lastSeen") {
+    comparison = new Date(left.lastSeen).getTime() - new Date(right.lastSeen).getTime();
+  }
+
+  if (column === "displayTheme") {
+    comparison = collator.compare(left.displayTheme, right.displayTheme);
+  }
+
+  if (column === "blackScreen") {
+    comparison = Number(left.forceBlackScreen) - Number(right.forceBlackScreen);
+  }
+
+  if (comparison === 0) {
+    comparison = compareDeviceRooms(left, right);
+  }
+
+  return direction === "desc" ? -comparison : comparison;
+};
+
+export const sortDevices = (devices: Device[], sortState: DeviceSortState) =>
   [...devices].sort((left, right) => {
-    if (sortBy === "status") {
-      const rankDiff = getConnectionRank(left) - getConnectionRank(right);
-      if (rankDiff !== 0) {
-        return rankDiff;
-      }
-    }
-
-    if (sortBy === "lastSeen") {
-      const timeDiff =
-        new Date(right.lastSeen).getTime() - new Date(left.lastSeen).getTime();
-      if (timeDiff !== 0) {
-        return timeDiff;
-      }
-    }
-
-    return collator.compare(getDeviceDisplayName(left), getDeviceDisplayName(right));
+    return compareDeviceValues(left, right, sortState);
   });

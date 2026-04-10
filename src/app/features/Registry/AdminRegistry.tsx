@@ -18,11 +18,13 @@ import ScheduleView from "./adminPanel/ScheduleView";
 import TabletPreviewView from "./adminPanel/TabletPreviewView";
 import {
   adminViewMeta,
+  defaultDeviceSortState,
   defaultAdminPanelTheme,
   defaultNightModeSettings,
   formatPairingDeviceId,
   formatPairingDeviceInput,
   getDeviceDisplayName,
+  getNextDeviceSortState,
   hasDeviceDisplayProfile,
   matchesDeviceSearch,
   normalizeRoomValue,
@@ -33,14 +35,14 @@ import {
   sortDevices,
 } from "./adminPanel/helpers";
 import type {
-  AdminPanelTheme,
-  AdminPanelView,
-  AdminRecord,
-  Device,
-  DeviceSortOption,
-  NightModeSettings,
-  Tone,
-} from "./adminPanel/types";
+    AdminPanelTheme,
+    AdminPanelView,
+    AdminRecord,
+    Device,
+    DeviceSortState,
+    NightModeSettings,
+    Tone,
+  } from "./adminPanel/types";
 
 const ADMIN_THEME_STORAGE_KEY = "admin-theme";
 const TOAST_DURATION_MS = 5000;
@@ -121,7 +123,7 @@ const AdminRegistry = () => {
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [adminMutationLoading, setAdminMutationLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [deviceSort, setDeviceSort] = useState<DeviceSortOption>("status");
+  const [deviceSort, setDeviceSort] = useState<DeviceSortState>(defaultDeviceSortState);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
   const [batchMutationLoading, setBatchMutationLoading] = useState(false);
   const [batchThemeValue, setBatchThemeValue] = useState<Device["displayTheme"]>("dark");
@@ -1775,7 +1777,7 @@ const AdminRegistry = () => {
               batchThemeValue={batchThemeValue}
               selectedDeviceIds={selectedDeviceIds}
               searchTerm={searchTerm}
-              sortBy={deviceSort}
+              sortState={deviceSort}
               pairingCode={pairingCode}
               pairingSuggestions={pairingSuggestions}
               pairingDevice={pairingDevice}
@@ -1790,7 +1792,9 @@ const AdminRegistry = () => {
               pairingFeedback={pairingFeedback}
               pairingFeedbackTone={pairingFeedbackTone}
               onSearchTermChange={setSearchTerm}
-              onSortChange={setDeviceSort}
+              onSortColumn={(column) => {
+                setDeviceSort((currentSort) => getNextDeviceSortState(currentSort, column));
+              }}
               onDeleteSelectedDevices={() => void handleDeleteSelectedDevices()}
               onBatchThemeValueChange={setBatchThemeValue}
               onApplyBatchTheme={() => void handleBatchThemeUpdate()}

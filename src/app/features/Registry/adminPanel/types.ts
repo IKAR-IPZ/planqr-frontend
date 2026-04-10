@@ -38,6 +38,18 @@ export interface AdminRecord {
 
 export type AdminPanelView = "devices" | "tablet-preview" | "admins" | "schedule";
 export type AdminPanelTheme = "light" | "dark";
-export type DeviceSortOption = "name" | "status" | "lastSeen";
+export type DeviceSortColumn =
+  | "room"
+  | "faculty"
+  | "deviceId"
+  | "status"
+  | "lastSeen"
+  | "displayTheme"
+  | "blackScreen";
+
+export interface DeviceSortState {
+  column: DeviceSortColumn | null;
+  direction: "asc" | "desc" | null;
+}
 
 export type Tone = "neutral" | "success" | "warning" | "danger";

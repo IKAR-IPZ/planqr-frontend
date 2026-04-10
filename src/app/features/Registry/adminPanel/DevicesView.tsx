@@ -10,13 +10,7 @@ import {
   getConnectionTone,
   getDeviceDisplayName,
 } from "./helpers";
-import type { Device, DeviceSortOption, Tone } from "./types";
-
-const sortOptions: Array<{ value: DeviceSortOption; label: string }> = [
-  { value: "status", label: "Status" },
-  { value: "name", label: "Sala" },
-  { value: "lastSeen", label: "Ostatni heartbeat" },
-];
+import type { Device, DeviceSortColumn, DeviceSortState, Tone } from "./types";
 
 interface DeviceCounts {
   all: number;
@@ -38,7 +32,7 @@ interface DevicesViewProps {
   batchThemeValue: Device["displayTheme"];
   selectedDeviceIds: number[];
   searchTerm: string;
-  sortBy: DeviceSortOption;
+  sortState: DeviceSortState;
   pairingCode: string;
   pairingSuggestions: Device[];
   pairingDevice: Device | null;
@@ -53,7 +47,7 @@ interface DevicesViewProps {
   pairingFeedback: string | null;
   pairingFeedbackTone: Tone;
   onSearchTermChange: (value: string) => void;
-  onSortChange: (value: DeviceSortOption) => void;
+  onSortColumn: (column: DeviceSortColumn) => void;
   onDeleteSelectedDevices: () => void;
   onBatchThemeValueChange: (value: Device["displayTheme"]) => void;
   onApplyBatchTheme: () => void;
@@ -99,7 +93,7 @@ const DevicesView = ({
   batchThemeValue,
   selectedDeviceIds,
   searchTerm,
-  sortBy,
+  sortState,
   pairingCode,
   pairingSuggestions,
   pairingDevice,
@@ -114,7 +108,7 @@ const DevicesView = ({
   pairingFeedback,
   pairingFeedbackTone,
   onSearchTermChange,
-  onSortChange,
+  onSortColumn,
   onDeleteSelectedDevices,
   onBatchThemeValueChange,
   onApplyBatchTheme,
@@ -163,6 +157,46 @@ const DevicesView = ({
         ? "Zmień filtr, aby zobaczyć sparowane urządzenia."
         : "Przypisz tablet kodem, aby pojawił się tutaj.";
 
+  const getSortButtonState = (column: DeviceSortColumn) => {
+    if (sortState.column !== column || !sortState.direction) {
+      return {
+        icon: "fas fa-sort",
+        label: "Brak aktywnego sortowania",
+        ariaSort: "none" as const,
+        active: false,
+      };
+    }
+
+    return {
+      icon: sortState.direction === "desc" ? "fas fa-sort-down" : "fas fa-sort-up",
+      label:
+        sortState.direction === "desc" ? "Sortowanie malejące" : "Sortowanie rosnące",
+      ariaSort: sortState.direction === "desc" ? ("descending" as const) : ("ascending" as const),
+      active: true,
+    };
+  };
+
+  const renderSortableHeader = (label: string, column: DeviceSortColumn) => {
+    const sortButtonState = getSortButtonState(column);
+
+    return {
+      content: (
+        <button
+          type="button"
+          className={`admin-table__sort-button${
+            sortButtonState.active ? " admin-table__sort-button--active" : ""
+          }`}
+          onClick={() => onSortColumn(column)}
+          aria-label={`${label}. ${sortButtonState.label}. Kliknij, aby zmienić sortowanie.`}
+        >
+          <span>{label}</span>
+          <i className={sortButtonState.icon} aria-hidden="true" />
+        </button>
+      ),
+      ariaSort: sortButtonState.ariaSort,
+    };
+  };
+
   useEffect(() => {
     if (selectAllRef.current) {
       selectAllRef.current.indeterminate = partiallySelected;
@@ -180,20 +214,6 @@ const DevicesView = ({
               value={searchTerm}
               onChange={onSearchTermChange}
             />
-            <label className="admin-form-field admin-form-field--compact">
-              <span className="admin-form-field__label">Sortuj</span>
-              <select
-                className="admin-form-field__input"
-                value={sortBy}
-                onChange={(event) => onSortChange(event.target.value as DeviceSortOption)}
-              >
-                {sortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
             <div className="admin-toolbar__actions">
               <button
                 type="button"
@@ -302,12 +322,12 @@ const DevicesView = ({
                   onChange={(event) => onToggleAllActiveDevices(event.target.checked)}
                 />
               </span>,
-              "Sala",
-              "Device ID",
-              "Status",
-              "Ostatni heartbeat",
-              "Tryb",
-              "Czarny ekran",
+              renderSortableHeader("Sala", "room"),
+              renderSortableHeader("Device ID", "deviceId"),
+              renderSortableHeader("Status", "status"),
+              renderSortableHeader("Ostatni heartbeat", "lastSeen"),
+              renderSortableHeader("Tryb", "displayTheme"),
+              renderSortableHeader("Czarny ekran", "blackScreen"),
               <div className="admin-table__header-actions" key="actions">
                 <span className="admin-table__header-count">
                   Zaznaczone: <strong>{selectedCount}</strong>

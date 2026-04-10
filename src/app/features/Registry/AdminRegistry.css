@@ -1424,6 +1424,37 @@ body.admin-console-scroll-root #root {
   color: var(--admin-text);
 }
 
+.admin-table__sort-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.admin-table__sort-button--active {
+  color: var(--admin-text);
+}
+
+.admin-table__sort-button:hover,
+.admin-table__sort-button:focus-visible {
+  outline: none;
+  color: var(--admin-text);
+}
+
+.admin-table__sort-button i {
+  color: var(--admin-text-soft);
+}
+
 .admin-table__cell--name {
   text-align: left;
 }
