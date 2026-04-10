@@ -242,8 +242,13 @@ export const matchesDeviceSearch = (device: Device, term: string) => {
     return true;
   }
 
+  const roomParts = splitDeviceClassroom(device.deviceClassroom);
+
   const searchable = [
     device.deviceClassroom,
+    roomParts.fullLabel,
+    roomParts.roomLabel,
+    roomParts.facultyCode,
     device.deviceId,
     formatPairingDeviceId(device.deviceId),
     getConnectionLabel(device),

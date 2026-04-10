@@ -1196,6 +1196,10 @@ body.admin-console-scroll-root #root {
   width: 240px;
 }
 
+.admin-table--devices .admin-table__col--faculty {
+  width: 110px;
+}
+
 .admin-table--devices .admin-table__col--device-id {
   width: 140px;
 }
@@ -1310,16 +1314,18 @@ body.admin-console-scroll-root #root {
 .admin-table--devices th:nth-child(5),
 .admin-table--devices th:nth-child(6),
 .admin-table--devices th:nth-child(7),
+.admin-table--devices th:nth-child(8),
 .admin-table--devices td:nth-child(3),
 .admin-table--devices td:nth-child(4),
 .admin-table--devices td:nth-child(5),
 .admin-table--devices td:nth-child(6),
-.admin-table--devices td:nth-child(7) {
+.admin-table--devices td:nth-child(7),
+.admin-table--devices td:nth-child(8) {
   text-align: center;
 }
 
-.admin-table--devices th:nth-child(8),
-.admin-table--devices td:nth-child(8) {
+.admin-table--devices th:nth-child(9),
+.admin-table--devices td:nth-child(9) {
   text-align: right;
 }
 

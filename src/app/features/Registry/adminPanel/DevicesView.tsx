@@ -9,6 +9,7 @@ import {
   getConnectionLabel,
   getConnectionTone,
   getDeviceDisplayName,
+  splitDeviceClassroom,
 } from "./helpers";
 import type { Device, DeviceSortColumn, DeviceSortState, Tone } from "./types";
 
@@ -222,7 +223,7 @@ const DevicesView = ({
           <div className="admin-toolbar">
             <AdminPanelSearchField
               label="Szukaj"
-              placeholder="Sala, ID lub status"
+              placeholder="Sala, wydział, ID lub status"
               value={searchTerm}
               onChange={onSearchTermChange}
             />
@@ -315,6 +316,7 @@ const DevicesView = ({
               <colgroup>
                 <col className="admin-table__col admin-table__col--select" />
                 <col className="admin-table__col admin-table__col--name" />
+                <col className="admin-table__col admin-table__col--faculty" />
                 <col className="admin-table__col admin-table__col--device-id" />
                 <col className="admin-table__col admin-table__col--status" />
                 <col className="admin-table__col admin-table__col--heartbeat" />
@@ -335,6 +337,7 @@ const DevicesView = ({
                 />
               </span>,
               renderSortableHeader("Sala", "room"),
+              renderSortableHeader("Wydział", "faculty"),
               renderSortableHeader("Device ID", "deviceId"),
               renderSortableHeader("Status", "status"),
               renderSortableHeader("Ostatni heartbeat", "lastSeen"),
@@ -387,6 +390,8 @@ const DevicesView = ({
           >
             {activeDevices.map((device) => {
               const displayName = getDeviceDisplayName(device);
+              const roomParts = splitDeviceClassroom(device.deviceClassroom);
+              const roomLabel = roomParts.roomLabel || roomParts.fullLabel || displayName;
               const isSelected = selectedIds.has(device.id);
 
               return (
@@ -413,8 +418,13 @@ const DevicesView = ({
                   </td>
                   <td data-label="Sala" className="admin-table__cell--name">
                     <div className="admin-table__primary">
-                      <strong>{displayName}</strong>
+                      <strong>{roomLabel}</strong>
                     </div>
+                  </td>
+                  <td data-label="Wydział" className="admin-table__cell--center">
+                    <span className="admin-table__secondary">
+                      {roomParts.facultyCode || ""}
+                    </span>
                   </td>
                   <td data-label="Device ID" className="admin-table__cell--center">
                     <span className="admin-table__meta-code">
