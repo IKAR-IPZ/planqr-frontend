@@ -287,6 +287,7 @@ const DevicesView = ({
                 <col className="admin-table__col admin-table__col--status" />
                 <col className="admin-table__col admin-table__col--heartbeat" />
                 <col className="admin-table__col admin-table__col--theme" />
+                <col className="admin-table__col admin-table__col--black-screen" />
                 <col className="admin-table__col admin-table__col--actions" />
               </colgroup>
             }
@@ -306,6 +307,7 @@ const DevicesView = ({
               "Status",
               "Ostatni heartbeat",
               "Tryb",
+              "Czarny ekran",
               <div className="admin-table__header-actions" key="actions">
                 <span className="admin-table__header-count">
                   Zaznaczone: <strong>{selectedCount}</strong>
@@ -416,6 +418,15 @@ const DevicesView = ({
                       <option value="dark">Ciemny</option>
                       <option value="light">Jasny</option>
                     </select>
+                  </td>
+                  <td data-label="Czarny ekran" className="admin-table__cell--center">
+                    <span
+                      className={`admin-status-pill admin-status-pill--${
+                        device.forceBlackScreen ? "warning" : "neutral"
+                      }`}
+                    >
+                      {device.forceBlackScreen ? "Włączony" : "Wyłączony"}
+                    </span>
                   </td>
                   <td data-label="Akcje" className="admin-table__cell--actions">
                     <div className="admin-table__actions">
