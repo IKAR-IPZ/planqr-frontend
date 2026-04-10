@@ -56,6 +56,8 @@ interface TabletPreviewViewProps {
   state: PreviewState | null;
   onSelectDevice: (deviceId: number) => void;
   onRetryProfile: () => void;
+  onEditDevice: (device: Device) => void;
+  onDeleteDevice: (device: Device) => void;
   onUpdateDeviceDisplaySettings: (
     deviceId: number,
     payload: Partial<Pick<Device, "displayTheme" | "blackScreenMode">>,
@@ -291,6 +293,8 @@ const TabletPreviewView = ({
   state,
   onSelectDevice,
   onRetryProfile,
+  onEditDevice,
+  onDeleteDevice,
   onUpdateDeviceDisplaySettings,
   onToast,
 }: TabletPreviewViewProps) => {
@@ -750,6 +754,23 @@ const TabletPreviewView = ({
               </div>
 
               <div className="tablet-preview-view__controls">
+                <div className="tablet-preview-view__actions">
+                  <button
+                    type="button"
+                    className="admin-button admin-button--secondary admin-button--small"
+                    onClick={() => onEditDevice(device)}
+                  >
+                    Zmień salę
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-button admin-button--danger admin-button--small"
+                    onClick={() => void onDeleteDevice(device)}
+                  >
+                    Usuń tablet
+                  </button>
+                </div>
+
                 <label className="admin-form-field">
                   <span className="admin-form-field__label">Tryb tabletu</span>
                   <select

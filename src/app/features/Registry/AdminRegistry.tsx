@@ -1909,6 +1909,8 @@ const AdminRegistry = () => {
                 }
               }}
               onRetryProfile={handlePreviewRetry}
+              onEditDevice={openDeviceEditor}
+              onDeleteDevice={handleDeleteDevice}
               onUpdateDeviceDisplaySettings={handleDeviceDisplaySettingsUpdate}
               onToast={pushToast}
             />

@@ -2100,6 +2100,12 @@ body.admin-console-scroll-root #root {
   gap: 1rem;
 }
 
+.tablet-preview-view__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .tablet-preview-view__lessons {
   padding: 1rem;
   display: flex;
