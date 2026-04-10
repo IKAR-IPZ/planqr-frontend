@@ -150,10 +150,6 @@ const DeviceDrawer = ({
                   <strong>{device.deviceClassroom || "-"}</strong>
                 </div>
                 <div className="admin-detail-list__row">
-                  <span>Nazwa</span>
-                  <strong>{device.deviceName || "-"}</strong>
-                </div>
-                <div className="admin-detail-list__row">
                   <span>Ostatni heartbeat</span>
                   <strong>{formatLastSeen(device.lastSeen)}</strong>
                 </div>
@@ -164,10 +160,6 @@ const DeviceDrawer = ({
                 <div className="admin-detail-list__row">
                   <span>Adres IP</span>
                   <strong>{device.ipAddress || "-"}</strong>
-                </div>
-                <div className="admin-detail-list__row">
-                  <span>MAC</span>
-                  <strong className="admin-table__meta-code">{device.macAddress || "-"}</strong>
                 </div>
                 <div className="admin-detail-list__row">
                   <span>Viewport</span>

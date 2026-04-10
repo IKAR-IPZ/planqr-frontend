@@ -107,6 +107,18 @@ const DevicePreviewModal = ({
           <aside className="admin-preview__meta">
             <div className="admin-detail-list">
               <div className="admin-detail-list__row">
+                <span>Ostatni heartbeat</span>
+                <strong>{formatLastSeen(device.lastSeen)}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Model</span>
+                <strong>{device.deviceModel || "brak danych"}</strong>
+              </div>
+              <div className="admin-detail-list__row">
+                <span>Adres IP</span>
+                <strong>{device.ipAddress || "brak danych"}</strong>
+              </div>
+              <div className="admin-detail-list__row">
                 <span>Viewport</span>
                 <strong>
                   {formatDisplayDimensions(device.viewportWidthPx, device.viewportHeightPx)}
