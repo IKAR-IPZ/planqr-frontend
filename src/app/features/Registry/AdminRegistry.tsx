@@ -73,6 +73,15 @@ interface PreviewModalState {
   requestedAt: number | null;
 }
 
+const ADMIN_NAVIGATION_ORDER: AdminNavigationKey[] = [
+  "devices",
+  "admins",
+  "schedule",
+  "pairing",
+  "lecturer-preview",
+  "tablet-preview",
+];
+
 const PAIRING_MESSAGE = {
   staleDevice: "Tablet już sparowany.",
   codeInvalid: "Błędny kod.",
@@ -1631,26 +1640,32 @@ const AdminRegistry = () => {
     setSearchParams({ view });
   };
 
-  const navigationItems: NavigationItem[] = [
-    ...(Object.keys(adminViewMeta) as AdminPanelView[]).map((key) => ({
+  const navigationItems: NavigationItem[] = ADMIN_NAVIGATION_ORDER.map((key) => {
+    if (key === "pairing") {
+      return {
+        key,
+        label: "Tryb parowania",
+        icon: "fas fa-camera",
+        active: false,
+      };
+    }
+
+    if (key === "lecturer-preview") {
+      return {
+        key,
+        label: "Podgląd dydaktyka",
+        icon: "fas fa-user-tie",
+        active: false,
+      };
+    }
+
+    return {
       key,
       label: adminViewMeta[key].label,
       icon: adminViewMeta[key].icon,
       active: currentView === key,
-    })),
-    {
-      key: "pairing",
-      label: "Tryb parowania",
-      icon: "fas fa-camera",
-      active: false,
-    },
-    {
-      key: "lecturer-preview",
-      label: "Podgląd dydaktyka",
-      icon: "fas fa-user-tie",
-      active: false,
-    },
-  ];
+    };
+  });
 
   const handleNavigationSelect = (key: AdminNavigationKey) => {
     closeMobilePanels();
