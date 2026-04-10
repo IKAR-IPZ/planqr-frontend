@@ -9,13 +9,12 @@ import {
   getConnectionLabel,
   getConnectionTone,
   getDeviceDisplayName,
-  getDeviceSecondaryName,
 } from "./helpers";
 import type { Device, DeviceSortOption, Tone } from "./types";
 
 const sortOptions: Array<{ value: DeviceSortOption; label: string }> = [
   { value: "status", label: "Status" },
-  { value: "name", label: "Sala / nazwa" },
+  { value: "name", label: "Sala" },
   { value: "lastSeen", label: "Ostatni heartbeat" },
 ];
 
@@ -165,7 +164,7 @@ const DevicesView = ({
           <div className="admin-toolbar">
             <AdminPanelSearchField
               label="Szukaj"
-              placeholder="Sala, nazwa, ID lub status"
+              placeholder="Sala, ID lub status"
               value={searchTerm}
               onChange={onSearchTermChange}
             />
@@ -289,7 +288,7 @@ const DevicesView = ({
                   onChange={(event) => onToggleAllActiveDevices(event.target.checked)}
                 />
               </span>,
-              "Sala / nazwa",
+              "Sala",
               "Device ID",
               "Status",
               "Ostatni heartbeat",
@@ -318,7 +317,6 @@ const DevicesView = ({
           >
             {activeDevices.map((device) => {
               const displayName = getDeviceDisplayName(device);
-              const secondaryName = getDeviceSecondaryName(device);
               const isSelected = selectedIds.has(device.id);
 
               return (
@@ -343,12 +341,9 @@ const DevicesView = ({
                       onKeyDown={(event) => event.stopPropagation()}
                     />
                   </td>
-                  <td data-label="Sala / nazwa" className="admin-table__cell--name">
+                  <td data-label="Sala" className="admin-table__cell--name">
                     <div className="admin-table__primary">
                       <strong>{displayName}</strong>
-                      {secondaryName ? (
-                        <span className="admin-table__secondary">{secondaryName}</span>
-                      ) : null}
                     </div>
                   </td>
                   <td data-label="Device ID" className="admin-table__cell--center">

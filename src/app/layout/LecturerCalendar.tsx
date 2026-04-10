@@ -1331,6 +1331,34 @@ export default function LecturerCalendar() {
     );
   }
 
+  const standardAppbarActions = (
+    <>
+      <AdminPanelThemeToggle
+        theme={theme}
+        onChange={(nextTheme) => applyTheme(nextTheme)}
+      />
+
+      {session?.access.isAdmin && !isAdminPreviewMode ? (
+        <button
+          type="button"
+          className="admin-button admin-button--ghost admin-button--small"
+          onClick={() => navigate("/adminpanel")}
+        >
+          <FaUserShield />
+          Admin panel
+        </button>
+      ) : null}
+
+      <button
+        type="button"
+        className="admin-button admin-button--ghost admin-button--small"
+        onClick={handleLogout}
+      >
+        Wyloguj
+      </button>
+    </>
+  );
+
   return (
     <div
       className="admin-console lecturer-console"
@@ -1355,71 +1383,57 @@ export default function LecturerCalendar() {
         </div>
 
         {isAdminPreviewMode ? (
-          <form
-            className="lecturer-console__appbar-preview"
-            onSubmit={(event) => {
-              event.preventDefault();
-              handlePreviewApply();
-            }}
-          >
-            <input
-              className="lecturer-console__preview-input"
-              type="text"
-              placeholder="Pełne imię i nazwisko"
-              aria-label="Pełne imię i nazwisko"
-              value={previewFullNameInput}
-              onChange={(event) => setPreviewFullNameInput(event.target.value)}
-              autoComplete="off"
-            />
-
-            <button
-              type="submit"
-              className="admin-button admin-button--primary admin-button--small"
+          <div className="lecturer-console__appbar-groups">
+            <form
+              className="lecturer-console__appbar-preview lecturer-console__appbar-group lecturer-console__appbar-group--preview"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handlePreviewApply();
+              }}
             >
-              Zastosuj
-            </button>
-            <button
-              type="button"
-              className="admin-button admin-button--ghost admin-button--small"
-              onClick={handlePreviewClear}
-            >
-              Wyczyść
-            </button>
-            <button
-              type="button"
-              className="admin-button admin-button--ghost admin-button--small"
-              onClick={() => navigate("/adminpanel")}
-            >
-              Wróć do adminpanel
-            </button>
-          </form>
-        ) : null}
+              <input
+                className="lecturer-console__preview-input"
+                type="text"
+                placeholder="Pełne imię i nazwisko"
+                aria-label="Pełne imię i nazwisko"
+                value={previewFullNameInput}
+                onChange={(event) => setPreviewFullNameInput(event.target.value)}
+                autoComplete="off"
+              />
 
-        <div className="admin-console__appbar-actions lecturer-console__appbar-actions">
-          <AdminPanelThemeToggle
-            theme={theme}
-            onChange={(nextTheme) => applyTheme(nextTheme)}
-          />
+              <button
+                type="submit"
+                className="admin-button admin-button--primary admin-button--small"
+              >
+                Zastosuj
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--ghost admin-button--small"
+                onClick={handlePreviewClear}
+              >
+                Wyczyść
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--ghost admin-button--small"
+                onClick={() => navigate("/adminpanel")}
+              >
+                Wróć do adminpanel
+              </button>
+            </form>
 
-          {session?.access.isAdmin && !isAdminPreviewMode ? (
-            <button
-              type="button"
-              className="admin-button admin-button--ghost admin-button--small"
-              onClick={() => navigate("/adminpanel")}
-            >
-              <FaUserShield />
-              Admin panel
-            </button>
-          ) : null}
+            <div className="lecturer-console__appbar-separator" aria-hidden="true" />
 
-          <button
-            type="button"
-            className="admin-button admin-button--ghost admin-button--small"
-            onClick={handleLogout}
-          >
-            Wyloguj
-          </button>
-        </div>
+            <div className="admin-console__appbar-actions lecturer-console__appbar-actions lecturer-console__appbar-group lecturer-console__appbar-group--standard">
+              {standardAppbarActions}
+            </div>
+          </div>
+        ) : (
+          <div className="admin-console__appbar-actions lecturer-console__appbar-actions">
+            {standardAppbarActions}
+          </div>
+        )}
       </header>
 
       <div className="lecturer-console__shell">

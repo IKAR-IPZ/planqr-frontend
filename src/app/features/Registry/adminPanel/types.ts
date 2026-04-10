@@ -31,7 +31,6 @@ export interface NightModeSettings {
 export interface AdminRecord {
   id: string;
   username: string;
-  role: string;
   adminSource: "database" | "panel";
   createdAt: string | null;
   updatedAt: string | null;

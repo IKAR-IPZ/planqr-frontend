@@ -903,7 +903,7 @@ const AdminRegistry = () => {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.message || "Nie udało się nadać uprawnień.");
+        throw new Error(data.message || "Nie udało się dodać administratora.");
       }
 
       setNewAdminUsername("");
@@ -913,7 +913,7 @@ const AdminRegistry = () => {
     } catch (error) {
       console.error("Error adding admin:", error);
       setAdminFeedback(
-        error instanceof Error ? error.message : "Nie udało się nadać uprawnień.",
+        error instanceof Error ? error.message : "Nie udało się dodać administratora.",
       );
       setAdminFeedbackTone("danger");
     } finally {

@@ -47,6 +47,32 @@ body.lecturer-console-scroll-root {
   gap: 0.5rem;
 }
 
+.lecturer-console__appbar-groups {
+  flex: 1 1 40rem;
+  min-width: min(100%, 30rem);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.85rem;
+}
+
+.lecturer-console__appbar-group--preview {
+  flex: 1 1 34rem;
+}
+
+.lecturer-console__appbar-group--standard {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.lecturer-console__appbar-separator {
+  width: 1px;
+  min-height: 2.5rem;
+  align-self: stretch;
+  background: var(--admin-border);
+  opacity: 0.75;
+}
+
 .lecturer-console__shell {
   flex: 1;
   min-height: 0;
@@ -637,8 +663,12 @@ body.lecturer-console-scroll-root {
 }
 
 @media (max-width: 1280px) {
-  .lecturer-console__appbar-preview {
+  .lecturer-console__appbar-groups {
     flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .lecturer-console__appbar-preview {
     justify-content: flex-start;
   }
 
@@ -695,10 +725,28 @@ body.lecturer-console-scroll-root {
     justify-content: flex-start;
   }
 
+  .lecturer-console__appbar-groups {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
   .lecturer-console__appbar-preview {
     width: 100%;
     min-width: 0;
     justify-content: flex-start;
+  }
+
+  .lecturer-console__appbar-group--standard {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .lecturer-console__appbar-separator {
+    width: 100%;
+    min-height: 1px;
+    height: 1px;
   }
 
   .lecturer-console__preview-input {
