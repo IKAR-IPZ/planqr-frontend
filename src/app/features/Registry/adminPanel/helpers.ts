@@ -196,23 +196,9 @@ export const getConnectionTone = (device: Device): Tone => {
 };
 
 export const getDeviceDisplayName = (device: Device) =>
-  device.deviceClassroom || device.deviceName || "Nieprzypisany tablet";
+  device.deviceClassroom || formatPairingDeviceId(device.deviceId) || "Nieprzypisany tablet";
 
-export const getDeviceSecondaryName = (device: Device) => {
-  const displayName = getDeviceDisplayName(device);
-  const secondary =
-    device.deviceClassroom && device.deviceClassroom !== displayName
-      ? device.deviceClassroom
-      : device.deviceName && device.deviceName !== displayName
-        ? device.deviceName
-        : null;
-
-  if (!secondary) {
-    return null;
-  }
-
-  return secondary;
-};
+export const getDeviceSecondaryName = (_device: Device) => null;
 
 const getConnectionRank = (device: Device) => {
   if (device.status !== "ACTIVE") {
@@ -231,7 +217,6 @@ export const matchesDeviceSearch = (device: Device, term: string) => {
 
   const searchable = [
     device.deviceClassroom,
-    device.deviceName,
     device.deviceId,
     formatPairingDeviceId(device.deviceId),
     getConnectionLabel(device),

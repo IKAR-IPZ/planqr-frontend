@@ -1,6 +1,5 @@
 export interface Device {
   id: number;
-  deviceName: string | null;
   deviceClassroom: string | null;
   deviceURL: string | null;
   deviceId: string;
@@ -10,9 +9,6 @@ export interface Device {
   connectionStatus: "PENDING" | "ONLINE" | "OFFLINE";
   isConnected: boolean;
   lastSeen: string;
-  ipAddress?: string;
-  deviceModel?: string;
-  userAgent?: string;
   macAddress?: string;
   viewportWidthPx?: number | null;
   viewportHeightPx?: number | null;

@@ -1191,7 +1191,6 @@ const AdminRegistry = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: deviceId,
-        deviceName: roomName,
         deviceClassroom: roomName,
       }),
     });
@@ -1337,7 +1336,7 @@ const AdminRegistry = () => {
 
     try {
       const deviceLabel =
-        device.deviceClassroom || device.deviceName || formatPairingDeviceId(device.deviceId);
+        device.deviceClassroom || formatPairingDeviceId(device.deviceId);
       const result = await updateDeviceRoomAssignment(device.id, sanitizedRoom);
       if (!result.ok) {
         setRoomError(result.message);
@@ -1451,7 +1450,7 @@ const AdminRegistry = () => {
 
     try {
       const deviceLabel =
-        device.deviceClassroom || device.deviceName || formatPairingDeviceId(device.deviceId);
+        device.deviceClassroom || formatPairingDeviceId(device.deviceId);
       const shouldReturnToScanner =
         pairingReturnMode === "after-save" && drawerDeviceId === device.id;
       const response = await fetch(`/api/devices/${device.id}`, { method: "DELETE" });

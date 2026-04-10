@@ -7,7 +7,6 @@ import {
   getConnectionLabel,
   getConnectionTone,
   getDeviceDisplayName,
-  getDeviceSecondaryName,
   hasDeviceDisplayProfile,
 } from "./helpers";
 import type { Device } from "./types";
@@ -60,7 +59,6 @@ const DeviceDrawer = ({
     getViewportStyle(),
   );
   const displayName = getDeviceDisplayName(device);
-  const secondaryName = getDeviceSecondaryName(device);
   const isPending = device.status === "PENDING";
   const hasDisplayProfile = hasDeviceDisplayProfile(device);
 
@@ -139,9 +137,6 @@ const DeviceDrawer = ({
             <>
               <div className="admin-drawer__summary">
                 <strong>{displayName}</strong>
-                {secondaryName ? (
-                  <span className="admin-table__secondary">{secondaryName}</span>
-                ) : null}
               </div>
 
               <div className="admin-detail-list">
@@ -152,14 +147,6 @@ const DeviceDrawer = ({
                 <div className="admin-detail-list__row">
                   <span>Ostatni heartbeat</span>
                   <strong>{formatLastSeen(device.lastSeen)}</strong>
-                </div>
-                <div className="admin-detail-list__row">
-                  <span>Model</span>
-                  <strong>{device.deviceModel || "-"}</strong>
-                </div>
-                <div className="admin-detail-list__row">
-                  <span>Adres IP</span>
-                  <strong>{device.ipAddress || "-"}</strong>
                 </div>
                 <div className="admin-detail-list__row">
                   <span>Viewport</span>
@@ -184,10 +171,6 @@ const DeviceDrawer = ({
                 <div className="admin-detail-list__row">
                   <span>Raport profilu</span>
                   <strong>{formatLastSeen(device.displayProfileReportedAt ?? undefined)}</strong>
-                </div>
-                <div className="admin-detail-list__row admin-detail-list__row--stacked">
-                  <span>User Agent</span>
-                  <strong>{device.userAgent || "-"}</strong>
                 </div>
               </div>
 
