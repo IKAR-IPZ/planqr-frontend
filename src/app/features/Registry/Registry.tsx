@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
-import ThemeToggle from '../../layout/ThemeToggle';
 import { reportTabletDisplayProfile } from '../../services/displayProfileService';
 import { buildPairingQrValue, formatPairingDeviceId } from './adminPanel/helpers';
 
@@ -150,9 +149,6 @@ const Registry = () => {
 
     return (
         <div className="registry">
-            <div className="registry__theme-toggle">
-                <ThemeToggle />
-            </div>
             <header className="registry__header">
                 <p className="registry__eyebrow">PlanQR</p>
                 <h1 className="registry__title">Rejestracja tabletu</h1>

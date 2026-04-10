@@ -1193,23 +1193,27 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-table--devices .admin-table__col--name {
-  width: 20%;
+  width: 18%;
 }
 
 .admin-table--devices .admin-table__col--device-id {
-  width: 16%;
+  width: 14%;
 }
 
 .admin-table--devices .admin-table__col--status {
-  width: 16%;
+  width: 14%;
 }
 
 .admin-table--devices .admin-table__col--heartbeat {
   width: 16%;
 }
 
+.admin-table--devices .admin-table__col--theme {
+  width: 14%;
+}
+
 .admin-table--devices .admin-table__col--actions {
-  width: 32%;
+  width: 24%;
 }
 
 .admin-table--pending .admin-table__col--name {
@@ -1262,14 +1266,16 @@ body.admin-console-scroll-root #root {
 .admin-table--devices th:nth-child(3),
 .admin-table--devices th:nth-child(4),
 .admin-table--devices th:nth-child(5),
+.admin-table--devices th:nth-child(6),
 .admin-table--devices td:nth-child(3),
 .admin-table--devices td:nth-child(4),
-.admin-table--devices td:nth-child(5) {
+.admin-table--devices td:nth-child(5),
+.admin-table--devices td:nth-child(6) {
   text-align: center;
 }
 
-.admin-table--devices th:nth-child(6),
-.admin-table--devices td:nth-child(6) {
+.admin-table--devices th:nth-child(7),
+.admin-table--devices td:nth-child(7) {
   text-align: right;
 }
 
@@ -1404,6 +1410,10 @@ body.admin-console-scroll-root #root {
   letter-spacing: normal;
 }
 
+.admin-table__header-field {
+  min-width: 180px;
+}
+
 .admin-table__header-count strong {
   color: var(--admin-text);
 }
@@ -1428,6 +1438,10 @@ body.admin-console-scroll-root #root {
 .admin-table__cell--center .admin-table__secondary {
   width: 100%;
   text-align: center;
+}
+
+.admin-table__theme-select {
+  min-width: 118px;
 }
 
 .admin-table__cell--actions {

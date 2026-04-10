@@ -33,6 +33,9 @@ interface DevicesViewProps {
   manualRefreshing: boolean;
   reloadingTablets: boolean;
   batchUpdating: boolean;
+  batchThemeUpdating: boolean;
+  themeMutationDeviceId: number | null;
+  batchThemeValue: Device["displayTheme"];
   selectedDeviceIds: number[];
   searchTerm: string;
   sortBy: DeviceSortOption;
@@ -52,6 +55,8 @@ interface DevicesViewProps {
   onSearchTermChange: (value: string) => void;
   onSortChange: (value: DeviceSortOption) => void;
   onDeleteSelectedDevices: () => void;
+  onBatchThemeValueChange: (value: Device["displayTheme"]) => void;
+  onApplyBatchTheme: () => void;
   onClearSelectedDevices: () => void;
   onToggleAllActiveDevices: (checked: boolean) => void;
   onToggleDeviceSelection: (deviceId: number) => void;
@@ -60,6 +65,7 @@ interface DevicesViewProps {
   onViewDevice: (device: Device) => void;
   onEditDevice: (device: Device) => void;
   onPreviewDevice: (device: Device) => void;
+  onDeviceThemeChange: (device: Device, theme: Device["displayTheme"]) => void;
   onDeleteDevice: (device: Device) => void;
   onPairingCodeChange: (value: string) => void;
   onPairingSuggestionSelect: (device: Device) => void;
@@ -88,6 +94,9 @@ const DevicesView = ({
   manualRefreshing,
   reloadingTablets,
   batchUpdating,
+  batchThemeUpdating,
+  themeMutationDeviceId,
+  batchThemeValue,
   selectedDeviceIds,
   searchTerm,
   sortBy,
@@ -107,6 +116,8 @@ const DevicesView = ({
   onSearchTermChange,
   onSortChange,
   onDeleteSelectedDevices,
+  onBatchThemeValueChange,
+  onApplyBatchTheme,
   onClearSelectedDevices,
   onToggleAllActiveDevices,
   onToggleDeviceSelection,
@@ -115,6 +126,7 @@ const DevicesView = ({
   onViewDevice,
   onEditDevice,
   onPreviewDevice,
+  onDeviceThemeChange,
   onDeleteDevice,
   onPairingCodeChange,
   onPairingSuggestionSelect,
@@ -274,6 +286,7 @@ const DevicesView = ({
                 <col className="admin-table__col admin-table__col--device-id" />
                 <col className="admin-table__col admin-table__col--status" />
                 <col className="admin-table__col admin-table__col--heartbeat" />
+                <col className="admin-table__col admin-table__col--theme" />
                 <col className="admin-table__col admin-table__col--actions" />
               </colgroup>
             }
@@ -292,10 +305,33 @@ const DevicesView = ({
               "Device ID",
               "Status",
               "Ostatni heartbeat",
+              "Tryb",
               <div className="admin-table__header-actions" key="actions">
                 <span className="admin-table__header-count">
                   Zaznaczone: <strong>{selectedCount}</strong>
                 </span>
+                <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+                  <span className="admin-form-field__label">Batch tryb</span>
+                  <select
+                    className="admin-form-field__input"
+                    value={batchThemeValue}
+                    onChange={(event) =>
+                      onBatchThemeValueChange(event.target.value as Device["displayTheme"])
+                    }
+                    disabled={batchThemeUpdating}
+                  >
+                    <option value="dark">Ciemny</option>
+                    <option value="light">Jasny</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="admin-button admin-button--secondary admin-button--small"
+                  onClick={onApplyBatchTheme}
+                  disabled={batchThemeUpdating || selectedCount === 0}
+                >
+                  {batchThemeUpdating ? "Zapisywanie" : "Zmień tryb"}
+                </button>
                 <button
                   type="button"
                   className="admin-button admin-button--danger admin-button--small"
@@ -362,6 +398,24 @@ const DevicesView = ({
                     <span className="admin-table__secondary">
                       {formatLastSeen(device.lastSeen)}
                     </span>
+                  </td>
+                  <td data-label="Tryb" className="admin-table__cell--center">
+                    <select
+                      className="admin-form-field__input admin-table__theme-select"
+                      value={device.displayTheme}
+                      disabled={themeMutationDeviceId === device.id || batchThemeUpdating}
+                      onChange={(event) =>
+                        onDeviceThemeChange(
+                          device,
+                          event.target.value as Device["displayTheme"],
+                        )
+                      }
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <option value="dark">Ciemny</option>
+                      <option value="light">Jasny</option>
+                    </select>
                   </td>
                   <td data-label="Akcje" className="admin-table__cell--actions">
                     <div className="admin-table__actions">

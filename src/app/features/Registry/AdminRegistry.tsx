@@ -22,6 +22,7 @@ import {
   defaultNightModeSettings,
   formatPairingDeviceId,
   formatPairingDeviceInput,
+  getDeviceDisplayName,
   hasDeviceDisplayProfile,
   matchesDeviceSearch,
   normalizeRoomValue,
@@ -123,6 +124,9 @@ const AdminRegistry = () => {
   const [deviceSort, setDeviceSort] = useState<DeviceSortOption>("status");
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
   const [batchMutationLoading, setBatchMutationLoading] = useState(false);
+  const [batchThemeValue, setBatchThemeValue] = useState<Device["displayTheme"]>("dark");
+  const [batchThemeLoading, setBatchThemeLoading] = useState(false);
+  const [themeMutationDeviceId, setThemeMutationDeviceId] = useState<number | null>(null);
   const [newAdminUsername, setNewAdminUsername] = useState("");
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
   const [adminFeedbackTone, setAdminFeedbackTone] = useState<Tone>("neutral");
@@ -720,6 +724,85 @@ const AdminRegistry = () => {
     }
 
     return data;
+  };
+
+  const handleDeviceThemeChange = async (
+    device: Device,
+    displayTheme: Device["displayTheme"],
+  ) => {
+    if (displayTheme === device.displayTheme) {
+      return;
+    }
+
+    try {
+      setThemeMutationDeviceId(device.id);
+      await handleDeviceDisplaySettingsUpdate(device.id, { displayTheme });
+      pushToast(
+        `Zmieniono motyw tabletu ${getDeviceDisplayName(device)} na ${
+          displayTheme === "light" ? "jasny" : "ciemny"
+        }.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error ? error.message : "Nie udało się zmienić motywu tabletu.",
+        "danger",
+      );
+    } finally {
+      setThemeMutationDeviceId(null);
+    }
+  };
+
+  const handleBatchThemeUpdate = async () => {
+    const selectedDevices = pairedDevices.filter((device) =>
+      selectedDeviceIds.includes(device.id),
+    );
+
+    if (selectedDevices.length === 0) {
+      pushToast("Zaznacz co najmniej jeden tablet.", "danger");
+      return;
+    }
+
+    try {
+      setBatchThemeLoading(true);
+      const response = await fetch("/api/devices/display-settings/batch", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceIds: selectedDevices.map((device) => device.id),
+          displayTheme: batchThemeValue,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się zapisać motywu dla zaznaczonych tabletów.");
+      }
+
+      const updatedDevices = Array.isArray(data.devices) ? (data.devices as Device[]) : [];
+      if (updatedDevices.length > 0) {
+        const updatedDeviceMap = new Map(updatedDevices.map((device) => [device.id, device]));
+        setDevices((current) =>
+          current.map((device) => updatedDeviceMap.get(device.id) ?? device),
+        );
+      }
+
+      pushToast(
+        `Zmieniono motyw ${updatedDevices.length || selectedDevices.length} tabletów na ${
+          batchThemeValue === "light" ? "jasny" : "ciemny"
+        }.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zmienić motywu zaznaczonych tabletów.",
+        "danger",
+      );
+    } finally {
+      setBatchThemeLoading(false);
+    }
   };
 
   const fetchAdmins = async () => {
@@ -1689,6 +1772,9 @@ const AdminRegistry = () => {
               manualRefreshing={manualRefreshing}
               reloadingTablets={reloadingTablets}
               batchUpdating={batchMutationLoading}
+              batchThemeUpdating={batchThemeLoading}
+              themeMutationDeviceId={themeMutationDeviceId}
+              batchThemeValue={batchThemeValue}
               selectedDeviceIds={selectedDeviceIds}
               searchTerm={searchTerm}
               sortBy={deviceSort}
@@ -1708,6 +1794,8 @@ const AdminRegistry = () => {
               onSearchTermChange={setSearchTerm}
               onSortChange={setDeviceSort}
               onDeleteSelectedDevices={() => void handleDeleteSelectedDevices()}
+              onBatchThemeValueChange={setBatchThemeValue}
+              onApplyBatchTheme={() => void handleBatchThemeUpdate()}
               onClearSelectedDevices={clearDeviceSelection}
               onToggleAllActiveDevices={handleToggleAllActiveDevices}
               onToggleDeviceSelection={handleToggleDeviceSelection}
@@ -1717,6 +1805,9 @@ const AdminRegistry = () => {
               onEditDevice={openDeviceEditor}
               onPreviewDevice={(device) => {
                 void openDevicePreview(device);
+              }}
+              onDeviceThemeChange={(device, theme) => {
+                void handleDeviceThemeChange(device, theme);
               }}
               onDeleteDevice={handleDeleteDevice}
               onPairingCodeChange={handlePairingCodeChange}
