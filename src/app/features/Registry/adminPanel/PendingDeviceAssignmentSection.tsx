@@ -166,17 +166,18 @@ const PendingDeviceAssignmentSection = ({
             </button>
           </div>
 
-          <div className="admin-device-assignment__status-slot" aria-live="polite">
+          {feedback ? (
             <p
               className={[
                 "admin-feedback",
                 "admin-device-assignment__status",
-                feedback ? `admin-feedback--${feedbackTone}` : "admin-device-assignment__status--hidden",
+                `admin-feedback--${feedbackTone}`,
               ].join(" ")}
+              aria-live="polite"
             >
-              {feedback ?? "\u00A0"}
+              {feedback}
             </p>
-          </div>
+          ) : null}
         </div>
       </div>
     </AdminPanelSection>

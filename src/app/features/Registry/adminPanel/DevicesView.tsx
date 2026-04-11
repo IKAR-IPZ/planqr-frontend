@@ -9,14 +9,9 @@ import {
   getConnectionLabel,
   getConnectionTone,
   getDeviceDisplayName,
+  splitDeviceClassroom,
 } from "./helpers";
-import type { Device, DeviceSortOption, Tone } from "./types";
-
-const sortOptions: Array<{ value: DeviceSortOption; label: string }> = [
-  { value: "status", label: "Status" },
-  { value: "name", label: "Sala" },
-  { value: "lastSeen", label: "Ostatni heartbeat" },
-];
+import type { Device, DeviceSortColumn, DeviceSortState, Tone } from "./types";
 
 interface DeviceCounts {
   all: number;
@@ -33,9 +28,15 @@ interface DevicesViewProps {
   manualRefreshing: boolean;
   reloadingTablets: boolean;
   batchUpdating: boolean;
+  batchThemeUpdating: boolean;
+  batchBlackScreenUpdating: boolean;
+  themeMutationDeviceId: number | null;
+  blackScreenMutationDeviceId: number | null;
+  batchThemeValue: Device["displayTheme"];
+  batchBlackScreenValue: Device["blackScreenMode"];
   selectedDeviceIds: number[];
   searchTerm: string;
-  sortBy: DeviceSortOption;
+  sortState: DeviceSortState;
   pairingCode: string;
   pairingSuggestions: Device[];
   pairingDevice: Device | null;
@@ -50,8 +51,12 @@ interface DevicesViewProps {
   pairingFeedback: string | null;
   pairingFeedbackTone: Tone;
   onSearchTermChange: (value: string) => void;
-  onSortChange: (value: DeviceSortOption) => void;
+  onSortColumn: (column: DeviceSortColumn) => void;
   onDeleteSelectedDevices: () => void;
+  onBatchThemeValueChange: (value: Device["displayTheme"]) => void;
+  onBatchBlackScreenValueChange: (value: Device["blackScreenMode"]) => void;
+  onApplyBatchTheme: () => void;
+  onApplyBatchBlackScreen: () => void;
   onClearSelectedDevices: () => void;
   onToggleAllActiveDevices: (checked: boolean) => void;
   onToggleDeviceSelection: (deviceId: number) => void;
@@ -60,6 +65,11 @@ interface DevicesViewProps {
   onViewDevice: (device: Device) => void;
   onEditDevice: (device: Device) => void;
   onPreviewDevice: (device: Device) => void;
+  onDeviceThemeChange: (device: Device, theme: Device["displayTheme"]) => void;
+  onDeviceBlackScreenModeChange: (
+    device: Device,
+    blackScreenMode: Device["blackScreenMode"],
+  ) => void;
   onDeleteDevice: (device: Device) => void;
   onPairingCodeChange: (value: string) => void;
   onPairingSuggestionSelect: (device: Device) => void;
@@ -88,9 +98,15 @@ const DevicesView = ({
   manualRefreshing,
   reloadingTablets,
   batchUpdating,
+  batchThemeUpdating,
+  batchBlackScreenUpdating,
+  themeMutationDeviceId,
+  blackScreenMutationDeviceId,
+  batchThemeValue,
+  batchBlackScreenValue,
   selectedDeviceIds,
   searchTerm,
-  sortBy,
+  sortState,
   pairingCode,
   pairingSuggestions,
   pairingDevice,
@@ -105,8 +121,12 @@ const DevicesView = ({
   pairingFeedback,
   pairingFeedbackTone,
   onSearchTermChange,
-  onSortChange,
+  onSortColumn,
   onDeleteSelectedDevices,
+  onBatchThemeValueChange,
+  onBatchBlackScreenValueChange,
+  onApplyBatchTheme,
+  onApplyBatchBlackScreen,
   onClearSelectedDevices,
   onToggleAllActiveDevices,
   onToggleDeviceSelection,
@@ -115,6 +135,8 @@ const DevicesView = ({
   onViewDevice,
   onEditDevice,
   onPreviewDevice,
+  onDeviceThemeChange,
+  onDeviceBlackScreenModeChange,
   onDeleteDevice,
   onPairingCodeChange,
   onPairingSuggestionSelect,
@@ -125,6 +147,7 @@ const DevicesView = ({
   onAssignPairingDevice,
 }: DevicesViewProps) => {
   const hasSearchFilter = searchTerm.trim().length > 0;
+  const hasPairedDevices = counts.online + counts.offline > 0;
   const selectAllRef = useRef<HTMLInputElement | null>(null);
   const selectedIds = new Set(selectedDeviceIds);
   const selectedCount = selectedDeviceIds.length;
@@ -151,6 +174,46 @@ const DevicesView = ({
         ? "Zmień filtr, aby zobaczyć sparowane urządzenia."
         : "Przypisz tablet kodem, aby pojawił się tutaj.";
 
+  const getSortButtonState = (column: DeviceSortColumn) => {
+    if (sortState.column !== column || !sortState.direction) {
+      return {
+        icon: "fas fa-sort",
+        label: "Brak aktywnego sortowania",
+        ariaSort: "none" as const,
+        active: false,
+      };
+    }
+
+    return {
+      icon: sortState.direction === "desc" ? "fas fa-sort-down" : "fas fa-sort-up",
+      label:
+        sortState.direction === "desc" ? "Sortowanie malejące" : "Sortowanie rosnące",
+      ariaSort: sortState.direction === "desc" ? ("descending" as const) : ("ascending" as const),
+      active: true,
+    };
+  };
+
+  const renderSortableHeader = (label: string, column: DeviceSortColumn) => {
+    const sortButtonState = getSortButtonState(column);
+
+    return {
+      content: (
+        <button
+          type="button"
+          className={`admin-table__sort-button${
+            sortButtonState.active ? " admin-table__sort-button--active" : ""
+          }`}
+          onClick={() => onSortColumn(column)}
+          aria-label={`${label}. ${sortButtonState.label}. Kliknij, aby zmienić sortowanie.`}
+        >
+          <span>{label}</span>
+          <i className={sortButtonState.icon} aria-hidden="true" />
+        </button>
+      ),
+      ariaSort: sortButtonState.ariaSort,
+    };
+  };
+
   useEffect(() => {
     if (selectAllRef.current) {
       selectAllRef.current.indeterminate = partiallySelected;
@@ -161,31 +224,17 @@ const DevicesView = ({
     <div className="admin-devices-view">
       <div className="admin-devices-view__overview">
         <AdminPanelSection title="Tablety">
-          <div className="admin-toolbar">
+          <div className="admin-toolbar admin-toolbar--devices">
             <AdminPanelSearchField
               label="Szukaj"
-              placeholder="Sala, ID lub status"
+              placeholder="Sala, wydział, ID lub status"
               value={searchTerm}
               onChange={onSearchTermChange}
             />
-            <label className="admin-form-field admin-form-field--compact">
-              <span className="admin-form-field__label">Sortuj</span>
-              <select
-                className="admin-form-field__input"
-                value={sortBy}
-                onChange={(event) => onSortChange(event.target.value as DeviceSortOption)}
-              >
-                {sortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
             <div className="admin-toolbar__actions">
               <button
                 type="button"
-                className="admin-button admin-button--secondary"
+                className="admin-button admin-button--secondary admin-button--small"
                 onClick={onRefresh}
                 disabled={manualRefreshing}
               >
@@ -197,7 +246,7 @@ const DevicesView = ({
               </button>
               <button
                 type="button"
-                className="admin-button admin-button--primary"
+                className="admin-button admin-button--primary admin-button--small"
                 onClick={onReloadTablets}
                 disabled={reloadingTablets}
               >
@@ -248,21 +297,88 @@ const DevicesView = ({
         />
       </div>
 
-      {activeDevices.length === 0 ? (
-        <div className="admin-table__wrapper admin-table__wrapper--full-width">
+      <AdminPanelSection
+        className="admin-devices-view__list"
+        title="Sparowane tablety"
+        actions={
+          hasPairedDevices ? (
+            <div className="admin-table__batch-actions">
+              <span className="admin-table__header-count">
+                Zaznaczone: <strong>{selectedCount}</strong>
+              </span>
+              <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+                <select
+                  className="admin-form-field__input"
+                  aria-label="Batchowa zmiana trybu tabletu"
+                  value={batchThemeValue}
+                  onChange={(event) =>
+                    onBatchThemeValueChange(event.target.value as Device["displayTheme"])
+                  }
+                  disabled={batchThemeUpdating}
+                >
+                  <option value="dark">Ciemny</option>
+                  <option value="light">Jasny</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="admin-button admin-button--secondary admin-button--small"
+                onClick={onApplyBatchTheme}
+                disabled={batchThemeUpdating || selectedCount === 0}
+              >
+                {batchThemeUpdating ? "Zapisywanie" : "Zmień tryb"}
+              </button>
+              <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+                <select
+                  className="admin-form-field__input"
+                  aria-label="Batchowa zmiana czarnego ekranu"
+                  value={batchBlackScreenValue}
+                  onChange={(event) =>
+                    onBatchBlackScreenValueChange(
+                      event.target.value as Device["blackScreenMode"],
+                    )
+                  }
+                  disabled={batchBlackScreenUpdating}
+                >
+                  <option value="on">Włączony</option>
+                  <option value="off">Wyłączony</option>
+                  <option value="follow">Harmonogram</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="admin-button admin-button--secondary admin-button--small"
+                onClick={onApplyBatchBlackScreen}
+                disabled={batchBlackScreenUpdating || selectedCount === 0}
+              >
+                {batchBlackScreenUpdating ? "Zapisywanie" : "Ustaw czarny ekran"}
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--danger admin-button--small"
+                onClick={onDeleteSelectedDevices}
+                disabled={batchUpdating || selectedCount === 0}
+              >
+                Usuń zaznaczone
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--ghost admin-button--small"
+                onClick={onClearSelectedDevices}
+                disabled={selectedCount === 0}
+              >
+                Wyczyść
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
+        {activeDevices.length === 0 ? (
           <div className="admin-empty-state">
             <h3>{emptyStateTitle}</h3>
             <p>{emptyStateDescription}</p>
           </div>
-        </div>
-      ) : (
-        <section className="admin-table-block" aria-labelledby="admin-active-devices-heading">
-          <div className="admin-table-block__header">
-            <h3 className="admin-table-block__title" id="admin-active-devices-heading">
-              Sparowane tablety
-            </h3>
-          </div>
-
+        ) : (
           <AdminPanelTable
             caption="Lista aktywnych tabletów"
             className="admin-table--devices admin-table--selectable"
@@ -271,9 +387,12 @@ const DevicesView = ({
               <colgroup>
                 <col className="admin-table__col admin-table__col--select" />
                 <col className="admin-table__col admin-table__col--name" />
+                <col className="admin-table__col admin-table__col--faculty" />
                 <col className="admin-table__col admin-table__col--device-id" />
                 <col className="admin-table__col admin-table__col--status" />
                 <col className="admin-table__col admin-table__col--heartbeat" />
+                <col className="admin-table__col admin-table__col--theme" />
+                <col className="admin-table__col admin-table__col--black-screen" />
                 <col className="admin-table__col admin-table__col--actions" />
               </colgroup>
             }
@@ -288,35 +407,20 @@ const DevicesView = ({
                   onChange={(event) => onToggleAllActiveDevices(event.target.checked)}
                 />
               </span>,
-              "Sala",
-              "Device ID",
-              "Status",
-              "Ostatni heartbeat",
-              <div className="admin-table__header-actions" key="actions">
-                <span className="admin-table__header-count">
-                  Zaznaczone: <strong>{selectedCount}</strong>
-                </span>
-                <button
-                  type="button"
-                  className="admin-button admin-button--danger admin-button--small"
-                  onClick={onDeleteSelectedDevices}
-                  disabled={batchUpdating || selectedCount === 0}
-                >
-                  Usuń zaznaczone
-                </button>
-                <button
-                  type="button"
-                  className="admin-button admin-button--ghost admin-button--small"
-                  onClick={onClearSelectedDevices}
-                  disabled={selectedCount === 0}
-                >
-                  Wyczyść
-                </button>
-              </div>,
+              renderSortableHeader("Sala", "room"),
+              renderSortableHeader("Wydział", "faculty"),
+              renderSortableHeader("Device ID", "deviceId"),
+              renderSortableHeader("Status", "status"),
+              renderSortableHeader("Ostatni heartbeat", "lastSeen"),
+              renderSortableHeader("Tryb", "displayTheme"),
+              renderSortableHeader("Czarny ekran", "blackScreen"),
+              "Akcje",
             ]}
           >
             {activeDevices.map((device) => {
               const displayName = getDeviceDisplayName(device);
+              const roomParts = splitDeviceClassroom(device.deviceClassroom);
+              const roomLabel = roomParts.roomLabel || roomParts.fullLabel || displayName;
               const isSelected = selectedIds.has(device.id);
 
               return (
@@ -343,8 +447,13 @@ const DevicesView = ({
                   </td>
                   <td data-label="Sala" className="admin-table__cell--name">
                     <div className="admin-table__primary">
-                      <strong>{displayName}</strong>
+                      <strong>{roomLabel}</strong>
                     </div>
+                  </td>
+                  <td data-label="Wydział" className="admin-table__cell--center">
+                    <span className="admin-table__secondary">
+                      {roomParts.facultyCode || ""}
+                    </span>
                   </td>
                   <td data-label="Device ID" className="admin-table__cell--center">
                     <span className="admin-table__meta-code">
@@ -363,18 +472,48 @@ const DevicesView = ({
                       {formatLastSeen(device.lastSeen)}
                     </span>
                   </td>
+                  <td data-label="Tryb" className="admin-table__cell--center">
+                    <select
+                      className="admin-form-field__input admin-table__theme-select"
+                      value={device.displayTheme}
+                      disabled={themeMutationDeviceId === device.id || batchThemeUpdating}
+                      onChange={(event) =>
+                        onDeviceThemeChange(
+                          device,
+                          event.target.value as Device["displayTheme"],
+                        )
+                      }
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <option value="dark">Ciemny</option>
+                      <option value="light">Jasny</option>
+                    </select>
+                  </td>
+                  <td data-label="Czarny ekran" className="admin-table__cell--center">
+                    <select
+                      className="admin-form-field__input admin-table__mode-select"
+                      aria-label={`Czarny ekran ${displayName}`}
+                      value={device.blackScreenMode}
+                      disabled={
+                        blackScreenMutationDeviceId === device.id || batchBlackScreenUpdating
+                      }
+                      onChange={(event) =>
+                        onDeviceBlackScreenModeChange(
+                          device,
+                          event.target.value as Device["blackScreenMode"],
+                        )
+                      }
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <option value="on">Włączony</option>
+                      <option value="off">Wyłączony</option>
+                      <option value="follow">Harmonogram</option>
+                    </select>
+                  </td>
                   <td data-label="Akcje" className="admin-table__cell--actions">
                     <div className="admin-table__actions">
-                      <button
-                        type="button"
-                        className="admin-button admin-button--ghost admin-button--small"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onViewDevice(device);
-                        }}
-                      >
-                        Szczegóły
-                      </button>
                       <button
                         type="button"
                         className="admin-button admin-button--secondary admin-button--small"
@@ -411,8 +550,8 @@ const DevicesView = ({
               );
             })}
           </AdminPanelTable>
-        </section>
-      )}
+        )}
+      </AdminPanelSection>
     </div>
   );
 };

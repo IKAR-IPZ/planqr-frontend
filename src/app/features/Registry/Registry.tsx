@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
-import ThemeToggle from '../../layout/ThemeToggle';
 import { reportTabletDisplayProfile } from '../../services/displayProfileService';
 import { buildPairingQrValue, formatPairingDeviceId } from './adminPanel/helpers';
 
@@ -100,6 +99,7 @@ const Registry = () => {
             try {
                 const response = await fetch('/api/registry/handshake', {
                     method: 'POST',
+                    cache: 'no-store',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ deviceId: uuid })
                 });
@@ -124,7 +124,9 @@ const Registry = () => {
 
         const checkStatus = async () => {
             try {
-                const response = await fetch(`/api/registry/status/${uuid}`);
+                const response = await fetch(`/api/registry/status/${uuid}`, {
+                    cache: 'no-store'
+                });
                 if (response.status === 404) {
                     await performHandshake();
                     return;
@@ -150,9 +152,6 @@ const Registry = () => {
 
     return (
         <div className="registry">
-            <div className="registry__theme-toggle">
-                <ThemeToggle />
-            </div>
             <header className="registry__header">
                 <p className="registry__eyebrow">PlanQR</p>
                 <h1 className="registry__title">Rejestracja tabletu</h1>

@@ -78,6 +78,29 @@ body.admin-console-scroll-root #root {
     padding-top: 1rem;
   }
 
+  .admin-console .admin-console__main--devices {
+    height: calc(100dvh - var(--admin-appbar-height));
+    padding-bottom: 1rem;
+    overflow: hidden;
+  }
+
+  .admin-devices-view {
+    overflow: hidden;
+  }
+
+  .admin-devices-view__list {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-devices-view__list .admin-table__wrapper--active {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+
   .admin-console .admin-nav--desktop {
     position: fixed;
     top: var(--admin-appbar-height);
@@ -153,9 +176,9 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-console__brand-logo {
-  width: clamp(220px, 22vw, 360px);
-  max-width: 100%;
-  height: auto;
+  width: auto;
+  max-width: clamp(48px, 4vw, 68px);
+  height: clamp(34px, 3.4vw, 48px);
   object-fit: contain;
   object-position: left center;
   flex-shrink: 0;
@@ -640,6 +663,27 @@ body.admin-console-scroll-root #root {
   align-self: end;
 }
 
+.admin-toolbar--devices {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+.admin-toolbar--devices > .admin-form-field--search {
+  flex: 0 1 22rem;
+  width: min(100%, 22rem);
+  max-width: 22rem;
+}
+
+.admin-toolbar--devices .admin-toolbar__actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  justify-self: auto;
+  align-self: flex-end;
+}
+
 .admin-form-field {
   display: flex;
   flex-direction: column;
@@ -806,6 +850,10 @@ body.admin-console-scroll-root #root {
   gap: 1rem;
 }
 
+.admin-devices-view__list {
+  min-height: 0;
+}
+
 .admin-devices-view__overview {
   --admin-device-assignment-code-width: calc(7ch + 1.55rem);
   --admin-device-assignment-add-width: 5.5rem;
@@ -830,12 +878,14 @@ body.admin-console-scroll-root #root {
 
 .admin-device-assignment {
   padding: 1rem;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
 .admin-device-assignment__form {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -880,21 +930,11 @@ body.admin-console-scroll-root #root {
   align-items: end;
 }
 
-.admin-device-assignment__status-slot {
-  min-height: 3.15rem;
-}
-
 .admin-device-assignment__status {
-  margin: 0;
+  margin: auto 0 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.admin-device-assignment__status--hidden {
-  visibility: hidden;
-  border-color: transparent;
-  background: transparent;
 }
 
 .admin-device-assignment__suggestion {
@@ -1148,7 +1188,7 @@ body.admin-console-scroll-root #root {
   font-weight: 600;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 6;
 }
 
 .admin-table tbody tr:last-child td {
@@ -1177,8 +1217,8 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-table--devices {
-  table-layout: fixed;
-  width: 100%;
+  table-layout: auto;
+  width: max-content;
   min-width: 100%;
 }
 
@@ -1193,23 +1233,35 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-table--devices .admin-table__col--name {
-  width: 20%;
+  width: 240px;
+}
+
+.admin-table--devices .admin-table__col--faculty {
+  width: 110px;
 }
 
 .admin-table--devices .admin-table__col--device-id {
-  width: 16%;
+  width: 140px;
 }
 
 .admin-table--devices .admin-table__col--status {
-  width: 16%;
+  width: 140px;
 }
 
 .admin-table--devices .admin-table__col--heartbeat {
-  width: 16%;
+  width: 180px;
+}
+
+.admin-table--devices .admin-table__col--theme {
+  width: 160px;
+}
+
+.admin-table--devices .admin-table__col--black-screen {
+  width: 160px;
 }
 
 .admin-table--devices .admin-table__col--actions {
-  width: 32%;
+  width: 240px;
 }
 
 .admin-table--pending .admin-table__col--name {
@@ -1234,9 +1286,10 @@ body.admin-console-scroll-root #root {
 
 .admin-table--devices th,
 .admin-table--devices td {
-  min-width: 0;
+  min-width: max-content;
   height: 64px;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .admin-table--pending th,
@@ -1259,17 +1312,73 @@ body.admin-console-scroll-root #root {
   text-align: left;
 }
 
+.admin-table--devices th:nth-child(1),
+.admin-table--devices td:nth-child(1) {
+  position: sticky;
+  left: 0;
+}
+
+.admin-table--devices th:nth-child(2),
+.admin-table--devices td:nth-child(2) {
+  position: sticky;
+  left: 48px;
+}
+
+.admin-table--devices th:nth-child(1) {
+  z-index: 10;
+}
+
+.admin-table--devices th:nth-child(2) {
+  z-index: 9;
+}
+
+.admin-table--devices td:nth-child(1) {
+  z-index: 4;
+}
+
+.admin-table--devices td:nth-child(2) {
+  z-index: 3;
+}
+
+.admin-table--devices th:nth-child(1),
+.admin-table--devices th:nth-child(2) {
+  background: var(--admin-surface-muted);
+}
+
+.admin-table--devices td:nth-child(1),
+.admin-table--devices td:nth-child(2) {
+  background: var(--admin-surface);
+}
+
+.admin-table__row--interactive:hover td:nth-child(1),
+.admin-table__row--interactive:hover td:nth-child(2) {
+  background: var(--admin-neutral-soft);
+}
+
+.admin-table__row--selected td:nth-child(1),
+.admin-table__row--selected td:nth-child(2),
+.admin-table__row--selected:hover td:nth-child(1),
+.admin-table__row--selected:hover td:nth-child(2) {
+  background: var(--admin-accent-soft);
+}
+
 .admin-table--devices th:nth-child(3),
 .admin-table--devices th:nth-child(4),
 .admin-table--devices th:nth-child(5),
+.admin-table--devices th:nth-child(6),
+.admin-table--devices th:nth-child(7),
+.admin-table--devices th:nth-child(8),
 .admin-table--devices td:nth-child(3),
 .admin-table--devices td:nth-child(4),
-.admin-table--devices td:nth-child(5) {
+.admin-table--devices td:nth-child(5),
+.admin-table--devices td:nth-child(6),
+.admin-table--devices td:nth-child(7),
+.admin-table--devices td:nth-child(8) {
   text-align: center;
 }
 
-.admin-table--devices th:nth-child(6),
-.admin-table--devices td:nth-child(6) {
+.admin-table--devices th:nth-child(9),
+.admin-table--devices td:nth-child(9) {
   text-align: right;
 }
 
@@ -1379,8 +1488,8 @@ body.admin-console-scroll-root #root {
   gap: 0.5rem;
 }
 
+.admin-table__batch-actions,
 .admin-table__header-actions {
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1388,6 +1497,15 @@ body.admin-console-scroll-root #root {
   gap: 0.75rem;
   text-transform: none;
   letter-spacing: normal;
+}
+
+.admin-table__batch-actions {
+  width: auto;
+  max-width: 100%;
+}
+
+.admin-table__header-actions {
+  width: 100%;
 }
 
 .admin-table__header-count {
@@ -1399,13 +1517,60 @@ body.admin-console-scroll-root #root {
   white-space: nowrap;
 }
 
+.admin-table__batch-actions .admin-button,
 .admin-table__header-actions .admin-button {
   text-transform: none;
   letter-spacing: normal;
 }
 
+.admin-table__header-field {
+  min-width: 180px;
+}
+
 .admin-table__header-count strong {
   color: var(--admin-text);
+}
+
+.admin-table__sort-button {
+  width: 100%;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.admin-table__sort-button--active {
+  color: var(--admin-text);
+}
+
+.admin-table__sort-button:focus,
+.admin-table__sort-button:hover,
+.admin-table__sort-button:focus-visible,
+.admin-table__sort-button:active {
+  outline: none;
+  box-shadow: none;
+  color: var(--admin-text);
+}
+
+.admin-table__sort-button::-moz-focus-inner {
+  border: 0;
+}
+
+.admin-table__sort-button i {
+  color: var(--admin-text-soft);
 }
 
 .admin-table__cell--name {
@@ -1428,6 +1593,21 @@ body.admin-console-scroll-root #root {
 .admin-table__cell--center .admin-table__secondary {
   width: 100%;
   text-align: center;
+}
+
+.admin-table__theme-select {
+  min-width: 118px;
+}
+
+.admin-table__mode-select {
+  min-width: 152px;
+}
+
+.admin-table__toggle-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .admin-table__cell--actions {
@@ -1962,6 +2142,165 @@ body.admin-console-scroll-root #root {
   text-align: left;
 }
 
+.tablet-preview-view {
+  --tablet-preview-sticky-top: calc(var(--admin-appbar-height) + 1rem);
+  --tablet-preview-workspace-height: min(
+    860px,
+    calc(100dvh - var(--admin-appbar-height) - 2.5rem)
+  );
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.tablet-preview-view__main,
+.tablet-preview-view__sidebar {
+  min-width: 0;
+  min-height: 0;
+}
+
+.tablet-preview-view__main {
+  position: sticky;
+  top: var(--tablet-preview-sticky-top);
+  align-self: start;
+}
+
+.tablet-preview-view__main > .admin-surface {
+  height: var(--tablet-preview-workspace-height);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tablet-preview-view__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  height: var(--tablet-preview-workspace-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
+}
+
+.tablet-preview-view__sidebar > .admin-surface {
+  flex: 0 0 auto;
+  min-height: max-content;
+}
+
+.tablet-preview-view__select {
+  min-width: min(360px, 100%);
+}
+
+.tablet-preview-view__canvas {
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  padding: 1rem;
+  background:
+    linear-gradient(135deg, rgba(32, 64, 144, 0.05), rgba(32, 128, 80, 0.04)),
+    var(--admin-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tablet-preview-view__stack {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tablet-preview-view__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tablet-preview-view__summary-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.tablet-preview-view__summary strong {
+  display: block;
+  margin-bottom: 0;
+  font-size: 1rem;
+}
+
+.tablet-preview-view__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tablet-preview-view__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.tablet-preview-view__lessons {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.tablet-preview-view__lesson {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface-muted);
+  padding: 0.75rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tablet-preview-view__lesson-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.tablet-preview-view__lesson-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.tablet-preview-view__lesson-header h3 {
+  margin: 0;
+  font-size: 0.94rem;
+}
+
+.tablet-preview-view__lesson-header p,
+.tablet-preview-view__lesson-meta {
+  margin: 0;
+  color: var(--admin-text-muted);
+  line-height: 1.4;
+  font-size: 0.84rem;
+}
+
+.tablet-preview-view__lesson-meta {
+  margin-top: 0;
+}
+
+.tablet-preview-view__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
 .admin-preview__overlay {
   position: fixed;
   inset: 0;
@@ -2091,12 +2430,55 @@ body.admin-console-scroll-root #root {
     grid-template-columns: 1fr;
   }
 
+  .tablet-preview-view {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .tablet-preview-view__main {
+    position: static;
+    top: auto;
+  }
+
+  .tablet-preview-view__main > .admin-surface {
+    height: auto;
+  }
+
+  .tablet-preview-view__sidebar {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  .tablet-preview-view__canvas {
+    min-height: min(72vh, 860px);
+    height: auto;
+    overflow: auto;
+  }
+
   .admin-toolbar {
     align-items: stretch;
   }
 
   .admin-form-field--search {
     flex-basis: 100%;
+  }
+
+  .admin-toolbar--devices {
+    align-items: flex-end;
+  }
+
+  .admin-toolbar--devices > .admin-form-field--search {
+    flex-basis: 16rem;
+    width: min(100%, 16rem);
+    max-width: 16rem;
+  }
+
+  .admin-toolbar--devices .admin-toolbar__actions {
+    gap: 0.45rem;
   }
 
   .admin-status-strip {
@@ -2133,6 +2515,7 @@ body.admin-console-scroll-root #root {
   }
 
   .admin-toolbar,
+  .admin-table__batch-actions,
   .admin-drawer__footer,
   .admin-table__header-actions,
   .admin-table__mobile-batch-actions,
@@ -2152,6 +2535,7 @@ body.admin-console-scroll-root #root {
     grid-template-columns: 1fr;
   }
 
+  .admin-table__batch-actions .admin-button,
   .admin-toolbar__actions .admin-button,
   .admin-drawer__actions .admin-button,
   .admin-drawer__footer > .admin-button,
@@ -2170,6 +2554,17 @@ body.admin-console-scroll-root #root {
   .admin-toolbar {
     padding: 0.85rem;
     gap: 0.65rem;
+  }
+
+  .admin-toolbar--devices {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .admin-toolbar--devices > .admin-form-field--search {
+    flex-basis: 100%;
+    width: 100%;
+    max-width: none;
   }
 
   .admin-surface__header {
@@ -2318,6 +2713,18 @@ body.admin-console-scroll-root #root {
     white-space: nowrap;
   }
 
+  .tablet-preview-view__summary,
+  .tablet-preview-view__lesson-header {
+    flex-direction: column;
+  }
+
+  .tablet-preview-view__canvas,
+  .tablet-preview-view__stack,
+  .tablet-preview-view__lessons {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
   .admin-device-cards {
     gap: 0.65rem;
   }
@@ -2423,6 +2830,9 @@ body.admin-console-scroll-root #root {
   .admin-empty-state,
   .admin-feedback,
   .admin-note,
+  .tablet-preview-view__canvas,
+  .tablet-preview-view__stack,
+  .tablet-preview-view__lessons,
   .admin-device-card,
   .admin-device-cards__batch,
   .admin-detail-list__row,
@@ -2625,6 +3035,16 @@ body.admin-console-scroll-root #root {
 
   .admin-table td::before {
     content: none;
+  }
+
+  .admin-table__batch-actions {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
   }
 
   .admin-table__header-actions {
