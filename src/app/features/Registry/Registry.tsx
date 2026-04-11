@@ -99,6 +99,7 @@ const Registry = () => {
             try {
                 const response = await fetch('/api/registry/handshake', {
                     method: 'POST',
+                    cache: 'no-store',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ deviceId: uuid })
                 });
@@ -123,7 +124,9 @@ const Registry = () => {
 
         const checkStatus = async () => {
             try {
-                const response = await fetch(`/api/registry/status/${uuid}`);
+                const response = await fetch(`/api/registry/status/${uuid}`, {
+                    cache: 'no-store'
+                });
                 if (response.status === 404) {
                     await performHandshake();
                     return;

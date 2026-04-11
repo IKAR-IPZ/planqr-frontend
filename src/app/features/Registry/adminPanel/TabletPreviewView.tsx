@@ -65,6 +65,8 @@ interface TabletPreviewViewProps {
   onToast: (message: string, tone: Tone) => void;
 }
 
+const PREVIEW_NOTIFICATIONS_REFRESH_MS = 15000;
+
 const buildPreviewHref = (device: Device) => {
   if (!device.deviceClassroom || !device.deviceURL) {
     return null;
@@ -129,9 +131,6 @@ const getScheduleRange = () => {
   };
 };
 
-const getBlackScreenModeForToggle = (device: Device, checked: boolean): Device["blackScreenMode"] =>
-  checked === device.scheduledBlackScreen ? "follow" : checked ? "on" : "off";
-
 const getBlackScreenStatusLabel = (device: Device) => {
   if (device.blackScreenMode === "follow") {
     return device.scheduledBlackScreen ? "Harmonogram włączony" : "Harmonogram wyłączony";
@@ -159,6 +158,11 @@ const matchesDevicePickerQuery = (device: Device, rawQuery: string) => {
     .toLowerCase();
 
   return searchIndex.includes(query);
+};
+
+const getDevicePickerLabel = (device: Device) => {
+  const roomParts = splitDeviceClassroom(device.deviceClassroom);
+  return roomParts.roomLabel || getDeviceDisplayName(device);
 };
 
 const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
@@ -315,6 +319,7 @@ const TabletPreviewView = ({
   const [showDeviceSuggestions, setShowDeviceSuggestions] = useState(false);
   const editingRoomSearchAbortRef = useRef<AbortController | null>(null);
   const editingRoomSearchRequestIdRef = useRef(0);
+  const pauseNotificationsRefreshRef = useRef(false);
 
   const sortedDevices = useMemo(
     () =>
@@ -335,8 +340,13 @@ const TabletPreviewView = ({
   );
 
   useEffect(() => {
-    setDeviceQuery(device ? getDeviceDisplayName(device) : "");
+    setDeviceQuery(device ? getDevicePickerLabel(device) : "");
   }, [device?.id, device?.deviceClassroom, device?.deviceId]);
+
+  useEffect(() => {
+    pauseNotificationsRefreshRef.current =
+      editingMessageId !== null || messageMutationId !== null;
+  }, [editingMessageId, messageMutationId]);
 
   useEffect(() => {
     const query = sanitizeRoomValue(editingMessageRoom);
@@ -405,9 +415,19 @@ const TabletPreviewView = ({
     }
 
     let cancelled = false;
+    let isRefreshing = false;
 
-    const loadNotifications = async () => {
-      setLoadingNotifications(true);
+    const loadNotifications = async ({ showLoader }: { showLoader: boolean }) => {
+      if (isRefreshing || pauseNotificationsRefreshRef.current) {
+        return;
+      }
+
+      isRefreshing = true;
+
+      if (showLoader) {
+        setLoadingNotifications(true);
+      }
+
       setNotificationsError(null);
 
       try {
@@ -416,6 +436,9 @@ const TabletPreviewView = ({
 
         const response = await fetch(
           `/api/schedule?kind=room&id=${encodeURIComponent(roomId)}&start=${start}&end=${end}`,
+          {
+            cache: "no-store",
+          },
         );
 
         if (!response.ok) {
@@ -457,15 +480,23 @@ const TabletPreviewView = ({
         }
       } finally {
         if (!cancelled) {
-          setLoadingNotifications(false);
+          if (showLoader) {
+            setLoadingNotifications(false);
+          }
         }
+
+        isRefreshing = false;
       }
     };
 
-    void loadNotifications();
+    void loadNotifications({ showLoader: true });
+    const intervalId = window.setInterval(() => {
+      void loadNotifications({ showLoader: false });
+    }, PREVIEW_NOTIFICATIONS_REFRESH_MS);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, [device?.deviceClassroom, device?.id]);
 
@@ -521,12 +552,10 @@ const TabletPreviewView = ({
     }
   };
 
-  const handleBlackScreenToggle = async (checked: boolean) => {
-    if (!device || checked === device.effectiveBlackScreen) {
+  const handleBlackScreenModeChange = async (nextBlackScreenMode: Device["blackScreenMode"]) => {
+    if (!device || nextBlackScreenMode === device.blackScreenMode) {
       return;
     }
-
-    const nextBlackScreenMode = getBlackScreenModeForToggle(device, checked);
 
     try {
       setSettingsMutationKey("black-screen");
@@ -536,7 +565,7 @@ const TabletPreviewView = ({
       onToast(
         nextBlackScreenMode === "follow"
           ? `Tablet ${getDeviceDisplayName(device)} wrócił do harmonogramu czarnego ekranu.`
-          : checked
+          : nextBlackScreenMode === "on"
             ? `Włączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`
             : `Wyłączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`,
         "success",
@@ -615,7 +644,7 @@ const TabletPreviewView = ({
   };
 
   const handleDeviceSuggestionSelect = (nextDevice: Device) => {
-    setDeviceQuery(getDeviceDisplayName(nextDevice));
+    setDeviceQuery(getDevicePickerLabel(nextDevice));
     setShowDeviceSuggestions(false);
     onSelectDevice(nextDevice.id);
   };
@@ -669,27 +698,20 @@ const TabletPreviewView = ({
                 />
                 {showDeviceSuggestions && filteredDevices.length > 0 ? (
                   <div className="admin-autocomplete__list">
-                    {filteredDevices.map((activeDevice) => {
-                      const roomParts = splitDeviceClassroom(activeDevice.deviceClassroom);
-
-                      return (
-                        <button
-                          key={activeDevice.id}
-                          type="button"
-                          className="admin-autocomplete__item"
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                            handleDeviceSuggestionSelect(activeDevice);
-                          }}
-                        >
-                          {getDeviceDisplayName(activeDevice)}
-                          {roomParts.facultyCode
-                            ? ` · ${roomParts.facultyCode}`
-                            : ""}
-                          {` · ${formatPairingDeviceId(activeDevice.deviceId)}`}
-                        </button>
-                      );
-                    })}
+                    {filteredDevices.map((activeDevice) => (
+                      <button
+                        key={activeDevice.id}
+                        type="button"
+                        className="admin-autocomplete__item"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          handleDeviceSuggestionSelect(activeDevice);
+                        }}
+                      >
+                        {getDevicePickerLabel(activeDevice)}
+                        {` · ID ${formatPairingDeviceId(activeDevice.deviceId)}`}
+                      </button>
+                    ))}
                   </div>
                 ) : null}
               </div>
@@ -709,10 +731,10 @@ const TabletPreviewView = ({
           {device ? (
             <div className="tablet-preview-view__stack">
               <div className="tablet-preview-view__summary">
-                <div>
+                <div className="tablet-preview-view__summary-primary">
                   <strong>{getDeviceDisplayName(device)}</strong>
                   <span className="admin-table__secondary">
-                    {formatPairingDeviceId(device.deviceId)}
+                    ID: {formatPairingDeviceId(device.deviceId)}
                   </span>
                 </div>
                 <span
@@ -786,16 +808,22 @@ const TabletPreviewView = ({
                   </select>
                 </label>
 
-                <label className="admin-switch">
-                  <input
-                    type="checkbox"
-                    checked={device.effectiveBlackScreen}
+                <label className="admin-form-field">
+                  <span className="admin-form-field__label">Czarny ekran</span>
+                  <select
+                    className="admin-form-field__input admin-table__mode-select"
+                    value={device.blackScreenMode}
                     onChange={(event) =>
-                      void handleBlackScreenToggle(event.target.checked)
+                      void handleBlackScreenModeChange(
+                        event.target.value as Device["blackScreenMode"],
+                      )
                     }
                     disabled={settingsMutationKey !== null}
-                  />
-                  <span>Włącz czarny ekran dla tego tabletu</span>
+                  >
+                    <option value="on">Włączony</option>
+                    <option value="off">Wyłączony</option>
+                    <option value="follow">Harmonogram</option>
+                  </select>
                 </label>
                 <span className="admin-table__secondary">
                   {getBlackScreenStatusLabel(device)}
@@ -828,19 +856,17 @@ const TabletPreviewView = ({
               {lessons.map((lesson) => (
                 <section key={lesson.id} className="tablet-preview-view__lesson">
                   <header className="tablet-preview-view__lesson-header">
-                    <div>
+                    <div className="tablet-preview-view__lesson-heading">
                       <h3>{lesson.title}</h3>
-                      <p>
+                      <p className="tablet-preview-view__lesson-meta">
                         {lesson.timeLabel}
                         {lesson.groupName ? ` · ${lesson.groupName}` : ""}
                       </p>
+                      {lesson.lecturer ? (
+                        <p className="tablet-preview-view__lesson-meta">{lesson.lecturer}</p>
+                      ) : null}
                     </div>
-                    <span className="admin-table__secondary">
-                      {lesson.room || "Brak sali"}
-                    </span>
                   </header>
-
-                  <p className="tablet-preview-view__lesson-meta">{lesson.lecturer}</p>
 
                   {lesson.messages.length === 0 ? (
                     <div className="lecturer-console__messages-empty">

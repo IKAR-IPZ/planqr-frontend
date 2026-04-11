@@ -21,7 +21,7 @@ import {
   FaUserShield,
 } from "react-icons/fa";
 import * as leoProfanity from "leo-profanity";
-import logo from "../../assets/ZUT_Logo.png";
+import logo from "../../assets/zut_fav.png";
 import polishBadWords from "../../assets/badWords";
 import { useTheme } from "../../context/ThemeContext";
 import AdminPanelThemeToggle from "../features/Registry/adminPanel/AdminPanelThemeToggle";

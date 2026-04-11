@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import logo from "../../../assets/ZUT_Logo.png";
+import logo from "../../../assets/zut_fav.png";
 import {
   canOpenLecturerPlan,
   fetchSession,
@@ -137,6 +137,9 @@ const AdminRegistry = () => {
   const [batchMutationLoading, setBatchMutationLoading] = useState(false);
   const [batchThemeValue, setBatchThemeValue] = useState<Device["displayTheme"]>("dark");
   const [batchThemeLoading, setBatchThemeLoading] = useState(false);
+  const [batchBlackScreenValue, setBatchBlackScreenValue] =
+    useState<Device["blackScreenMode"]>("follow");
+  const [batchBlackScreenLoading, setBatchBlackScreenLoading] = useState(false);
   const [themeMutationDeviceId, setThemeMutationDeviceId] = useState<number | null>(null);
   const [blackScreenMutationDeviceId, setBlackScreenMutationDeviceId] = useState<number | null>(
     null,
@@ -536,6 +539,12 @@ const AdminRegistry = () => {
     });
   };
 
+  const openTabletPreviewView = (deviceId?: number | null) => {
+    closeMobilePanels();
+    closeDrawer();
+    setTabletPreviewSearchParams(deviceId);
+  };
+
   const closeMobilePanels = () => {
     setMobileNavOpen(false);
     setMobileSettingsOpen(false);
@@ -653,10 +662,6 @@ const AdminRegistry = () => {
     device: Device,
     options?: { forceProfileRefresh?: boolean },
   ) => {
-    closeMobilePanels();
-    closeDrawer();
-    setTabletPreviewSearchParams(device.id);
-
     if (device.status !== "ACTIVE" || !device.deviceClassroom || !device.deviceURL) {
       setPreviewState({
         deviceId: device.id,
@@ -706,23 +711,31 @@ const AdminRegistry = () => {
       }
 
       if ((data.delivered ?? 0) < 1) {
-        setPreviewState({
-          deviceId: device.id,
-          phase: "error",
-          message: "Tablet nie odpowiedział na prośbę o przesłanie profilu ekranu.",
-          requestedAt: null,
-        });
+        setPreviewState((current) =>
+          current && current.deviceId === device.id
+            ? {
+                ...current,
+                phase: "error",
+                message: "Tablet nie odpowiedział na prośbę o przesłanie profilu ekranu.",
+                requestedAt: null,
+              }
+            : current,
+        );
       }
     } catch (error) {
-      setPreviewState({
-        deviceId: device.id,
-        phase: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nie udało się pobrać profilu ekranu z urządzenia.",
-        requestedAt: null,
-      });
+      setPreviewState((current) =>
+        current && current.deviceId === device.id
+          ? {
+              ...current,
+              phase: "error",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Nie udało się pobrać profilu ekranu z urządzenia.",
+              requestedAt: null,
+            }
+          : current,
+      );
     }
   };
 
@@ -779,24 +792,24 @@ const AdminRegistry = () => {
     }
   };
 
-  const handleDeviceBlackScreenToggle = async (device: Device, checked: boolean) => {
-    if (checked === device.effectiveBlackScreen) {
+  const handleDeviceBlackScreenModeChange = async (
+    device: Device,
+    blackScreenMode: Device["blackScreenMode"],
+  ) => {
+    if (blackScreenMode === device.blackScreenMode) {
       return;
     }
-
-    const nextBlackScreenMode: Device["blackScreenMode"] =
-      checked === device.scheduledBlackScreen ? "follow" : checked ? "on" : "off";
 
     try {
       setBlackScreenMutationDeviceId(device.id);
       await handleDeviceDisplaySettingsUpdate(device.id, {
-        blackScreenMode: nextBlackScreenMode,
+        blackScreenMode,
       });
 
       const toastMessage =
-        nextBlackScreenMode === "follow"
+        blackScreenMode === "follow"
           ? `Tablet ${getDeviceDisplayName(device)} wrócił do harmonogramu czarnego ekranu.`
-          : nextBlackScreenMode === "on"
+          : blackScreenMode === "on"
             ? `Włączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`
             : `Wyłączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`;
 
@@ -862,6 +875,65 @@ const AdminRegistry = () => {
       );
     } finally {
       setBatchThemeLoading(false);
+    }
+  };
+
+  const handleBatchBlackScreenUpdate = async () => {
+    const selectedDevices = pairedDevices.filter((device) =>
+      selectedDeviceIds.includes(device.id),
+    );
+
+    if (selectedDevices.length === 0) {
+      pushToast("Zaznacz co najmniej jeden tablet.", "danger");
+      return;
+    }
+
+    try {
+      setBatchBlackScreenLoading(true);
+      const response = await fetch("/api/devices/display-settings/batch", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceIds: selectedDevices.map((device) => device.id),
+          blackScreenMode: batchBlackScreenValue,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Nie udało się zapisać czarnego ekranu dla zaznaczonych tabletów.",
+        );
+      }
+
+      const updatedDevices = Array.isArray(data.devices) ? (data.devices as Device[]) : [];
+      if (updatedDevices.length > 0) {
+        const updatedDeviceMap = new Map(updatedDevices.map((device) => [device.id, device]));
+        setDevices((current) =>
+          current.map((device) => updatedDeviceMap.get(device.id) ?? device),
+        );
+      }
+
+      const blackScreenLabel =
+        batchBlackScreenValue === "follow"
+          ? "harmonogram"
+          : batchBlackScreenValue === "on"
+            ? "włączony"
+            : "wyłączony";
+
+      pushToast(
+        `Ustawiono czarny ekran ${updatedDevices.length || selectedDevices.length} tabletów na ${blackScreenLabel}.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zmienić czarnego ekranu zaznaczonych tabletów.",
+        "danger",
+      );
+    } finally {
+      setBatchBlackScreenLoading(false);
     }
   };
 
@@ -999,17 +1071,23 @@ const AdminRegistry = () => {
       if (previewDeviceId !== null) {
         setTabletPreviewSearchParams(null);
       }
+      setPreviewState(null);
       return;
     }
 
-    if (previewDevice) {
-      if (!previewState || previewState.deviceId !== previewDevice.id) {
-        void openDevicePreview(previewDevice);
-      }
+    if (previewDeviceId === null) {
+      setTabletPreviewSearchParams(activeDevices[0].id);
       return;
     }
 
-    void openDevicePreview(activeDevices[0]);
+    if (!previewDevice) {
+      setTabletPreviewSearchParams(activeDevices[0].id);
+      return;
+    }
+
+    if (!previewState || previewState.deviceId !== previewDevice.id) {
+      void openDevicePreview(previewDevice);
+    }
   }, [activeDevices, currentView, previewDevice, previewDeviceId, previewState]);
 
   useEffect(() => {
@@ -1624,12 +1702,12 @@ const AdminRegistry = () => {
 
     if (view === "tablet-preview") {
       if (previewDevice) {
-        void openDevicePreview(previewDevice);
+        openTabletPreviewView(previewDevice.id);
         return;
       }
 
       if (activeDevices.length > 0) {
-        void openDevicePreview(activeDevices[0]);
+        openTabletPreviewView(activeDevices[0].id);
         return;
       }
 
@@ -1809,7 +1887,14 @@ const AdminRegistry = () => {
           onItemSelect={handleNavigationSelect}
         />
 
-        <main className="admin-console__main">
+        <main
+          className={[
+            "admin-console__main",
+            currentView === "devices" ? "admin-console__main--devices" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           {currentView === "devices" ? (
             <DevicesView
               activeDevices={activeDevices}
@@ -1825,9 +1910,11 @@ const AdminRegistry = () => {
               reloadingTablets={reloadingTablets}
               batchUpdating={batchMutationLoading}
               batchThemeUpdating={batchThemeLoading}
+              batchBlackScreenUpdating={batchBlackScreenLoading}
               themeMutationDeviceId={themeMutationDeviceId}
               blackScreenMutationDeviceId={blackScreenMutationDeviceId}
               batchThemeValue={batchThemeValue}
+              batchBlackScreenValue={batchBlackScreenValue}
               selectedDeviceIds={selectedDeviceIds}
               searchTerm={searchTerm}
               sortState={deviceSort}
@@ -1850,7 +1937,9 @@ const AdminRegistry = () => {
               }}
               onDeleteSelectedDevices={() => void handleDeleteSelectedDevices()}
               onBatchThemeValueChange={setBatchThemeValue}
+              onBatchBlackScreenValueChange={setBatchBlackScreenValue}
               onApplyBatchTheme={() => void handleBatchThemeUpdate()}
+              onApplyBatchBlackScreen={() => void handleBatchBlackScreenUpdate()}
               onClearSelectedDevices={clearDeviceSelection}
               onToggleAllActiveDevices={handleToggleAllActiveDevices}
               onToggleDeviceSelection={handleToggleDeviceSelection}
@@ -1859,13 +1948,13 @@ const AdminRegistry = () => {
               onViewDevice={openDeviceDetails}
               onEditDevice={openDeviceEditor}
               onPreviewDevice={(device) => {
-                void openDevicePreview(device);
+                openTabletPreviewView(device.id);
               }}
               onDeviceThemeChange={(device, theme) => {
                 void handleDeviceThemeChange(device, theme);
               }}
-              onDeviceBlackScreenToggle={(device, checked) => {
-                void handleDeviceBlackScreenToggle(device, checked);
+              onDeviceBlackScreenModeChange={(device, blackScreenMode) => {
+                void handleDeviceBlackScreenModeChange(device, blackScreenMode);
               }}
               onDeleteDevice={handleDeleteDevice}
               onPairingCodeChange={handlePairingCodeChange}
@@ -1905,7 +1994,7 @@ const AdminRegistry = () => {
               onSelectDevice={(deviceId) => {
                 const nextDevice = pairedDevices.find((device) => device.id === deviceId);
                 if (nextDevice) {
-                  void openDevicePreview(nextDevice);
+                  openTabletPreviewView(nextDevice.id);
                 }
               }}
               onRetryProfile={handlePreviewRetry}
@@ -2048,7 +2137,7 @@ const AdminRegistry = () => {
           onClose={handleDrawerClose}
           onStartEdit={() => openDeviceEditor(drawerDevice)}
           onPreview={() => {
-            void openDevicePreview(drawerDevice);
+            openTabletPreviewView(drawerDevice.id);
           }}
           onFormChange={(value) => {
             setFormClassroom(value);

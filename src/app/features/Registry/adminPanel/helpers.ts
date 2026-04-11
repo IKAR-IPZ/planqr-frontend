@@ -265,6 +265,12 @@ export const defaultDeviceSortState: DeviceSortState = {
   direction: null,
 };
 
+const blackScreenModeSortRank: Record<Device["blackScreenMode"], number> = {
+  follow: 0,
+  off: 1,
+  on: 2,
+};
+
 export const getNextDeviceSortState = (
   currentSort: DeviceSortState,
   column: NonNullable<DeviceSortState["column"]>,
@@ -342,7 +348,9 @@ const compareDeviceValues = (left: Device, right: Device, sortState: DeviceSortS
   }
 
   if (column === "blackScreen") {
-    comparison = Number(left.effectiveBlackScreen) - Number(right.effectiveBlackScreen);
+    comparison =
+      blackScreenModeSortRank[left.blackScreenMode] -
+      blackScreenModeSortRank[right.blackScreenMode];
   }
 
   if (comparison === 0) {

@@ -29,9 +29,11 @@ interface DevicesViewProps {
   reloadingTablets: boolean;
   batchUpdating: boolean;
   batchThemeUpdating: boolean;
+  batchBlackScreenUpdating: boolean;
   themeMutationDeviceId: number | null;
   blackScreenMutationDeviceId: number | null;
   batchThemeValue: Device["displayTheme"];
+  batchBlackScreenValue: Device["blackScreenMode"];
   selectedDeviceIds: number[];
   searchTerm: string;
   sortState: DeviceSortState;
@@ -52,7 +54,9 @@ interface DevicesViewProps {
   onSortColumn: (column: DeviceSortColumn) => void;
   onDeleteSelectedDevices: () => void;
   onBatchThemeValueChange: (value: Device["displayTheme"]) => void;
+  onBatchBlackScreenValueChange: (value: Device["blackScreenMode"]) => void;
   onApplyBatchTheme: () => void;
+  onApplyBatchBlackScreen: () => void;
   onClearSelectedDevices: () => void;
   onToggleAllActiveDevices: (checked: boolean) => void;
   onToggleDeviceSelection: (deviceId: number) => void;
@@ -62,7 +66,10 @@ interface DevicesViewProps {
   onEditDevice: (device: Device) => void;
   onPreviewDevice: (device: Device) => void;
   onDeviceThemeChange: (device: Device, theme: Device["displayTheme"]) => void;
-  onDeviceBlackScreenToggle: (device: Device, checked: boolean) => void;
+  onDeviceBlackScreenModeChange: (
+    device: Device,
+    blackScreenMode: Device["blackScreenMode"],
+  ) => void;
   onDeleteDevice: (device: Device) => void;
   onPairingCodeChange: (value: string) => void;
   onPairingSuggestionSelect: (device: Device) => void;
@@ -92,9 +99,11 @@ const DevicesView = ({
   reloadingTablets,
   batchUpdating,
   batchThemeUpdating,
+  batchBlackScreenUpdating,
   themeMutationDeviceId,
   blackScreenMutationDeviceId,
   batchThemeValue,
+  batchBlackScreenValue,
   selectedDeviceIds,
   searchTerm,
   sortState,
@@ -115,7 +124,9 @@ const DevicesView = ({
   onSortColumn,
   onDeleteSelectedDevices,
   onBatchThemeValueChange,
+  onBatchBlackScreenValueChange,
   onApplyBatchTheme,
+  onApplyBatchBlackScreen,
   onClearSelectedDevices,
   onToggleAllActiveDevices,
   onToggleDeviceSelection,
@@ -125,7 +136,7 @@ const DevicesView = ({
   onEditDevice,
   onPreviewDevice,
   onDeviceThemeChange,
-  onDeviceBlackScreenToggle,
+  onDeviceBlackScreenModeChange,
   onDeleteDevice,
   onPairingCodeChange,
   onPairingSuggestionSelect,
@@ -136,6 +147,7 @@ const DevicesView = ({
   onAssignPairingDevice,
 }: DevicesViewProps) => {
   const hasSearchFilter = searchTerm.trim().length > 0;
+  const hasPairedDevices = counts.online + counts.offline > 0;
   const selectAllRef = useRef<HTMLInputElement | null>(null);
   const selectedIds = new Set(selectedDeviceIds);
   const selectedCount = selectedDeviceIds.length;
@@ -202,14 +214,6 @@ const DevicesView = ({
     };
   };
 
-  const getBlackScreenStatusLabel = (device: Device) => {
-    if (device.blackScreenMode === "follow") {
-      return "Harmonogram";
-    }
-
-    return device.blackScreenMode === "on" ? "Ręcznie włączony" : "Ręcznie wyłączony";
-  };
-
   useEffect(() => {
     if (selectAllRef.current) {
       selectAllRef.current.indeterminate = partiallySelected;
@@ -220,7 +224,7 @@ const DevicesView = ({
     <div className="admin-devices-view">
       <div className="admin-devices-view__overview">
         <AdminPanelSection title="Tablety">
-          <div className="admin-toolbar">
+          <div className="admin-toolbar admin-toolbar--devices">
             <AdminPanelSearchField
               label="Szukaj"
               placeholder="Sala, wydział, ID lub status"
@@ -230,7 +234,7 @@ const DevicesView = ({
             <div className="admin-toolbar__actions">
               <button
                 type="button"
-                className="admin-button admin-button--secondary"
+                className="admin-button admin-button--secondary admin-button--small"
                 onClick={onRefresh}
                 disabled={manualRefreshing}
               >
@@ -242,7 +246,7 @@ const DevicesView = ({
               </button>
               <button
                 type="button"
-                className="admin-button admin-button--primary"
+                className="admin-button admin-button--primary admin-button--small"
                 onClick={onReloadTablets}
                 disabled={reloadingTablets}
               >
@@ -293,21 +297,88 @@ const DevicesView = ({
         />
       </div>
 
-      {activeDevices.length === 0 ? (
-        <div className="admin-table__wrapper admin-table__wrapper--full-width">
+      <AdminPanelSection
+        className="admin-devices-view__list"
+        title="Sparowane tablety"
+        actions={
+          hasPairedDevices ? (
+            <div className="admin-table__batch-actions">
+              <span className="admin-table__header-count">
+                Zaznaczone: <strong>{selectedCount}</strong>
+              </span>
+              <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+                <select
+                  className="admin-form-field__input"
+                  aria-label="Batchowa zmiana trybu tabletu"
+                  value={batchThemeValue}
+                  onChange={(event) =>
+                    onBatchThemeValueChange(event.target.value as Device["displayTheme"])
+                  }
+                  disabled={batchThemeUpdating}
+                >
+                  <option value="dark">Ciemny</option>
+                  <option value="light">Jasny</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="admin-button admin-button--secondary admin-button--small"
+                onClick={onApplyBatchTheme}
+                disabled={batchThemeUpdating || selectedCount === 0}
+              >
+                {batchThemeUpdating ? "Zapisywanie" : "Zmień tryb"}
+              </button>
+              <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+                <select
+                  className="admin-form-field__input"
+                  aria-label="Batchowa zmiana czarnego ekranu"
+                  value={batchBlackScreenValue}
+                  onChange={(event) =>
+                    onBatchBlackScreenValueChange(
+                      event.target.value as Device["blackScreenMode"],
+                    )
+                  }
+                  disabled={batchBlackScreenUpdating}
+                >
+                  <option value="on">Włączony</option>
+                  <option value="off">Wyłączony</option>
+                  <option value="follow">Harmonogram</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="admin-button admin-button--secondary admin-button--small"
+                onClick={onApplyBatchBlackScreen}
+                disabled={batchBlackScreenUpdating || selectedCount === 0}
+              >
+                {batchBlackScreenUpdating ? "Zapisywanie" : "Ustaw czarny ekran"}
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--danger admin-button--small"
+                onClick={onDeleteSelectedDevices}
+                disabled={batchUpdating || selectedCount === 0}
+              >
+                Usuń zaznaczone
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--ghost admin-button--small"
+                onClick={onClearSelectedDevices}
+                disabled={selectedCount === 0}
+              >
+                Wyczyść
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
+        {activeDevices.length === 0 ? (
           <div className="admin-empty-state">
             <h3>{emptyStateTitle}</h3>
             <p>{emptyStateDescription}</p>
           </div>
-        </div>
-      ) : (
-        <section className="admin-table-block" aria-labelledby="admin-active-devices-heading">
-          <div className="admin-table-block__header">
-            <h3 className="admin-table-block__title" id="admin-active-devices-heading">
-              Sparowane tablety
-            </h3>
-          </div>
-
+        ) : (
           <AdminPanelTable
             caption="Lista aktywnych tabletów"
             className="admin-table--devices admin-table--selectable"
@@ -343,49 +414,7 @@ const DevicesView = ({
               renderSortableHeader("Ostatni heartbeat", "lastSeen"),
               renderSortableHeader("Tryb", "displayTheme"),
               renderSortableHeader("Czarny ekran", "blackScreen"),
-              <div className="admin-table__header-actions" key="actions">
-                <span className="admin-table__header-count">
-                  Zaznaczone: <strong>{selectedCount}</strong>
-                </span>
-                <label className="admin-form-field admin-form-field--compact admin-table__header-field">
-                  <span className="admin-form-field__label">Batch tryb</span>
-                  <select
-                    className="admin-form-field__input"
-                    value={batchThemeValue}
-                    onChange={(event) =>
-                      onBatchThemeValueChange(event.target.value as Device["displayTheme"])
-                    }
-                    disabled={batchThemeUpdating}
-                  >
-                    <option value="dark">Ciemny</option>
-                    <option value="light">Jasny</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  className="admin-button admin-button--secondary admin-button--small"
-                  onClick={onApplyBatchTheme}
-                  disabled={batchThemeUpdating || selectedCount === 0}
-                >
-                  {batchThemeUpdating ? "Zapisywanie" : "Zmień tryb"}
-                </button>
-                <button
-                  type="button"
-                  className="admin-button admin-button--danger admin-button--small"
-                  onClick={onDeleteSelectedDevices}
-                  disabled={batchUpdating || selectedCount === 0}
-                >
-                  Usuń zaznaczone
-                </button>
-                <button
-                  type="button"
-                  className="admin-button admin-button--ghost admin-button--small"
-                  onClick={onClearSelectedDevices}
-                  disabled={selectedCount === 0}
-                >
-                  Wyczyść
-                </button>
-              </div>,
+              "Akcje",
             ]}
           >
             {activeDevices.map((device) => {
@@ -462,24 +491,26 @@ const DevicesView = ({
                     </select>
                   </td>
                   <td data-label="Czarny ekran" className="admin-table__cell--center">
-                    <div className="admin-table__toggle-stack">
-                      <label className="admin-switch" aria-label={`Czarny ekran ${displayName}`}>
-                        <input
-                          type="checkbox"
-                          checked={device.effectiveBlackScreen}
-                          disabled={blackScreenMutationDeviceId === device.id}
-                          onChange={(event) =>
-                            onDeviceBlackScreenToggle(device, event.target.checked)
-                          }
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                        />
-                        <span>{device.effectiveBlackScreen ? "Włączony" : "Wyłączony"}</span>
-                      </label>
-                      <span className="admin-table__secondary">
-                        {getBlackScreenStatusLabel(device)}
-                      </span>
-                    </div>
+                    <select
+                      className="admin-form-field__input admin-table__mode-select"
+                      aria-label={`Czarny ekran ${displayName}`}
+                      value={device.blackScreenMode}
+                      disabled={
+                        blackScreenMutationDeviceId === device.id || batchBlackScreenUpdating
+                      }
+                      onChange={(event) =>
+                        onDeviceBlackScreenModeChange(
+                          device,
+                          event.target.value as Device["blackScreenMode"],
+                        )
+                      }
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <option value="on">Włączony</option>
+                      <option value="off">Wyłączony</option>
+                      <option value="follow">Harmonogram</option>
+                    </select>
                   </td>
                   <td data-label="Akcje" className="admin-table__cell--actions">
                     <div className="admin-table__actions">
@@ -519,8 +550,8 @@ const DevicesView = ({
               );
             })}
           </AdminPanelTable>
-        </section>
-      )}
+        )}
+      </AdminPanelSection>
     </div>
   );
 };

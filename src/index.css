@@ -5,6 +5,7 @@
   --bg-surface: #1e293b;
   --bg-card: #1e293b;
   --bg-input: rgba(0, 0, 0, 0.3);
+  --bg-input-focus: rgba(0, 0, 0, 0.4);
 
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
@@ -50,6 +51,7 @@
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
   --bg-input: #f8fafc;
+  --bg-input-focus: #eef4ff;
 
   --text-primary: #0f172a;
   --text-secondary: #475569;
@@ -70,6 +72,7 @@
   --bg-surface: #1e293b;
   --bg-card: #1e293b;
   --bg-input: rgba(0, 0, 0, 0.3);
+  --bg-input-focus: rgba(0, 0, 0, 0.4);
 
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
@@ -2449,14 +2452,14 @@ button:focus-visible {
   box-sizing: border-box;
   background-color: var(--bg-input);
   color: var(--text-primary);
-  transition: all 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
 }
 
 .login-panel__input:focus {
   outline: none;
   border-color: var(--color-indigo);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--bg-input-focus);
 }
 
 .login-panel__btn {

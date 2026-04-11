@@ -87,6 +87,9 @@ const TABLET_THEME_STORAGE_KEY = 'tablet_display_theme';
 const TABLET_BLACK_SCREEN_MODE_STORAGE_KEY = 'tablet_black_screen_mode';
 const LEGACY_TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY = 'tablet_force_black_screen';
 const TABLET_PREVIEW_PARAM = 'preview';
+const TABLET_PREVIEW_CONFIG_REFRESH_MS = 10000;
+const TABLET_PREVIEW_SCHEDULE_REFRESH_MS = 15000;
+const TABLET_SCHEDULE_REFRESH_MS = 60000;
 const DEFAULT_TABLET_DISPLAY_THEME: TabletDisplayTheme = 'dark';
 const DEFAULT_TABLET_BLACK_SCREEN_MODE: TabletBlackScreenMode = 'follow';
 const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
@@ -358,10 +361,19 @@ export default function Tablet() {
     }
 
     let cancelled = false;
+    let isRefreshing = false;
 
     const loadPreviewDisplayConfig = async () => {
+      if (isRefreshing) {
+        return;
+      }
+
+      isRefreshing = true;
+
       try {
-        const nightModeResponse = await fetch('/api/devices/display-settings');
+        const nightModeResponse = await fetch('/api/devices/display-settings', {
+          cache: 'no-store',
+        });
         if (!nightModeResponse.ok) {
           return;
         }
@@ -375,7 +387,9 @@ export default function Tablet() {
         setNightModeConfig(nextNightModeConfig);
 
         if (Number.isInteger(previewDeviceId) && previewDeviceId > 0) {
-          const deviceResponse = await fetch(`/api/devices/${previewDeviceId}`);
+          const deviceResponse = await fetch(`/api/devices/${previewDeviceId}`, {
+            cache: 'no-store',
+          });
           if (!deviceResponse.ok || cancelled) {
             return;
           }
@@ -386,13 +400,19 @@ export default function Tablet() {
         }
       } catch (error) {
         console.error('[Tablet] Failed to load preview display settings:', error);
+      } finally {
+        isRefreshing = false;
       }
     };
 
     void loadPreviewDisplayConfig();
+    const intervalId = window.setInterval(() => {
+      void loadPreviewDisplayConfig();
+    }, TABLET_PREVIEW_CONFIG_REFRESH_MS);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, [isPreviewMode, previewDeviceId]);
 
@@ -519,7 +539,9 @@ export default function Tablet() {
 
     const syncDeviceStatus = async () => {
       try {
-        const response = await fetch(`/api/registry/status/${encodeURIComponent(deviceId)}`);
+        const response = await fetch(`/api/registry/status/${encodeURIComponent(deviceId)}`, {
+          cache: 'no-store',
+        });
         if (!response.ok) {
           if (response.status === 404 && !cancelled) {
             forceHardReload('/registry');
@@ -642,7 +664,9 @@ export default function Tablet() {
 
         const url = `/api/schedule?kind=room&id=${encodeURIComponent(fullId)}&start=${dayBeforeFormatted}&end=${twoDaysAfterFormatted}`;
         console.log('[Tablet] Fetching schedule:', url);
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          cache: 'no-store',
+        });
         if (!response.ok) {
           throw new Error('Nie udało się pobrać planu');
         }
@@ -698,11 +722,13 @@ export default function Tablet() {
 
     if (roomInfo.room && blackScreenMode !== 'on') {
       fetchSchedule();
-      // Production setting: refresh every minute (60000ms)
-      const intervalId = setInterval(fetchSchedule, 60000);
+      const refreshIntervalMs = isPreviewMode
+        ? TABLET_PREVIEW_SCHEDULE_REFRESH_MS
+        : TABLET_SCHEDULE_REFRESH_MS;
+      const intervalId = setInterval(fetchSchedule, refreshIntervalMs);
       return () => clearInterval(intervalId);
     }
-  }, [blackScreenMode, roomInfo]);
+  }, [blackScreenMode, isPreviewMode, roomInfo]);
 
   // View Helpers
   const parseTime = (timeStr: string) => {
