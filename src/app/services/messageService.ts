@@ -27,12 +27,15 @@ export interface MessagePayload {
 }
 
 export interface UpdateMessagePayload {
-    body: string;
+    body?: string;
+    newRoom?: string;
 }
 
 export const fetchMessages = async (lessonId: string | number): Promise<MessageRecord[]> => {
     try {
-        const response = await fetch(`${API_URL}/${lessonId}`);
+        const response = await fetch(`${API_URL}/${lessonId}`, {
+            cache: "no-store",
+        });
         if (!response.ok) throw new Error("Failed to fetch messages");
         return await response.json();
     } catch (error) {

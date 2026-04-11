@@ -3,6 +3,7 @@ import QrScanner from "qr-scanner";
 import {
   extractPairingDeviceId,
   formatPairingDeviceId,
+  formatPairingDeviceInput,
   sanitizePairingDeviceId,
 } from "./helpers";
 
@@ -314,7 +315,7 @@ const AdminPairingScanner = ({
                       placeholder="np. 123 456"
                       value={manualCode}
                       onChange={(event) => {
-                        setManualCode(event.target.value);
+                        setManualCode(formatPairingDeviceInput(event.target.value));
                         setFeedback(null);
                         setStatusMessage(null);
                       }}

@@ -81,7 +81,7 @@ const AdminsView = ({
     ) : admins.length === 0 ? (
       <div className="admin-empty-state">
         <h3>Brak administratorów</h3>
-        <p>Dodaj konto LDAP, aby nadać dostęp do panelu.</p>
+        <p>Dodaj konto LDAP, aby umieścić je na liście administratorów.</p>
       </div>
     ) : (
       <AdminPanelTable

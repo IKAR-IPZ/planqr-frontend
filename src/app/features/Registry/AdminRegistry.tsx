@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import logo from "../../../assets/ZUT_Logo.png";
+import logo from "../../../assets/zut_fav.png";
 import {
   canOpenLecturerPlan,
   fetchSession,
@@ -13,31 +13,36 @@ import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
 import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
 import AdminsView from "./adminPanel/AdminsView";
 import DeviceDrawer from "./adminPanel/DeviceDrawer";
-import DevicePreviewModal from "./adminPanel/DevicePreviewModal";
 import DevicesView from "./adminPanel/DevicesView";
 import ScheduleView from "./adminPanel/ScheduleView";
+import TabletPreviewView from "./adminPanel/TabletPreviewView";
 import {
   adminViewMeta,
+  defaultDeviceSortState,
   defaultAdminPanelTheme,
   defaultNightModeSettings,
   formatPairingDeviceId,
+  formatPairingDeviceInput,
+  getDeviceDisplayName,
+  getNextDeviceSortState,
   hasDeviceDisplayProfile,
   matchesDeviceSearch,
   normalizeRoomValue,
   ROOM_SEARCH_DEBOUNCE_MS,
   ROOM_SEARCH_MIN_LENGTH,
+  sanitizePairingDeviceId,
   sanitizeRoomValue,
   sortDevices,
 } from "./adminPanel/helpers";
 import type {
-  AdminPanelTheme,
-  AdminPanelView,
-  AdminRecord,
-  Device,
-  DeviceSortOption,
-  NightModeSettings,
-  Tone,
-} from "./adminPanel/types";
+    AdminPanelTheme,
+    AdminPanelView,
+    AdminRecord,
+    Device,
+    DeviceSortState,
+    NightModeSettings,
+    Tone,
+  } from "./adminPanel/types";
 
 const ADMIN_THEME_STORAGE_KEY = "admin-theme";
 const TOAST_DURATION_MS = 5000;
@@ -68,12 +73,39 @@ interface PreviewModalState {
   requestedAt: number | null;
 }
 
+const ADMIN_NAVIGATION_ORDER: AdminNavigationKey[] = [
+  "devices",
+  "admins",
+  "schedule",
+  "pairing",
+  "lecturer-preview",
+  "tablet-preview",
+];
+
+const PAIRING_MESSAGE = {
+  staleDevice: "Tablet już sparowany.",
+  codeInvalid: "Błędny kod.",
+  codeNotFound: "Nie znaleziono.",
+  lookupError: "Błąd wyszukiwania.",
+  lookupConnectionError: "Błąd połączenia.",
+  found: "Tablet znaleziony.",
+  roomRequired: "Wpisz salę.",
+  roomInvalid: "Sala nie istnieje.",
+  assignError: "Nie zapisano zmian.",
+  assigned: "Tablet przypisany.",
+} as const;
+
 const getActiveView = (value: string | null): AdminPanelView => {
-  if (value === "admins" || value === "schedule") {
+  if (value === "admins" || value === "schedule" || value === "tablet-preview") {
     return value;
   }
 
   return "devices";
+};
+
+const getPreviewDeviceId = (value: string | null) => {
+  const parsedValue = Number(value);
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
 };
 
 const getStoredAdminTheme = (): AdminPanelTheme => {
@@ -89,6 +121,7 @@ const AdminRegistry = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = getActiveView(searchParams.get("view"));
+  const previewDeviceId = getPreviewDeviceId(searchParams.get("deviceId"));
 
   const [adminTheme, setAdminTheme] = useState<AdminPanelTheme>(getStoredAdminTheme);
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -99,9 +132,18 @@ const AdminRegistry = () => {
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [adminMutationLoading, setAdminMutationLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [deviceSort, setDeviceSort] = useState<DeviceSortOption>("status");
+  const [deviceSort, setDeviceSort] = useState<DeviceSortState>(defaultDeviceSortState);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
   const [batchMutationLoading, setBatchMutationLoading] = useState(false);
+  const [batchThemeValue, setBatchThemeValue] = useState<Device["displayTheme"]>("dark");
+  const [batchThemeLoading, setBatchThemeLoading] = useState(false);
+  const [batchBlackScreenValue, setBatchBlackScreenValue] =
+    useState<Device["blackScreenMode"]>("follow");
+  const [batchBlackScreenLoading, setBatchBlackScreenLoading] = useState(false);
+  const [themeMutationDeviceId, setThemeMutationDeviceId] = useState<number | null>(null);
+  const [blackScreenMutationDeviceId, setBlackScreenMutationDeviceId] = useState<number | null>(
+    null,
+  );
   const [newAdminUsername, setNewAdminUsername] = useState("");
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
   const [adminFeedbackTone, setAdminFeedbackTone] = useState<Tone>("neutral");
@@ -116,24 +158,39 @@ const AdminRegistry = () => {
 
   const [drawerMode, setDrawerMode] = useState<"details" | "edit" | null>(null);
   const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
-  const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
+  const [previewState, setPreviewState] = useState<PreviewModalState | null>(null);
   const [formClassroom, setFormClassroom] = useState("");
   const [roomError, setRoomError] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState("");
+  const [pairingDeviceId, setPairingDeviceId] = useState<number | null>(null);
+  const [pairingRoom, setPairingRoom] = useState("");
+  const [pairingRoomSuggestions, setPairingRoomSuggestions] = useState<string[]>([]);
+  const [pairingShowRoomSuggestions, setPairingShowRoomSuggestions] = useState(false);
+  const [pairingSelectedSuggestion, setPairingSelectedSuggestion] = useState<string | null>(null);
+  const [pairingSearchingRooms, setPairingSearchingRooms] = useState(false);
+  const [pairingLookingUp, setPairingLookingUp] = useState(false);
+  const [pairingAssigning, setPairingAssigning] = useState(false);
+  const [pairingCodeTone, setPairingCodeTone] = useState<Tone>("neutral");
+  const [pairingRoomTone, setPairingRoomTone] = useState<Tone>("neutral");
+  const [pairingFeedback, setPairingFeedback] = useState<string | null>(null);
+  const [pairingFeedbackTone, setPairingFeedbackTone] = useState<Tone>("neutral");
   const [toasts, setToasts] = useState<AdminToast[]>([]);
   const [isPairingScannerOpen, setPairingScannerOpen] = useState(false);
-  const [isMobileNavOpen, setMobileNavOpen] = useState(false);
-  const [isMobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [pairingReturnMode, setPairingReturnMode] =
     useState<"none" | "after-save">("none");
+  const [isMobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [isScrollTopVisible, setScrollTopVisible] = useState(false);
   const [toastStackOffset, setToastStackOffset] = useState(0);
 
   const roomSearchAbortRef = useRef<AbortController | null>(null);
   const roomSearchRequestIdRef = useRef(0);
+  const pairingRoomSearchAbortRef = useRef<AbortController | null>(null);
+  const pairingRoomSearchRequestIdRef = useRef(0);
   const roomSearchCacheRef = useRef(new Map<string, string[]>());
   const knownRoomsRef = useRef(new Set<string>());
   const pendingDeviceIdsRef = useRef<Set<string>>(new Set());
@@ -152,11 +209,49 @@ const AdminRegistry = () => {
 
   const previewDevice = useMemo(
     () =>
-      previewModal === null
+      previewDeviceId === null
         ? null
-        : devices.find((device) => device.id === previewModal.deviceId) ?? null,
-    [devices, previewModal],
+        : devices.find((device) => device.id === previewDeviceId && device.status === "ACTIVE") ??
+          null,
+    [devices, previewDeviceId],
   );
+  const pairingDevice = useMemo(
+    () =>
+      pairingDeviceId === null
+        ? null
+        : devices.find((device) => device.id === pairingDeviceId && device.status === "PENDING") ??
+          null,
+    [devices, pairingDeviceId],
+  );
+  const pairingSuggestions = useMemo(() => {
+    const normalizedCode = sanitizePairingDeviceId(pairingCode);
+
+    if (!normalizedCode || pairingDevice !== null) {
+      return [];
+    }
+
+    return devices
+      .filter(
+        (device) => device.status === "PENDING" && device.deviceId.startsWith(normalizedCode),
+      )
+      .sort(
+        (left, right) =>
+          new Date(right.lastSeen).getTime() - new Date(left.lastSeen).getTime(),
+      )
+      .slice(0, 5);
+  }, [devices, pairingCode, pairingDevice]);
+  const allPendingDevices = devices.filter((device) => device.status === "PENDING");
+  const pairedDevices = devices.filter((device) => device.status === "ACTIVE");
+  const activeDevices = sortDevices(
+    pairedDevices.filter((device) => matchesDeviceSearch(device, searchTerm)),
+    deviceSort,
+  );
+  const onlineDevicesCount = pairedDevices.filter(
+    (device) => device.connectionStatus === "ONLINE",
+  ).length;
+  const offlineDevicesCount = pairedDevices.filter(
+    (device) => device.connectionStatus === "OFFLINE",
+  ).length;
   const lecturerPanelHref = canOpenLecturerPlan(session) ? "/lecturerPlan" : null;
 
   useEffect(() => {
@@ -181,10 +276,10 @@ const AdminRegistry = () => {
   }, [drawerDevice, drawerDeviceId]);
 
   useEffect(() => {
-    if (previewModal !== null && !previewDevice) {
-      setPreviewModal(null);
+    if (previewState !== null && !previewDevice) {
+      setPreviewState(null);
     }
-  }, [previewDevice, previewModal]);
+  }, [previewDevice, previewState]);
 
   useEffect(() => {
     if (!isMobileNavOpen && !isMobileSettingsOpen) {
@@ -269,16 +364,94 @@ const AdminRegistry = () => {
   }, [formClassroom, showSuggestions]);
 
   useEffect(() => {
+    const query = sanitizeRoomValue(pairingRoom);
+
+    if (!pairingShowRoomSuggestions) {
+      pairingRoomSearchAbortRef.current?.abort();
+      pairingRoomSearchAbortRef.current = null;
+      pairingRoomSearchRequestIdRef.current += 1;
+      setPairingSearchingRooms(false);
+      return;
+    }
+
+    if (query.length < ROOM_SEARCH_MIN_LENGTH) {
+      pairingRoomSearchAbortRef.current?.abort();
+      pairingRoomSearchAbortRef.current = null;
+      pairingRoomSearchRequestIdRef.current += 1;
+      setPairingRoomSuggestions([]);
+      setPairingSearchingRooms(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      pairingRoomSearchAbortRef.current?.abort();
+      const controller = new AbortController();
+      pairingRoomSearchAbortRef.current = controller;
+      const requestId = pairingRoomSearchRequestIdRef.current + 1;
+      pairingRoomSearchRequestIdRef.current = requestId;
+
+      setPairingSearchingRooms(true);
+
+      void fetchRoomMatches(query, controller.signal)
+        .then((rooms) => {
+          if (
+            !controller.signal.aborted &&
+            requestId === pairingRoomSearchRequestIdRef.current
+          ) {
+            setPairingRoomSuggestions(rooms);
+          }
+        })
+        .catch((error) => {
+          if (!(error instanceof DOMException && error.name === "AbortError")) {
+            console.error("Error searching pairing rooms:", error);
+          }
+
+          if (requestId === pairingRoomSearchRequestIdRef.current) {
+            setPairingRoomSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (requestId === pairingRoomSearchRequestIdRef.current) {
+            setPairingSearchingRooms(false);
+          }
+        });
+    }, ROOM_SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [pairingRoom, pairingShowRoomSuggestions]);
+
+  useEffect(() => {
     const toastTimeouts = toastTimeoutRef.current;
 
     return () => {
       roomSearchAbortRef.current?.abort();
+      pairingRoomSearchAbortRef.current?.abort();
       for (const timeoutId of toastTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
       toastTimeouts.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (pairingDeviceId === null || pairingDevice !== null) {
+      return;
+    }
+
+    pairingRoomSearchAbortRef.current?.abort();
+    pairingRoomSearchAbortRef.current = null;
+    pairingRoomSearchRequestIdRef.current += 1;
+    setPairingDeviceId(null);
+    setPairingRoom("");
+    setPairingRoomSuggestions([]);
+    setPairingShowRoomSuggestions(false);
+    setPairingSelectedSuggestion(null);
+    setPairingSearchingRooms(false);
+    setPairingCodeTone("danger");
+    setPairingRoomTone("neutral");
+    setPairingFeedback(PAIRING_MESSAGE.staleDevice);
+    setPairingFeedbackTone("warning");
+  }, [pairingDevice, pairingDeviceId]);
 
   const dismissToast = (toastId: number) => {
     const timeoutId = toastTimeoutRef.current.get(toastId);
@@ -318,6 +491,30 @@ const AdminRegistry = () => {
     setRoomError("");
   };
 
+  const resetPairingRoomSearch = () => {
+    pairingRoomSearchAbortRef.current?.abort();
+    pairingRoomSearchAbortRef.current = null;
+    pairingRoomSearchRequestIdRef.current += 1;
+    setPairingShowRoomSuggestions(false);
+    setPairingRoomSuggestions([]);
+    setPairingSearchingRooms(false);
+    setPairingSelectedSuggestion(null);
+  };
+
+  const resetPairingSelection = (options?: { keepCode?: boolean }) => {
+    resetPairingRoomSearch();
+    setPairingDeviceId(null);
+    setPairingRoom("");
+    setPairingCodeTone("neutral");
+    setPairingRoomTone("neutral");
+    setPairingFeedback(null);
+    setPairingFeedbackTone("neutral");
+
+    if (!options?.keepCode) {
+      setPairingCode("");
+    }
+  };
+
   const closeDrawer = () => {
     resetRoomSearch();
     setDrawerMode(null);
@@ -330,8 +527,22 @@ const AdminRegistry = () => {
     closeDrawer();
   };
 
-  const closePreviewModal = () => {
-    setPreviewModal(null);
+  const setTabletPreviewSearchParams = (deviceId?: number | null) => {
+    if (!deviceId) {
+      setSearchParams({ view: "tablet-preview" });
+      return;
+    }
+
+    setSearchParams({
+      view: "tablet-preview",
+      deviceId: String(deviceId),
+    });
+  };
+
+  const openTabletPreviewView = (deviceId?: number | null) => {
+    closeMobilePanels();
+    closeDrawer();
+    setTabletPreviewSearchParams(deviceId);
   };
 
   const closeMobilePanels = () => {
@@ -452,7 +663,7 @@ const AdminRegistry = () => {
     options?: { forceProfileRefresh?: boolean },
   ) => {
     if (device.status !== "ACTIVE" || !device.deviceClassroom || !device.deviceURL) {
-      setPreviewModal({
+      setPreviewState({
         deviceId: device.id,
         phase: "error",
         message: "Tablet nie ma kompletnej konfiguracji do podglądu.",
@@ -462,7 +673,7 @@ const AdminRegistry = () => {
     }
 
     if (hasDeviceDisplayProfile(device) && !options?.forceProfileRefresh) {
-      setPreviewModal({
+      setPreviewState({
         deviceId: device.id,
         phase: "ready",
         message: null,
@@ -472,7 +683,7 @@ const AdminRegistry = () => {
     }
 
     if (device.connectionStatus !== "ONLINE") {
-      setPreviewModal({
+      setPreviewState({
         deviceId: device.id,
         phase: "error",
         message:
@@ -482,7 +693,7 @@ const AdminRegistry = () => {
       return;
     }
 
-    setPreviewModal({
+    setPreviewState({
       deviceId: device.id,
       phase: "loading-profile",
       message: "Pobieranie parametrów ekranu z tabletu...",
@@ -500,23 +711,229 @@ const AdminRegistry = () => {
       }
 
       if ((data.delivered ?? 0) < 1) {
-        setPreviewModal({
-          deviceId: device.id,
-          phase: "error",
-          message: "Tablet nie odpowiedział na prośbę o przesłanie profilu ekranu.",
-          requestedAt: null,
-        });
+        setPreviewState((current) =>
+          current && current.deviceId === device.id
+            ? {
+                ...current,
+                phase: "error",
+                message: "Tablet nie odpowiedział na prośbę o przesłanie profilu ekranu.",
+                requestedAt: null,
+              }
+            : current,
+        );
       }
     } catch (error) {
-      setPreviewModal({
-        deviceId: device.id,
-        phase: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Nie udało się pobrać profilu ekranu z urządzenia.",
-        requestedAt: null,
+      setPreviewState((current) =>
+        current && current.deviceId === device.id
+          ? {
+              ...current,
+              phase: "error",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Nie udało się pobrać profilu ekranu z urządzenia.",
+              requestedAt: null,
+            }
+          : current,
+      );
+    }
+  };
+
+  const handleDeviceDisplaySettingsUpdate = async (
+    deviceId: number,
+    payload: Partial<Pick<Device, "displayTheme" | "blackScreenMode">>,
+  ) => {
+    const response = await fetch(`/api/devices/${deviceId}/display-settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || "Nie udało się zapisać ustawień tabletu.");
+    }
+
+    if (data.device) {
+      const nextDevice = data.device as Device;
+      setDevices((current) =>
+        current.map((device) => (device.id === nextDevice.id ? nextDevice : device)),
+      );
+    }
+
+    return data;
+  };
+
+  const handleDeviceThemeChange = async (
+    device: Device,
+    displayTheme: Device["displayTheme"],
+  ) => {
+    if (displayTheme === device.displayTheme) {
+      return;
+    }
+
+    try {
+      setThemeMutationDeviceId(device.id);
+      await handleDeviceDisplaySettingsUpdate(device.id, { displayTheme });
+      pushToast(
+        `Zmieniono motyw tabletu ${getDeviceDisplayName(device)} na ${
+          displayTheme === "light" ? "jasny" : "ciemny"
+        }.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error ? error.message : "Nie udało się zmienić motywu tabletu.",
+        "danger",
+      );
+    } finally {
+      setThemeMutationDeviceId(null);
+    }
+  };
+
+  const handleDeviceBlackScreenModeChange = async (
+    device: Device,
+    blackScreenMode: Device["blackScreenMode"],
+  ) => {
+    if (blackScreenMode === device.blackScreenMode) {
+      return;
+    }
+
+    try {
+      setBlackScreenMutationDeviceId(device.id);
+      await handleDeviceDisplaySettingsUpdate(device.id, {
+        blackScreenMode,
       });
+
+      const toastMessage =
+        blackScreenMode === "follow"
+          ? `Tablet ${getDeviceDisplayName(device)} wrócił do harmonogramu czarnego ekranu.`
+          : blackScreenMode === "on"
+            ? `Włączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`
+            : `Wyłączono czarny ekran dla tabletu ${getDeviceDisplayName(device)}.`;
+
+      pushToast(toastMessage, "success");
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zmienić stanu czarnego ekranu.",
+        "danger",
+      );
+    } finally {
+      setBlackScreenMutationDeviceId(null);
+    }
+  };
+
+  const handleBatchThemeUpdate = async () => {
+    const selectedDevices = pairedDevices.filter((device) =>
+      selectedDeviceIds.includes(device.id),
+    );
+
+    if (selectedDevices.length === 0) {
+      pushToast("Zaznacz co najmniej jeden tablet.", "danger");
+      return;
+    }
+
+    try {
+      setBatchThemeLoading(true);
+      const response = await fetch("/api/devices/display-settings/batch", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceIds: selectedDevices.map((device) => device.id),
+          displayTheme: batchThemeValue,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się zapisać motywu dla zaznaczonych tabletów.");
+      }
+
+      const updatedDevices = Array.isArray(data.devices) ? (data.devices as Device[]) : [];
+      if (updatedDevices.length > 0) {
+        const updatedDeviceMap = new Map(updatedDevices.map((device) => [device.id, device]));
+        setDevices((current) =>
+          current.map((device) => updatedDeviceMap.get(device.id) ?? device),
+        );
+      }
+
+      pushToast(
+        `Zmieniono motyw ${updatedDevices.length || selectedDevices.length} tabletów na ${
+          batchThemeValue === "light" ? "jasny" : "ciemny"
+        }.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zmienić motywu zaznaczonych tabletów.",
+        "danger",
+      );
+    } finally {
+      setBatchThemeLoading(false);
+    }
+  };
+
+  const handleBatchBlackScreenUpdate = async () => {
+    const selectedDevices = pairedDevices.filter((device) =>
+      selectedDeviceIds.includes(device.id),
+    );
+
+    if (selectedDevices.length === 0) {
+      pushToast("Zaznacz co najmniej jeden tablet.", "danger");
+      return;
+    }
+
+    try {
+      setBatchBlackScreenLoading(true);
+      const response = await fetch("/api/devices/display-settings/batch", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceIds: selectedDevices.map((device) => device.id),
+          blackScreenMode: batchBlackScreenValue,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Nie udało się zapisać czarnego ekranu dla zaznaczonych tabletów.",
+        );
+      }
+
+      const updatedDevices = Array.isArray(data.devices) ? (data.devices as Device[]) : [];
+      if (updatedDevices.length > 0) {
+        const updatedDeviceMap = new Map(updatedDevices.map((device) => [device.id, device]));
+        setDevices((current) =>
+          current.map((device) => updatedDeviceMap.get(device.id) ?? device),
+        );
+      }
+
+      const blackScreenLabel =
+        batchBlackScreenValue === "follow"
+          ? "harmonogram"
+          : batchBlackScreenValue === "on"
+            ? "włączony"
+            : "wyłączony";
+
+      pushToast(
+        `Ustawiono czarny ekran ${updatedDevices.length || selectedDevices.length} tabletów na ${blackScreenLabel}.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zmienić czarnego ekranu zaznaczonych tabletów.",
+        "danger",
+      );
+    } finally {
+      setBatchBlackScreenLoading(false);
     }
   };
 
@@ -646,17 +1063,45 @@ const AdminRegistry = () => {
   }, [currentView]);
 
   useEffect(() => {
-    if (previewModal?.phase !== "loading-profile" || previewModal.requestedAt === null) {
+    if (currentView !== "tablet-preview") {
+      return;
+    }
+
+    if (activeDevices.length === 0) {
+      if (previewDeviceId !== null) {
+        setTabletPreviewSearchParams(null);
+      }
+      setPreviewState(null);
+      return;
+    }
+
+    if (previewDeviceId === null) {
+      setTabletPreviewSearchParams(activeDevices[0].id);
+      return;
+    }
+
+    if (!previewDevice) {
+      setTabletPreviewSearchParams(activeDevices[0].id);
+      return;
+    }
+
+    if (!previewState || previewState.deviceId !== previewDevice.id) {
+      void openDevicePreview(previewDevice);
+    }
+  }, [activeDevices, currentView, previewDevice, previewDeviceId, previewState]);
+
+  useEffect(() => {
+    if (previewState?.phase !== "loading-profile" || previewState.requestedAt === null) {
       return;
     }
 
     let cancelled = false;
-    const deadlineAt = previewModal.requestedAt + 10_000;
-    const previewDeviceId = previewModal.deviceId;
+    const deadlineAt = previewState.requestedAt + 10_000;
+    const requestedPreviewDeviceId = previewState.deviceId;
 
     const pollForProfile = async () => {
       try {
-        const response = await fetch(`/api/devices/${previewDeviceId}`);
+        const response = await fetch(`/api/devices/${requestedPreviewDeviceId}`);
         if (!response.ok) {
           throw new Error("Nie udało się pobrać danych urządzenia.");
         }
@@ -671,8 +1116,8 @@ const AdminRegistry = () => {
         );
 
         if (hasDeviceDisplayProfile(nextDevice)) {
-          setPreviewModal((current) =>
-            current && current.deviceId === previewDeviceId
+          setPreviewState((current) =>
+            current && current.deviceId === requestedPreviewDeviceId
               ? {
                   ...current,
                   phase: "ready",
@@ -692,8 +1137,8 @@ const AdminRegistry = () => {
       }
 
       if (Date.now() >= deadlineAt) {
-        setPreviewModal((current) =>
-          current && current.deviceId === previewDeviceId
+        setPreviewState((current) =>
+          current && current.deviceId === requestedPreviewDeviceId
             ? {
                 ...current,
                 phase: "error",
@@ -714,7 +1159,7 @@ const AdminRegistry = () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [previewModal]);
+  }, [previewState]);
 
   const handleLogout = async () => {
     try {
@@ -749,7 +1194,7 @@ const AdminRegistry = () => {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.message || "Nie udało się nadać uprawnień.");
+        throw new Error(data.message || "Nie udało się dodać administratora.");
       }
 
       setNewAdminUsername("");
@@ -759,7 +1204,7 @@ const AdminRegistry = () => {
     } catch (error) {
       console.error("Error adding admin:", error);
       setAdminFeedback(
-        error instanceof Error ? error.message : "Nie udało się nadać uprawnień.",
+        error instanceof Error ? error.message : "Nie udało się dodać administratora.",
       );
       setAdminFeedbackTone("danger");
     } finally {
@@ -834,32 +1279,9 @@ const AdminRegistry = () => {
 
   const openPairingScanner = () => {
     closeMobilePanels();
-    closePreviewModal();
     closeDrawer();
     setPairingReturnMode("none");
     setPairingScannerOpen(true);
-  };
-
-  const handlePairingLookup = async (deviceId: string) => {
-    const exactMatch =
-      devices.find((device) => device.deviceId === deviceId) ??
-      (await fetchDevices({ silent: true }))?.find((device) => device.deviceId === deviceId) ??
-      null;
-
-    if (!exactMatch) {
-      return {
-        ok: false as const,
-        message: `Nie znaleziono tabletu ${formatPairingDeviceId(
-          deviceId,
-        )}. Odśwież /registry i spróbuj ponownie.`,
-      };
-    }
-
-    setPairingScannerOpen(false);
-    setPairingReturnMode("after-save");
-    openDeviceEditor(exactMatch);
-
-    return { ok: true as const };
   };
 
   const handlePreviewRetry = () => {
@@ -895,7 +1317,6 @@ const AdminRegistry = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: deviceId,
-        deviceName: roomName,
         deviceClassroom: roomName,
       }),
     });
@@ -907,6 +1328,108 @@ const AdminRegistry = () => {
         message: errorData.message || "Nie udało się zapisać zmian.",
       };
     }
+
+    return { ok: true as const };
+  };
+
+  const lookupPendingDeviceByCode = async (rawDeviceId: string) => {
+    const normalizedDeviceId = sanitizePairingDeviceId(rawDeviceId);
+
+    if (!/^\d{6}$/.test(normalizedDeviceId)) {
+      return {
+        ok: false as const,
+        message: PAIRING_MESSAGE.codeInvalid,
+      };
+    }
+
+    try {
+      const response = await fetch(
+        `/api/devices/pending/by-code?deviceId=${encodeURIComponent(normalizedDeviceId)}`,
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          ok: false as const,
+          message:
+            response.status === 400
+              ? PAIRING_MESSAGE.codeInvalid
+              : response.status === 404
+                ? PAIRING_MESSAGE.codeNotFound
+                : PAIRING_MESSAGE.lookupError,
+        };
+      }
+
+      const device = data as Device;
+      setDevices((current) => {
+        const exists = current.some((currentDevice) => currentDevice.id === device.id);
+        return exists
+          ? current.map((currentDevice) =>
+              currentDevice.id === device.id ? device : currentDevice,
+            )
+          : [...current, device];
+      });
+
+      return { ok: true as const, device };
+    } catch (error) {
+      console.error("Error looking up pending device:", error);
+      return {
+        ok: false as const,
+        message: PAIRING_MESSAGE.lookupConnectionError,
+      };
+    }
+  };
+
+  const selectPendingPairingDevice = (device: Device) => {
+    if (currentView !== "devices") {
+      setSearchParams({});
+    }
+
+    closeDrawer();
+    setPairingScannerOpen(false);
+    resetPairingRoomSearch();
+    setPairingCode(formatPairingDeviceId(device.deviceId));
+    setPairingDeviceId(device.id);
+    setPairingRoom("");
+    setPairingCodeTone("success");
+    setPairingRoomTone("neutral");
+    setPairingFeedback(PAIRING_MESSAGE.found);
+    setPairingFeedbackTone("success");
+  };
+
+  const handleLookupPendingPairingDevice = async (rawDeviceId?: string) => {
+    const deviceId = rawDeviceId ?? pairingCode;
+
+    setPairingLookingUp(true);
+    setPairingCodeTone("neutral");
+    setPairingFeedback(null);
+    setPairingFeedbackTone("neutral");
+
+    const result = await lookupPendingDeviceByCode(deviceId);
+
+    if (!result.ok) {
+      setPairingCodeTone("danger");
+      setPairingFeedback(result.message);
+      setPairingFeedbackTone("danger");
+      setPairingLookingUp(false);
+      return result;
+    }
+
+    selectPendingPairingDevice(result.device);
+    setPairingLookingUp(false);
+
+    return { ok: true as const };
+  };
+
+  const handlePairingLookup = async (deviceId: string) => {
+    const result = await lookupPendingDeviceByCode(deviceId);
+    if (!result.ok) {
+      return result;
+    }
+
+    setPairingScannerOpen(false);
+    setPairingReturnMode("after-save");
+    openDeviceEditor(result.device);
 
     return { ok: true as const };
   };
@@ -939,7 +1462,7 @@ const AdminRegistry = () => {
 
     try {
       const deviceLabel =
-        device.deviceClassroom || device.deviceName || formatPairingDeviceId(device.deviceId);
+        device.deviceClassroom || formatPairingDeviceId(device.deviceId);
       const result = await updateDeviceRoomAssignment(device.id, sanitizedRoom);
       if (!result.ok) {
         setRoomError(result.message);
@@ -949,12 +1472,7 @@ const AdminRegistry = () => {
       const shouldReturnToScanner = pairingReturnMode === "after-save";
       setPairingReturnMode("none");
       closeDrawer();
-      pushToast(
-        device.status === "PENDING"
-          ? `Tablet ${deviceLabel} został sparowany.`
-          : `Zapisano zmiany dla tabletu ${deviceLabel}.`,
-        "success",
-      );
+      pushToast(`Zapisano zmiany dla tabletu ${deviceLabel}.`, "success");
       await fetchDevices();
 
       if (shouldReturnToScanner) {
@@ -965,6 +1483,84 @@ const AdminRegistry = () => {
       setRoomError("Nie udało się zapisać zmian.");
       pushToast("Nie udało się zapisać zmian tabletu.", "danger");
     }
+  };
+
+  const handleAssignPendingDevice = async () => {
+    const device = pairingDevice;
+    const sanitizedRoom = sanitizeRoomValue(pairingRoom);
+
+    if (!device || !sanitizedRoom) {
+      setPairingRoomTone("danger");
+      setPairingFeedback(PAIRING_MESSAGE.roomRequired);
+      setPairingFeedbackTone("danger");
+      return;
+    }
+
+    resetPairingRoomSearch();
+
+    const normalizedRoom = normalizeRoomValue(sanitizedRoom);
+    const isValid =
+      (pairingSelectedSuggestion !== null &&
+        normalizeRoomValue(pairingSelectedSuggestion) === normalizedRoom) ||
+      (await validateRoom(sanitizedRoom));
+
+    if (!isValid) {
+      setPairingRoomTone("danger");
+      setPairingFeedback(PAIRING_MESSAGE.roomInvalid);
+      setPairingFeedbackTone("danger");
+      return;
+    }
+
+    try {
+      setPairingAssigning(true);
+      setPairingRoomTone("success");
+      setPairingFeedback(null);
+      setPairingFeedbackTone("neutral");
+      const result = await updateDeviceRoomAssignment(device.id, sanitizedRoom);
+      if (!result.ok) {
+        setPairingRoomTone("danger");
+        setPairingFeedback(PAIRING_MESSAGE.assignError);
+        setPairingFeedbackTone("danger");
+        return;
+      }
+
+      resetPairingSelection();
+      setPairingFeedback(PAIRING_MESSAGE.assigned);
+      setPairingFeedbackTone("success");
+      await fetchDevices();
+    } catch (error) {
+      console.error("Error assigning pending device:", error);
+      setPairingRoomTone("danger");
+      setPairingFeedback(PAIRING_MESSAGE.assignError);
+      setPairingFeedbackTone("danger");
+    } finally {
+      setPairingAssigning(false);
+    }
+  };
+
+  const handlePairingCodeChange = (value: string) => {
+    setPairingCode(formatPairingDeviceInput(value));
+    setPairingCodeTone("neutral");
+    setPairingFeedback(null);
+    setPairingFeedbackTone("neutral");
+  };
+
+  const handlePairingRoomChange = (value: string) => {
+    setPairingRoom(value);
+    setPairingSelectedSuggestion(null);
+    setPairingRoomTone("neutral");
+    setPairingShowRoomSuggestions(true);
+    setPairingFeedback(null);
+    setPairingFeedbackTone("neutral");
+  };
+
+  const handleResetPairing = () => {
+    resetPairingSelection();
+  };
+
+  const handlePairingSuggestionSelect = (device: Device) => {
+    setPairingCode(formatPairingDeviceId(device.deviceId));
+    void handleLookupPendingPairingDevice(device.deviceId);
   };
 
   const handleDeleteDevice = async (device: Device) => {
@@ -980,7 +1576,7 @@ const AdminRegistry = () => {
 
     try {
       const deviceLabel =
-        device.deviceClassroom || device.deviceName || formatPairingDeviceId(device.deviceId);
+        device.deviceClassroom || formatPairingDeviceId(device.deviceId);
       const shouldReturnToScanner =
         pairingReturnMode === "after-save" && drawerDeviceId === device.id;
       const response = await fetch(`/api/devices/${device.id}`, { method: "DELETE" });
@@ -992,10 +1588,13 @@ const AdminRegistry = () => {
       if (drawerDeviceId === device.id) {
         closeDrawer();
       }
-      if (previewModal?.deviceId === device.id) {
-        closePreviewModal();
+      if (previewDeviceId === device.id) {
+        setPreviewState(null);
+        setTabletPreviewSearchParams(null);
       }
-
+      if (pairingDeviceId === device.id) {
+        resetPairingSelection();
+      }
       if (shouldReturnToScanner) {
         setPairingReturnMode("none");
       }
@@ -1074,8 +1673,9 @@ const AdminRegistry = () => {
         if (drawerDeviceId !== null && selectedDeviceIds.includes(drawerDeviceId)) {
           closeDrawer();
         }
-        if (previewModal !== null && selectedDeviceIds.includes(previewModal.deviceId)) {
-          closePreviewModal();
+        if (previewDeviceId !== null && selectedDeviceIds.includes(previewDeviceId)) {
+          setPreviewState(null);
+          setTabletPreviewSearchParams(null);
         }
 
         clearDeviceSelection();
@@ -1092,54 +1692,58 @@ const AdminRegistry = () => {
   const handleViewChange = (view: AdminPanelView) => {
     closeMobilePanels();
     closeDrawer();
-    closePreviewModal();
-    setPairingScannerOpen(false);
     setPairingReturnMode("none");
+    setPairingScannerOpen(false);
 
     if (view === "devices") {
       setSearchParams({});
       return;
     }
 
+    if (view === "tablet-preview") {
+      if (previewDevice) {
+        openTabletPreviewView(previewDevice.id);
+        return;
+      }
+
+      if (activeDevices.length > 0) {
+        openTabletPreviewView(activeDevices[0].id);
+        return;
+      }
+
+      setTabletPreviewSearchParams(null);
+      return;
+    }
+
     setSearchParams({ view });
   };
 
-  const allPendingDevices = devices.filter((device) => device.status === "PENDING");
-  const pendingDevices = allPendingDevices.filter((device) =>
-    matchesDeviceSearch(device, searchTerm),
-  );
-  const pairedDevices = devices.filter((device) => device.status === "ACTIVE");
-  const activeDevices = sortDevices(
-    pairedDevices.filter((device) => matchesDeviceSearch(device, searchTerm)),
-    deviceSort,
-  );
-  const onlineDevicesCount = pairedDevices.filter(
-    (device) => device.connectionStatus === "ONLINE",
-  ).length;
-  const offlineDevicesCount = pairedDevices.filter(
-    (device) => device.connectionStatus === "OFFLINE",
-  ).length;
+  const navigationItems: NavigationItem[] = ADMIN_NAVIGATION_ORDER.map((key) => {
+    if (key === "pairing") {
+      return {
+        key,
+        label: "Tryb parowania",
+        icon: "fas fa-camera",
+        active: false,
+      };
+    }
 
-  const navigationItems: NavigationItem[] = [
-    ...(Object.keys(adminViewMeta) as AdminPanelView[]).map((key) => ({
+    if (key === "lecturer-preview") {
+      return {
+        key,
+        label: "Podgląd dydaktyka",
+        icon: "fas fa-user-tie",
+        active: false,
+      };
+    }
+
+    return {
       key,
       label: adminViewMeta[key].label,
       icon: adminViewMeta[key].icon,
       active: currentView === key,
-    })),
-    {
-      key: "pairing",
-      label: "Tryb parowania",
-      icon: "fas fa-camera",
-      active: false,
-    },
-    {
-      key: "lecturer-preview",
-      label: "Podgląd dydaktyka",
-      icon: "fas fa-user-tie",
-      active: false,
-    },
-  ];
+    };
+  });
 
   const handleNavigationSelect = (key: AdminNavigationKey) => {
     closeMobilePanels();
@@ -1283,11 +1887,18 @@ const AdminRegistry = () => {
           onItemSelect={handleNavigationSelect}
         />
 
-        <main className="admin-console__main">
+        <main
+          className={[
+            "admin-console__main",
+            currentView === "devices" ? "admin-console__main--devices" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           {currentView === "devices" ? (
             <DevicesView
               activeDevices={activeDevices}
-              pendingDevices={pendingDevices}
+              pendingDevices={allPendingDevices}
               counts={{
                 all: devices.length,
                 online: onlineDevicesCount,
@@ -1298,12 +1909,37 @@ const AdminRegistry = () => {
               manualRefreshing={manualRefreshing}
               reloadingTablets={reloadingTablets}
               batchUpdating={batchMutationLoading}
+              batchThemeUpdating={batchThemeLoading}
+              batchBlackScreenUpdating={batchBlackScreenLoading}
+              themeMutationDeviceId={themeMutationDeviceId}
+              blackScreenMutationDeviceId={blackScreenMutationDeviceId}
+              batchThemeValue={batchThemeValue}
+              batchBlackScreenValue={batchBlackScreenValue}
               selectedDeviceIds={selectedDeviceIds}
               searchTerm={searchTerm}
-              sortBy={deviceSort}
+              sortState={deviceSort}
+              pairingCode={pairingCode}
+              pairingSuggestions={pairingSuggestions}
+              pairingDevice={pairingDevice}
+              pairingRoom={pairingRoom}
+              pairingRoomSuggestions={pairingRoomSuggestions}
+              pairingShowRoomSuggestions={pairingShowRoomSuggestions}
+              pairingLookingUp={pairingLookingUp}
+              pairingAssigning={pairingAssigning}
+              pairingSearchingRooms={pairingSearchingRooms}
+              pairingCodeTone={pairingCodeTone}
+              pairingRoomTone={pairingRoomTone}
+              pairingFeedback={pairingFeedback}
+              pairingFeedbackTone={pairingFeedbackTone}
               onSearchTermChange={setSearchTerm}
-              onSortChange={setDeviceSort}
+              onSortColumn={(column) => {
+                setDeviceSort((currentSort) => getNextDeviceSortState(currentSort, column));
+              }}
               onDeleteSelectedDevices={() => void handleDeleteSelectedDevices()}
+              onBatchThemeValueChange={setBatchThemeValue}
+              onBatchBlackScreenValueChange={setBatchBlackScreenValue}
+              onApplyBatchTheme={() => void handleBatchThemeUpdate()}
+              onApplyBatchBlackScreen={() => void handleBatchBlackScreenUpdate()}
               onClearSelectedDevices={clearDeviceSelection}
               onToggleAllActiveDevices={handleToggleAllActiveDevices}
               onToggleDeviceSelection={handleToggleDeviceSelection}
@@ -1312,10 +1948,60 @@ const AdminRegistry = () => {
               onViewDevice={openDeviceDetails}
               onEditDevice={openDeviceEditor}
               onPreviewDevice={(device) => {
-                void openDevicePreview(device);
+                openTabletPreviewView(device.id);
               }}
-              onAuthorizeDevice={openDeviceEditor}
+              onDeviceThemeChange={(device, theme) => {
+                void handleDeviceThemeChange(device, theme);
+              }}
+              onDeviceBlackScreenModeChange={(device, blackScreenMode) => {
+                void handleDeviceBlackScreenModeChange(device, blackScreenMode);
+              }}
               onDeleteDevice={handleDeleteDevice}
+              onPairingCodeChange={handlePairingCodeChange}
+              onPairingSuggestionSelect={handlePairingSuggestionSelect}
+              onLookupPairingDevice={() => {
+                void handleLookupPendingPairingDevice();
+              }}
+              onResetPairing={handleResetPairing}
+              onPairingRoomChange={handlePairingRoomChange}
+              onPairingRoomSuggestionSelect={(room) => {
+                setPairingRoom(room);
+                setPairingSelectedSuggestion(room);
+                setPairingRoomTone("success");
+                setPairingFeedback(null);
+                setPairingFeedbackTone("neutral");
+                setPairingShowRoomSuggestions(false);
+                setPairingRoomSuggestions([]);
+              }}
+              onAssignPairingDevice={() => {
+                void handleAssignPendingDevice();
+              }}
+            />
+          ) : null}
+
+          {currentView === "tablet-preview" ? (
+            <TabletPreviewView
+              activeDevices={pairedDevices}
+              device={previewDevice}
+              state={
+                previewState && previewDeviceId !== null && previewState.deviceId === previewDeviceId
+                  ? {
+                      phase: previewState.phase,
+                      message: previewState.message,
+                    }
+                  : null
+              }
+              onSelectDevice={(deviceId) => {
+                const nextDevice = pairedDevices.find((device) => device.id === deviceId);
+                if (nextDevice) {
+                  openTabletPreviewView(nextDevice.id);
+                }
+              }}
+              onRetryProfile={handlePreviewRetry}
+              onEditDevice={openDeviceEditor}
+              onDeleteDevice={handleDeleteDevice}
+              onUpdateDeviceDisplaySettings={handleDeviceDisplaySettingsUpdate}
+              onToast={pushToast}
             />
           ) : null}
 
@@ -1451,7 +2137,7 @@ const AdminRegistry = () => {
           onClose={handleDrawerClose}
           onStartEdit={() => openDeviceEditor(drawerDevice)}
           onPreview={() => {
-            void openDevicePreview(drawerDevice);
+            openTabletPreviewView(drawerDevice.id);
           }}
           onFormChange={(value) => {
             setFormClassroom(value);
@@ -1474,20 +2160,10 @@ const AdminRegistry = () => {
       {isPairingScannerOpen ? (
         <AdminPairingScanner
           onClose={() => {
-            setPairingScannerOpen(false);
             setPairingReturnMode("none");
+            setPairingScannerOpen(false);
           }}
           onPair={handlePairingLookup}
-        />
-      ) : null}
-
-      {previewModal && previewDevice ? (
-        <DevicePreviewModal
-          device={previewDevice}
-          phase={previewModal.phase}
-          message={previewModal.message}
-          onClose={closePreviewModal}
-          onRetry={handlePreviewRetry}
         />
       ) : null}
 

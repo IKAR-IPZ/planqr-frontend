@@ -1,16 +1,16 @@
 export interface Device {
   id: number;
-  deviceName: string | null;
   deviceClassroom: string | null;
   deviceURL: string | null;
   deviceId: string;
   status: "PENDING" | "ACTIVE";
+  displayTheme: "light" | "dark";
+  blackScreenMode: "follow" | "on" | "off";
+  scheduledBlackScreen: boolean;
+  effectiveBlackScreen: boolean;
   connectionStatus: "PENDING" | "ONLINE" | "OFFLINE";
   isConnected: boolean;
   lastSeen: string;
-  ipAddress?: string;
-  deviceModel?: string;
-  userAgent?: string;
   macAddress?: string;
   viewportWidthPx?: number | null;
   viewportHeightPx?: number | null;
@@ -31,7 +31,6 @@ export interface NightModeSettings {
 export interface AdminRecord {
   id: string;
   username: string;
-  role: string;
   adminSource: "database" | "panel";
   createdAt: string | null;
   updatedAt: string | null;
@@ -39,8 +38,20 @@ export interface AdminRecord {
   canBeRemovedFromPanel: boolean;
 }
 
-export type AdminPanelView = "devices" | "admins" | "schedule";
+export type AdminPanelView = "devices" | "tablet-preview" | "admins" | "schedule";
 export type AdminPanelTheme = "light" | "dark";
-export type DeviceSortOption = "name" | "status" | "lastSeen";
+export type DeviceSortColumn =
+  | "room"
+  | "faculty"
+  | "deviceId"
+  | "status"
+  | "lastSeen"
+  | "displayTheme"
+  | "blackScreen";
+
+export interface DeviceSortState {
+  column: DeviceSortColumn | null;
+  direction: "asc" | "desc" | null;
+}
 
 export type Tone = "neutral" | "success" | "warning" | "danger";
