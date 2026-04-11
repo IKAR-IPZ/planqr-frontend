@@ -162,7 +162,7 @@ const matchesDevicePickerQuery = (device: Device, rawQuery: string) => {
 
 const getDevicePickerLabel = (device: Device) => {
   const roomParts = splitDeviceClassroom(device.deviceClassroom);
-  return roomParts.roomLabel || getDeviceDisplayName(device);
+  return roomParts.fullLabel || getDeviceDisplayName(device);
 };
 
 const fetchRoomMatches = async (query: string, signal?: AbortSignal) => {
@@ -709,7 +709,7 @@ const TabletPreviewView = ({
                         }}
                       >
                         {getDevicePickerLabel(activeDevice)}
-                        {` · ID ${formatPairingDeviceId(activeDevice.deviceId)}`}
+                        {` · ${formatPairingDeviceId(activeDevice.deviceId)}`}
                       </button>
                     ))}
                   </div>
