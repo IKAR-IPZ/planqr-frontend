@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logo from "../../../assets/zut_fav.png";
 import {
@@ -176,8 +176,6 @@ const AdminRegistry = () => {
   const [pairingAssigning, setPairingAssigning] = useState(false);
   const [pairingCodeTone, setPairingCodeTone] = useState<Tone>("neutral");
   const [pairingRoomTone, setPairingRoomTone] = useState<Tone>("neutral");
-  const [pairingFeedback, setPairingFeedback] = useState<string | null>(null);
-  const [pairingFeedbackTone, setPairingFeedbackTone] = useState<Tone>("neutral");
   const [toasts, setToasts] = useState<AdminToast[]>([]);
   const [isPairingScannerOpen, setPairingScannerOpen] = useState(false);
   const [pairingReturnMode, setPairingReturnMode] =
@@ -433,6 +431,33 @@ const AdminRegistry = () => {
     };
   }, []);
 
+  const dismissToast = useCallback((toastId: number) => {
+    const timeoutId = toastTimeoutRef.current.get(toastId);
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+      toastTimeoutRef.current.delete(toastId);
+    }
+
+    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const pushToast = useCallback((
+    message: string,
+    tone: Tone = "neutral",
+    duration = TOAST_DURATION_MS,
+  ) => {
+    const nextToastId = toastIdRef.current + 1;
+    toastIdRef.current = nextToastId;
+
+    setToasts((current) => [...current, { id: nextToastId, message, tone }]);
+
+    const timeoutId = window.setTimeout(() => {
+      dismissToast(nextToastId);
+    }, duration);
+
+    toastTimeoutRef.current.set(nextToastId, timeoutId);
+  }, [dismissToast]);
+
   useEffect(() => {
     if (pairingDeviceId === null || pairingDevice !== null) {
       return;
@@ -449,36 +474,8 @@ const AdminRegistry = () => {
     setPairingSearchingRooms(false);
     setPairingCodeTone("danger");
     setPairingRoomTone("neutral");
-    setPairingFeedback(PAIRING_MESSAGE.staleDevice);
-    setPairingFeedbackTone("warning");
-  }, [pairingDevice, pairingDeviceId]);
-
-  const dismissToast = (toastId: number) => {
-    const timeoutId = toastTimeoutRef.current.get(toastId);
-    if (timeoutId) {
-      window.clearTimeout(timeoutId);
-      toastTimeoutRef.current.delete(toastId);
-    }
-
-    setToasts((current) => current.filter((toast) => toast.id !== toastId));
-  };
-
-  const pushToast = (
-    message: string,
-    tone: Tone = "neutral",
-    duration = TOAST_DURATION_MS,
-  ) => {
-    const nextToastId = toastIdRef.current + 1;
-    toastIdRef.current = nextToastId;
-
-    setToasts((current) => [...current, { id: nextToastId, message, tone }]);
-
-    const timeoutId = window.setTimeout(() => {
-      dismissToast(nextToastId);
-    }, duration);
-
-    toastTimeoutRef.current.set(nextToastId, timeoutId);
-  };
+    pushToast(PAIRING_MESSAGE.staleDevice, "warning");
+  }, [pairingDevice, pairingDeviceId, pushToast]);
 
   const resetRoomSearch = () => {
     roomSearchAbortRef.current?.abort();
@@ -507,8 +504,6 @@ const AdminRegistry = () => {
     setPairingRoom("");
     setPairingCodeTone("neutral");
     setPairingRoomTone("neutral");
-    setPairingFeedback(null);
-    setPairingFeedbackTone("neutral");
 
     if (!options?.keepCode) {
       setPairingCode("");
@@ -1393,8 +1388,7 @@ const AdminRegistry = () => {
     setPairingRoom("");
     setPairingCodeTone("success");
     setPairingRoomTone("neutral");
-    setPairingFeedback(PAIRING_MESSAGE.found);
-    setPairingFeedbackTone("success");
+    pushToast(PAIRING_MESSAGE.found, "success");
   };
 
   const handleLookupPendingPairingDevice = async (rawDeviceId?: string) => {
@@ -1402,15 +1396,12 @@ const AdminRegistry = () => {
 
     setPairingLookingUp(true);
     setPairingCodeTone("neutral");
-    setPairingFeedback(null);
-    setPairingFeedbackTone("neutral");
 
     const result = await lookupPendingDeviceByCode(deviceId);
 
     if (!result.ok) {
       setPairingCodeTone("danger");
-      setPairingFeedback(result.message);
-      setPairingFeedbackTone("danger");
+      pushToast(result.message, "danger");
       setPairingLookingUp(false);
       return result;
     }
@@ -1491,8 +1482,7 @@ const AdminRegistry = () => {
 
     if (!device || !sanitizedRoom) {
       setPairingRoomTone("danger");
-      setPairingFeedback(PAIRING_MESSAGE.roomRequired);
-      setPairingFeedbackTone("danger");
+      pushToast(PAIRING_MESSAGE.roomRequired, "danger");
       return;
     }
 
@@ -1506,33 +1496,27 @@ const AdminRegistry = () => {
 
     if (!isValid) {
       setPairingRoomTone("danger");
-      setPairingFeedback(PAIRING_MESSAGE.roomInvalid);
-      setPairingFeedbackTone("danger");
+      pushToast(PAIRING_MESSAGE.roomInvalid, "danger");
       return;
     }
 
     try {
       setPairingAssigning(true);
       setPairingRoomTone("success");
-      setPairingFeedback(null);
-      setPairingFeedbackTone("neutral");
       const result = await updateDeviceRoomAssignment(device.id, sanitizedRoom);
       if (!result.ok) {
         setPairingRoomTone("danger");
-        setPairingFeedback(PAIRING_MESSAGE.assignError);
-        setPairingFeedbackTone("danger");
+        pushToast(result.message || PAIRING_MESSAGE.assignError, "danger");
         return;
       }
 
       resetPairingSelection();
-      setPairingFeedback(PAIRING_MESSAGE.assigned);
-      setPairingFeedbackTone("success");
+      pushToast(PAIRING_MESSAGE.assigned, "success");
       await fetchDevices();
     } catch (error) {
       console.error("Error assigning pending device:", error);
       setPairingRoomTone("danger");
-      setPairingFeedback(PAIRING_MESSAGE.assignError);
-      setPairingFeedbackTone("danger");
+      pushToast(PAIRING_MESSAGE.assignError, "danger");
     } finally {
       setPairingAssigning(false);
     }
@@ -1541,8 +1525,6 @@ const AdminRegistry = () => {
   const handlePairingCodeChange = (value: string) => {
     setPairingCode(formatPairingDeviceInput(value));
     setPairingCodeTone("neutral");
-    setPairingFeedback(null);
-    setPairingFeedbackTone("neutral");
   };
 
   const handlePairingRoomChange = (value: string) => {
@@ -1550,8 +1532,6 @@ const AdminRegistry = () => {
     setPairingSelectedSuggestion(null);
     setPairingRoomTone("neutral");
     setPairingShowRoomSuggestions(true);
-    setPairingFeedback(null);
-    setPairingFeedbackTone("neutral");
   };
 
   const handleResetPairing = () => {
@@ -1929,8 +1909,6 @@ const AdminRegistry = () => {
               pairingSearchingRooms={pairingSearchingRooms}
               pairingCodeTone={pairingCodeTone}
               pairingRoomTone={pairingRoomTone}
-              pairingFeedback={pairingFeedback}
-              pairingFeedbackTone={pairingFeedbackTone}
               onSearchTermChange={setSearchTerm}
               onSortColumn={(column) => {
                 setDeviceSort((currentSort) => getNextDeviceSortState(currentSort, column));
@@ -1968,8 +1946,6 @@ const AdminRegistry = () => {
                 setPairingRoom(room);
                 setPairingSelectedSuggestion(room);
                 setPairingRoomTone("success");
-                setPairingFeedback(null);
-                setPairingFeedbackTone("neutral");
                 setPairingShowRoomSuggestions(false);
                 setPairingRoomSuggestions([]);
               }}

@@ -68,6 +68,11 @@ export default defineConfig(({ mode, command }) => {
       port: frontendDevPort,
       host: true,
       proxy: {
+        '/status': {
+          target: backendUrl,
+          changeOrigin: true,
+          secure: false,
+        },
         '/schedule_student.php': {
           target: studentScheduleProxy.origin,
           changeOrigin: true,

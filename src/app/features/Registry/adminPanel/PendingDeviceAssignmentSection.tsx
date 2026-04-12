@@ -15,8 +15,6 @@ interface PendingDeviceAssignmentSectionProps {
   isSearchingRooms: boolean;
   codeTone: Tone;
   roomTone: Tone;
-  feedback: string | null;
-  feedbackTone: Tone;
   onCodeChange: (value: string) => void;
   onCodeSuggestionSelect: (device: Device) => void;
   onLookup: () => void;
@@ -39,8 +37,6 @@ const PendingDeviceAssignmentSection = ({
   isSearchingRooms,
   codeTone,
   roomTone,
-  feedback,
-  feedbackTone,
   onCodeChange,
   onCodeSuggestionSelect,
   onLookup,
@@ -165,19 +161,6 @@ const PendingDeviceAssignmentSection = ({
               {isAssigning ? "Przydzielanie..." : "Przydziel"}
             </button>
           </div>
-
-          {feedback ? (
-            <p
-              className={[
-                "admin-feedback",
-                "admin-device-assignment__status",
-                `admin-feedback--${feedbackTone}`,
-              ].join(" ")}
-              aria-live="polite"
-            >
-              {feedback}
-            </p>
-          ) : null}
         </div>
       </div>
     </AdminPanelSection>

@@ -48,8 +48,6 @@ interface DevicesViewProps {
   pairingSearchingRooms: boolean;
   pairingCodeTone: Tone;
   pairingRoomTone: Tone;
-  pairingFeedback: string | null;
-  pairingFeedbackTone: Tone;
   onSearchTermChange: (value: string) => void;
   onSortColumn: (column: DeviceSortColumn) => void;
   onDeleteSelectedDevices: () => void;
@@ -118,8 +116,6 @@ const DevicesView = ({
   pairingSearchingRooms,
   pairingCodeTone,
   pairingRoomTone,
-  pairingFeedback,
-  pairingFeedbackTone,
   onSearchTermChange,
   onSortColumn,
   onDeleteSelectedDevices,
@@ -285,8 +281,6 @@ const DevicesView = ({
           isSearchingRooms={pairingSearchingRooms}
           codeTone={pairingCodeTone}
           roomTone={pairingRoomTone}
-          feedback={pairingFeedback}
-          feedbackTone={pairingFeedbackTone}
           onCodeChange={onPairingCodeChange}
           onCodeSuggestionSelect={onPairingSuggestionSelect}
           onLookup={onLookupPairingDevice}
