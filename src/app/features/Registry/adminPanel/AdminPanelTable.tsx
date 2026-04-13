@@ -29,7 +29,7 @@ const AdminPanelTable = ({
   wrapperClassName,
   columnGroup,
   children,
-	}: AdminPanelTableProps) => {
+}: AdminPanelTableProps) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const normalizedColumns = columns.map((column) =>
     typeof column === "object" && column !== null && "content" in column
@@ -212,10 +212,7 @@ const AdminPanelTable = ({
   }, []);
 
   return (
-    <div
-      ref={wrapperRef}
-      className={["admin-table__wrapper", wrapperClassName].filter(Boolean).join(" ")}
-    >
+    <div ref={wrapperRef} className={["admin-table__wrapper", wrapperClassName].filter(Boolean).join(" ")}>
       <table className={["admin-table", className].filter(Boolean).join(" ")}>
         <caption className="admin-table__caption">{caption}</caption>
         {columnGroup}
