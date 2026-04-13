@@ -156,7 +156,6 @@ const AdminRegistry = () => {
   const [nightModeFeedbackTone, setNightModeFeedbackTone] =
     useState<Tone>("neutral");
 
-  const [drawerMode, setDrawerMode] = useState<"details" | "edit" | null>(null);
   const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
   const [previewState, setPreviewState] = useState<PreviewModalState | null>(null);
   const [formClassroom, setFormClassroom] = useState("");
@@ -268,7 +267,6 @@ const AdminRegistry = () => {
 
   useEffect(() => {
     if (drawerDeviceId !== null && !drawerDevice) {
-      setDrawerMode(null);
       setDrawerDeviceId(null);
     }
   }, [drawerDevice, drawerDeviceId]);
@@ -512,7 +510,6 @@ const AdminRegistry = () => {
 
   const closeDrawer = () => {
     resetRoomSearch();
-    setDrawerMode(null);
     setDrawerDeviceId(null);
     setFormClassroom("");
   };
@@ -1256,18 +1253,11 @@ const AdminRegistry = () => {
     }
   };
 
-  const openDeviceDetails = (device: Device) => {
-    resetRoomSearch();
-    setDrawerDeviceId(device.id);
-    setDrawerMode("details");
-  };
-
   const openDeviceEditor = (device: Device) => {
     resetRoomSearch();
     const currentRoom = sanitizeRoomValue(device.deviceClassroom || "");
 
     setDrawerDeviceId(device.id);
-    setDrawerMode("edit");
     setFormClassroom(currentRoom);
     setSelectedSuggestion(currentRoom || null);
   };
@@ -1923,7 +1913,6 @@ const AdminRegistry = () => {
               onToggleDeviceSelection={handleToggleDeviceSelection}
               onRefresh={() => void fetchDevices({ manual: true })}
               onReloadTablets={handleReloadAllTablets}
-              onViewDevice={openDeviceDetails}
               onEditDevice={openDeviceEditor}
               onPreviewDevice={(device) => {
                 openTabletPreviewView(device.id);
@@ -2101,9 +2090,8 @@ const AdminRegistry = () => {
         </div>
       ) : null}
 
-      {drawerMode && drawerDevice ? (
+      {drawerDevice ? (
         <DeviceDrawer
-          mode={drawerMode}
           device={drawerDevice}
           formClassroom={formClassroom}
           roomError={roomError}
@@ -2111,10 +2099,6 @@ const AdminRegistry = () => {
           showSuggestions={showSuggestions}
           isSearching={isSearching}
           onClose={handleDrawerClose}
-          onStartEdit={() => openDeviceEditor(drawerDevice)}
-          onPreview={() => {
-            openTabletPreviewView(drawerDevice.id);
-          }}
           onFormChange={(value) => {
             setFormClassroom(value);
             setSelectedSuggestion(null);

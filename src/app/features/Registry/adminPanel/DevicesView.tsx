@@ -52,7 +52,6 @@ interface DevicesViewProps {
   onToggleDeviceSelection: (deviceId: number) => void;
   onRefresh: () => void;
   onReloadTablets: () => void;
-  onViewDevice: (device: Device) => void;
   onEditDevice: (device: Device) => void;
   onPreviewDevice: (device: Device) => void;
   onDeviceThemeChange: (device: Device, theme: Device["displayTheme"]) => void;
@@ -110,7 +109,6 @@ const DevicesView = ({
   onToggleDeviceSelection,
   onRefresh,
   onReloadTablets,
-  onViewDevice,
   onEditDevice,
   onPreviewDevice,
   onDeviceThemeChange,
@@ -333,7 +331,6 @@ const DevicesView = ({
             onSortColumn={onSortColumn}
             onToggleAllActiveDevices={onToggleAllActiveDevices}
             onToggleDeviceSelection={onToggleDeviceSelection}
-            onViewDevice={onViewDevice}
             onEditDevice={onEditDevice}
             onPreviewDevice={onPreviewDevice}
             onDeviceThemeChange={onDeviceThemeChange}

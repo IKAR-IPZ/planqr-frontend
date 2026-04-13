@@ -42,7 +42,7 @@ const ROOM_COLUMN_ID = "room";
 const ROOM_COLUMN_MIN_WIDTH = 180;
 const ROOM_COLUMN_EXTRA_WIDTH = 32;
 const BLACK_SCREEN_COLUMN_MIN_WIDTH = 190;
-const ACTIONS_COLUMN_MIN_WIDTH = 184;
+const ACTIONS_COLUMN_MIN_WIDTH = 144;
 
 interface AdminDevicesTableProps {
   caption: string;
@@ -60,7 +60,6 @@ interface AdminDevicesTableProps {
   onSortColumn: (column: DeviceSortColumn) => void;
   onToggleAllActiveDevices: (checked: boolean) => void;
   onToggleDeviceSelection: (deviceId: number) => void;
-  onViewDevice: (device: Device) => void;
   onEditDevice: (device: Device) => void;
   onPreviewDevice: (device: Device) => void;
   onDeviceThemeChange: (device: Device, theme: Device["displayTheme"]) => void;
@@ -118,7 +117,6 @@ interface DeviceBlackScreenCellProps extends ICellRendererParams<DeviceGridRow> 
 }
 
 interface DeviceActionsCellProps extends ICellRendererParams<DeviceGridRow> {
-  onViewDevice: (device: Device) => void;
   onEditDevice: (device: Device) => void;
   onPreviewDevice: (device: Device) => void;
   onDeleteDevice: (device: Device) => void;
@@ -393,7 +391,6 @@ const DeviceBlackScreenCell = ({
 
 const DeviceActionsCell = ({
   data,
-  onViewDevice,
   onEditDevice,
   onPreviewDevice,
   onDeleteDevice,
@@ -405,19 +402,6 @@ const DeviceActionsCell = ({
   return (
     <div className="admin-devices-grid__cell admin-table__cell--actions">
       <div className="admin-table__actions admin-table__actions--inline">
-        <button
-          type="button"
-          className="admin-button admin-button--secondary admin-button--small admin-button--icon"
-          aria-label={`Szczegóły tabletu ${data.displayName}`}
-          title="Szczegóły"
-          onClick={(event) => {
-            stopGridEventPropagation(event);
-            onViewDevice(data.device);
-          }}
-          onMouseDown={stopGridEventPropagation}
-        >
-          <i className="fas fa-info-circle" aria-hidden="true" />
-        </button>
         <button
           type="button"
           className="admin-button admin-button--secondary admin-button--small admin-button--icon"
@@ -478,7 +462,6 @@ const AdminDevicesTable = ({
   onSortColumn,
   onToggleAllActiveDevices,
   onToggleDeviceSelection,
-  onViewDevice,
   onEditDevice,
   onPreviewDevice,
   onDeviceThemeChange,
@@ -753,7 +736,6 @@ const AdminDevicesTable = ({
         headerClass: "admin-devices-grid__header-cell--actions",
         cellRenderer: DeviceActionsCell,
         cellRendererParams: {
-          onViewDevice,
           onEditDevice,
           onPreviewDevice,
           onDeleteDevice,
@@ -765,7 +747,6 @@ const AdminDevicesTable = ({
       batchBlackScreenUpdating,
       batchThemeUpdating,
       blackScreenMutationDeviceId,
-      onViewDevice,
       onDeleteDevice,
       onDeviceBlackScreenModeChange,
       onDeviceThemeChange,
