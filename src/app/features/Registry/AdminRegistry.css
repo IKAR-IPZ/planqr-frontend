@@ -1195,6 +1195,9 @@ body.admin-console-scroll-root #root {
 .admin-devices-grid {
   width: 100%;
   min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-devices-grid__batch-shell {
@@ -1298,6 +1301,14 @@ body.admin-console-scroll-root #root {
   border: 0;
   height: 100%;
   min-height: 0;
+}
+
+.admin-devices-grid__theme .ag-body-viewport,
+.admin-devices-grid__theme .ag-center-cols-viewport,
+.admin-devices-grid__theme .ag-body-horizontal-scroll-viewport,
+.admin-devices-grid__theme .ag-body-vertical-scroll-viewport {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 .admin-devices-grid__theme .ag-header {
@@ -2786,6 +2797,47 @@ body.admin-console-scroll-root #root {
 
   .admin-form-field--compact {
     width: 100%;
+  }
+
+  .admin-devices-view__list .admin-devices-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-devices-view__list .admin-devices-grid__batch-shell {
+    flex: 0 0 auto;
+  }
+
+  .admin-devices-view__list .admin-devices-grid__theme.ag-theme-quartz {
+    flex: 1 1 auto;
+    height: clamp(22rem, 68dvh, 34rem);
+    min-height: 22rem;
+  }
+
+  .admin-devices-view__list:has(.admin-devices-grid__batch-shell) > .admin-surface__header {
+    display: flex;
+  }
+
+  .admin-devices-view__list:has(.admin-devices-grid__batch-shell)
+    > .admin-surface__header
+    .admin-section__actions {
+    display: none;
+  }
+
+  .admin-devices-grid__batch-shell .admin-table__batch-actions,
+  .admin-devices-grid__batch-shell .admin-table__header-actions {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+
+  .admin-devices-grid__batch-shell .admin-table__batch-actions .admin-button,
+  .admin-devices-grid__batch-shell .admin-table__batch-actions .admin-form-field--compact {
+    flex: 0 0 auto;
+    width: auto;
   }
 
   .admin-toolbar {
