@@ -1,10 +1,41 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminPanelSearchField from "./AdminPanelSearchField";
 import AdminDevicesTable from "./AdminDevicesTable";
 import AdminPanelSection from "./AdminPanelSection";
 import PendingDeviceAssignmentSection from "./PendingDeviceAssignmentSection";
 import { splitDeviceClassroom } from "./helpers";
 import type { Device, DeviceSortColumn, DeviceSortState, Tone } from "./types";
+
+const MOBILE_BREAKPOINT_PX = 720;
+
+const useIsMobileViewport = () => {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= MOBILE_BREAKPOINT_PX : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`);
+    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(event.matches);
+    };
+
+    handleChange(mediaQuery);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  return isMobile;
+};
 
 interface DeviceCounts {
   all: number;
@@ -127,6 +158,12 @@ const DevicesView = ({
   onPairingRoomSuggestionSelect,
   onAssignPairingDevice,
 }: DevicesViewProps) => {
+  const isMobile = useIsMobileViewport();
+  const [collapsedSections, setCollapsedSections] = useState({
+    assignment: false,
+    stats: false,
+    batch: false,
+  });
   const hasPairedDevices = activeDevices.length > 0;
   const selectAllRef = useRef<HTMLInputElement | null>(null);
   const selectedIds = new Set(selectedDeviceIds);
@@ -174,6 +211,13 @@ const DevicesView = ({
 
   const pairedDevicesTitle =
     selectedCount > 0 ? `Sparowane tablety (${selectedCount})` : "Sparowane tablety";
+
+  const toggleSection = useCallback((section: keyof typeof collapsedSections) => {
+    setCollapsedSections((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
+  }, []);
 
   const batchActionsContent = (
     <>
@@ -247,6 +291,8 @@ const DevicesView = ({
       <div className="admin-devices-view__overview">
         <PendingDeviceAssignmentSection
           pendingDevicesCount={pendingDevices.length}
+          collapsible={isMobile}
+          collapsed={isMobile ? collapsedSections.assignment : false}
           codeValue={pairingCode}
           codeSuggestions={pairingSuggestions}
           selectedDevice={pairingDevice}
@@ -262,6 +308,7 @@ const DevicesView = ({
           onCodeSuggestionSelect={onPairingSuggestionSelect}
           onLookup={onLookupPairingDevice}
           onReset={onResetPairing}
+          onToggleCollapsed={() => toggleSection("assignment")}
           onRoomChange={onPairingRoomChange}
           onRoomSuggestionSelect={onPairingRoomSuggestionSelect}
           onAssign={onAssignPairingDevice}
@@ -270,6 +317,9 @@ const DevicesView = ({
         <AdminPanelSection
           className="admin-devices-view__stats"
           title="Statystyki"
+          collapsible={isMobile}
+          collapsed={isMobile ? collapsedSections.stats : false}
+          onToggleCollapsed={() => toggleSection("stats")}
           actions={
             <>
               <button
@@ -318,6 +368,9 @@ const DevicesView = ({
         <AdminPanelSection
           className="admin-devices-view__batch"
           title="Operacje zbiorowe"
+          collapsible={isMobile}
+          collapsed={isMobile ? collapsedSections.batch : false}
+          onToggleCollapsed={() => toggleSection("batch")}
           actions={
             <div className="admin-status-inline">
               <span>

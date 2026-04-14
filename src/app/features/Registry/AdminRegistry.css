@@ -645,6 +645,52 @@ body.admin-console-scroll-root #root {
   font-size: 1rem;
   font-weight: 600;
   color: var(--admin-text);
+  min-width: 0;
+}
+
+.admin-surface__title-text {
+  min-width: 0;
+}
+
+.admin-surface__toggle {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.admin-surface__toggle:hover,
+.admin-surface__toggle:focus-visible {
+  color: var(--admin-accent);
+  outline: none;
+}
+
+.admin-surface__toggle-icon {
+  flex-shrink: 0;
+  color: var(--admin-text-soft);
+  font-size: 0.8rem;
+  transition:
+    transform 160ms ease,
+    color 160ms ease;
+}
+
+.admin-surface__toggle[aria-expanded="true"] .admin-surface__toggle-icon {
+  transform: rotate(180deg);
+  color: var(--admin-text);
+}
+
+.admin-surface__body[hidden] {
+  display: none;
 }
 
 .admin-section__actions {
@@ -2988,12 +3034,36 @@ body.admin-console-scroll-root #root {
 }
 
 @media (min-width: 1025px) and (max-width: 1360px) {
+  .admin-console .admin-console__main--devices {
+    height: auto;
+    min-height: calc(100dvh - var(--admin-appbar-height));
+    overflow: visible;
+  }
+
+  .admin-devices-view {
+    overflow: visible;
+  }
+
   .admin-devices-view__overview {
     grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
   }
 
   .admin-devices-view__stats.admin-surface {
     grid-column: 1 / -1;
+  }
+
+  .admin-devices-view__list {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .admin-devices-view__list .admin-devices-grid,
+  .admin-devices-view__list .admin-devices-grid__theme.ag-theme-quartz {
+    height: auto;
+  }
+
+  .admin-devices-view__list .admin-devices-grid__theme.ag-theme-quartz {
+    min-height: clamp(24rem, 52dvh, 38rem);
   }
 }
 
@@ -3130,6 +3200,14 @@ body.admin-console-scroll-root #root {
     padding: 0.85rem;
     gap: 0.75rem;
     align-items: flex-start;
+  }
+
+  .admin-surface--collapsible .admin-surface__header {
+    align-items: center;
+  }
+
+  .admin-surface--collapsible .admin-surface__title {
+    flex: 1 1 auto;
   }
 
   .admin-section__actions {
