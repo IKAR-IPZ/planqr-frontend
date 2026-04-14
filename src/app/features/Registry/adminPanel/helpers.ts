@@ -198,7 +198,7 @@ export const getConnectionTone = (device: Device): Tone => {
 export const getDeviceDisplayName = (device: Device) =>
   device.deviceClassroom || formatPairingDeviceId(device.deviceId) || "Nieprzypisany tablet";
 
-export const getDeviceSecondaryName = (_device: Device) => null;
+export const getDeviceSecondaryName = () => null;
 
 export const splitDeviceClassroom = (value?: string | null) => {
   const normalizedValue = sanitizeRoomValue(value || "");
@@ -233,31 +233,6 @@ const getConnectionRank = (device: Device) => {
   }
 
   return device.connectionStatus === "ONLINE" ? 0 : 1;
-};
-
-export const matchesDeviceSearch = (device: Device, term: string) => {
-  const normalizedTerm = term.trim().toLowerCase();
-
-  if (!normalizedTerm) {
-    return true;
-  }
-
-  const roomParts = splitDeviceClassroom(device.deviceClassroom);
-
-  const searchable = [
-    device.deviceClassroom,
-    roomParts.fullLabel,
-    roomParts.roomLabel,
-    roomParts.facultyCode,
-    device.deviceId,
-    formatPairingDeviceId(device.deviceId),
-    getConnectionLabel(device),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return searchable.includes(normalizedTerm);
 };
 
 export const defaultDeviceSortState: DeviceSortState = {

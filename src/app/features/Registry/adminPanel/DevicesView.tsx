@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import AdminPanelSearchField from "./AdminPanelSearchField";
 import AdminDevicesTable from "./AdminDevicesTable";
 import AdminPanelSection from "./AdminPanelSection";
 import PendingDeviceAssignmentSection from "./PendingDeviceAssignmentSection";
+import { splitDeviceClassroom } from "./helpers";
 import type { Device, DeviceSortColumn, DeviceSortState, Tone } from "./types";
 
 interface DeviceCounts {
@@ -27,6 +28,7 @@ interface DevicesViewProps {
   batchThemeValue: Device["displayTheme"];
   batchBlackScreenValue: Device["blackScreenMode"];
   selectedDeviceIds: number[];
+  visibleDeviceIds: number[];
   searchTerm: string;
   sortState: DeviceSortState;
   pairingCode: string;
@@ -41,6 +43,7 @@ interface DevicesViewProps {
   pairingCodeTone: Tone;
   pairingRoomTone: Tone;
   onSearchTermChange: (value: string) => void;
+  onVisibleDeviceIdsChange: (ids: number[]) => void;
   onSortColumn: (column: DeviceSortColumn) => void;
   onDeleteSelectedDevices: () => void;
   onBatchThemeValueChange: (value: Device["displayTheme"]) => void;
@@ -84,6 +87,7 @@ const DevicesView = ({
   batchThemeValue,
   batchBlackScreenValue,
   selectedDeviceIds,
+  visibleDeviceIds,
   searchTerm,
   sortState,
   pairingCode,
@@ -98,6 +102,7 @@ const DevicesView = ({
   pairingCodeTone,
   pairingRoomTone,
   onSearchTermChange,
+  onVisibleDeviceIdsChange,
   onSortColumn,
   onDeleteSelectedDevices,
   onBatchThemeValueChange,
@@ -122,33 +127,44 @@ const DevicesView = ({
   onPairingRoomSuggestionSelect,
   onAssignPairingDevice,
 }: DevicesViewProps) => {
-  const hasSearchFilter = searchTerm.trim().length > 0;
-  const hasPairedDevices = counts.online + counts.offline > 0;
+  const hasPairedDevices = activeDevices.length > 0;
   const selectAllRef = useRef<HTMLInputElement | null>(null);
   const selectedIds = new Set(selectedDeviceIds);
   const selectedCount = selectedDeviceIds.length;
+  const visibleDevicesCount = visibleDeviceIds.length;
   const allActiveSelected =
-    activeDevices.length > 0 && activeDevices.every((device) => selectedIds.has(device.id));
+    visibleDevicesCount > 0 && visibleDeviceIds.every((deviceId) => selectedIds.has(deviceId));
   const partiallySelected =
     selectedCount > 0 &&
-    activeDevices.some((device) => selectedIds.has(device.id)) &&
+    visibleDeviceIds.some((deviceId) => selectedIds.has(deviceId)) &&
     !allActiveSelected;
-  const statusItems = [
-    { label: "Wszystkie", value: counts.all, tone: "neutral" },
-    { label: "Online", value: counts.online, tone: "success" },
-    { label: "Offline", value: counts.offline, tone: "danger" },
-    { label: "Oczekujące", value: counts.pending, tone: "warning" },
-  ] as const;
+  const statsColumnsClass = "admin-status-strip--cols-4";
+  const statusItems = useMemo(() => {
+    const lightThemeCount = activeDevices.filter((device) => device.displayTheme === "light").length;
+    const darkThemeCount = activeDevices.filter((device) => device.displayTheme === "dark").length;
+    const blackScreenCount = activeDevices.filter((device) => device.effectiveBlackScreen).length;
+    const facultiesCount = new Set(
+      activeDevices
+        .map((device) => splitDeviceClassroom(device.deviceClassroom).facultyCode.trim())
+        .filter(Boolean),
+    ).size;
 
-  const emptyStateTitle =
-    loading && !hasSearchFilter ? "Ładowanie urządzeń" : hasSearchFilter ? "Brak wyników" : "Brak sparowanych tabletów";
+    return [
+      { label: "Wszystkie", value: counts.all, tone: "neutral" },
+      { label: "Online", value: counts.online, tone: "success" },
+      { label: "Offline", value: counts.offline, tone: "danger" },
+      { label: "Oczekujące", value: counts.pending, tone: "warning" },
+      { label: "Jasny", value: lightThemeCount, tone: "neutral" },
+      { label: "Ciemny", value: darkThemeCount, tone: "neutral" },
+      { label: "Czarny ekran", value: blackScreenCount, tone: "warning" },
+      { label: "Wydziały", value: facultiesCount, tone: "neutral" },
+    ] as const;
+  }, [activeDevices, counts.all, counts.offline, counts.online, counts.pending]);
 
-  const emptyStateDescription =
-    loading && !hasSearchFilter
-      ? "Trwa pobieranie listy tabletów."
-      : hasSearchFilter
-        ? "Zmień filtr, aby zobaczyć sparowane urządzenia."
-        : "Przypisz tablet kodem, aby pojawił się tutaj.";
+  const emptyStateTitle = loading ? "Ładowanie urządzeń" : "Brak sparowanych tabletów";
+  const emptyStateDescription = loading
+    ? "Trwa pobieranie listy tabletów."
+    : "Przypisz tablet kodem, aby pojawił się tutaj.";
 
   useEffect(() => {
     if (selectAllRef.current) {
@@ -159,7 +175,7 @@ const DevicesView = ({
   const pairedDevicesTitle =
     selectedCount > 0 ? `Sparowane tablety (${selectedCount})` : "Sparowane tablety";
 
-  const batchActionsContent = hasPairedDevices ? (
+  const batchActionsContent = (
     <>
       <label className="admin-form-field admin-form-field--compact admin-table__header-field">
         <select
@@ -169,7 +185,7 @@ const DevicesView = ({
           onChange={(event) =>
             onBatchThemeValueChange(event.target.value as Device["displayTheme"])
           }
-          disabled={batchThemeUpdating}
+          disabled={batchThemeUpdating || !hasPairedDevices}
         >
           <option value="dark">Ciemny</option>
           <option value="light">Jasny</option>
@@ -191,7 +207,7 @@ const DevicesView = ({
           onChange={(event) =>
             onBatchBlackScreenValueChange(event.target.value as Device["blackScreenMode"])
           }
-          disabled={batchBlackScreenUpdating}
+          disabled={batchBlackScreenUpdating || !hasPairedDevices}
         >
           <option value="on">Włączony</option>
           <option value="off">Wyłączony</option>
@@ -212,6 +228,7 @@ const DevicesView = ({
         onClick={onDeleteSelectedDevices}
         disabled={batchUpdating || selectedCount === 0}
       >
+        <i className="fas fa-trash-alt" aria-hidden="true" />
         Usuń zaznaczone
       </button>
       <button
@@ -223,20 +240,38 @@ const DevicesView = ({
         Wyczyść
       </button>
     </>
-  ) : null;
+  );
 
   return (
     <div className="admin-devices-view">
       <div className="admin-devices-view__overview">
-        <AdminPanelSection title="Tablety">
-          <div className="admin-toolbar admin-toolbar--devices">
-            <AdminPanelSearchField
-              label="Szukaj"
-              placeholder="Sala, wydział, ID lub status"
-              value={searchTerm}
-              onChange={onSearchTermChange}
-            />
-            <div className="admin-toolbar__actions">
+        <PendingDeviceAssignmentSection
+          pendingDevicesCount={pendingDevices.length}
+          codeValue={pairingCode}
+          codeSuggestions={pairingSuggestions}
+          selectedDevice={pairingDevice}
+          roomValue={pairingRoom}
+          roomSuggestions={pairingRoomSuggestions}
+          showRoomSuggestions={pairingShowRoomSuggestions}
+          isLookingUp={pairingLookingUp}
+          isAssigning={pairingAssigning}
+          isSearchingRooms={pairingSearchingRooms}
+          codeTone={pairingCodeTone}
+          roomTone={pairingRoomTone}
+          onCodeChange={onPairingCodeChange}
+          onCodeSuggestionSelect={onPairingSuggestionSelect}
+          onLookup={onLookupPairingDevice}
+          onReset={onResetPairing}
+          onRoomChange={onPairingRoomChange}
+          onRoomSuggestionSelect={onPairingRoomSuggestionSelect}
+          onAssign={onAssignPairingDevice}
+        />
+
+        <AdminPanelSection
+          className="admin-devices-view__stats"
+          title="Statystyki"
+          actions={
+            <>
               <button
                 type="button"
                 className="admin-button admin-button--secondary admin-button--small"
@@ -261,10 +296,13 @@ const DevicesView = ({
                 />
                 {reloadingTablets ? "Wysyłanie" : "Przeładuj tablety"}
               </button>
-            </div>
-          </div>
-
-          <div className="admin-status-strip" aria-label="Status urządzeń">
+            </>
+          }
+        >
+          <div
+            className={`admin-status-strip ${statsColumnsClass}`}
+            aria-label="Status urządzeń"
+          >
             {statusItems.map((item) => (
               <div
                 key={item.label}
@@ -277,27 +315,21 @@ const DevicesView = ({
           </div>
         </AdminPanelSection>
 
-        <PendingDeviceAssignmentSection
-          pendingDevicesCount={pendingDevices.length}
-          codeValue={pairingCode}
-          codeSuggestions={pairingSuggestions}
-          selectedDevice={pairingDevice}
-          roomValue={pairingRoom}
-          roomSuggestions={pairingRoomSuggestions}
-          showRoomSuggestions={pairingShowRoomSuggestions}
-          isLookingUp={pairingLookingUp}
-          isAssigning={pairingAssigning}
-          isSearchingRooms={pairingSearchingRooms}
-          codeTone={pairingCodeTone}
-          roomTone={pairingRoomTone}
-          onCodeChange={onPairingCodeChange}
-          onCodeSuggestionSelect={onPairingSuggestionSelect}
-          onLookup={onLookupPairingDevice}
-          onReset={onResetPairing}
-          onRoomChange={onPairingRoomChange}
-          onRoomSuggestionSelect={onPairingRoomSuggestionSelect}
-          onAssign={onAssignPairingDevice}
-        />
+        <AdminPanelSection
+          className="admin-devices-view__batch"
+          title="Operacje zbiorowe"
+          actions={
+            <div className="admin-status-inline">
+              <span>
+                Zaznaczone: <strong>{selectedCount}</strong>
+              </span>
+            </div>
+          }
+        >
+          <div className="admin-batch-panel">
+            <div className="admin-table__batch-actions">{batchActionsContent}</div>
+          </div>
+        </AdminPanelSection>
       </div>
 
       <AdminPanelSection
@@ -305,11 +337,19 @@ const DevicesView = ({
         title={pairedDevicesTitle}
         actions={
           hasPairedDevices ? (
-            <div className="admin-table__batch-actions">{batchActionsContent}</div>
+            <div className="admin-devices-view__search">
+              <AdminPanelSearchField
+                label="Szukaj"
+                placeholder="Sala, wydział, ID lub status"
+                value={searchTerm}
+                onChange={onSearchTermChange}
+                compact
+              />
+            </div>
           ) : undefined
         }
       >
-        {activeDevices.length === 0 ? (
+        {!hasPairedDevices ? (
           <div className="admin-empty-state">
             <h3>{emptyStateTitle}</h3>
             <p>{emptyStateDescription}</p>
@@ -319,8 +359,7 @@ const DevicesView = ({
             caption="Lista aktywnych tabletów"
             devices={activeDevices}
             sortState={sortState}
-            desktopBatchActions={batchActionsContent}
-            desktopPinnedTitle={pairedDevicesTitle}
+            quickFilterText={searchTerm}
             selectAllRef={selectAllRef}
             allActiveSelected={allActiveSelected}
             selectedIds={selectedIds}
@@ -328,6 +367,7 @@ const DevicesView = ({
             blackScreenMutationDeviceId={blackScreenMutationDeviceId}
             batchThemeUpdating={batchThemeUpdating}
             batchBlackScreenUpdating={batchBlackScreenUpdating}
+            onVisibleDeviceIdsChange={onVisibleDeviceIdsChange}
             onSortColumn={onSortColumn}
             onToggleAllActiveDevices={onToggleAllActiveDevices}
             onToggleDeviceSelection={onToggleDeviceSelection}

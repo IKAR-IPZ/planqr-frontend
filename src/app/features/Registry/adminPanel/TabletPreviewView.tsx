@@ -341,7 +341,7 @@ const TabletPreviewView = ({
 
   useEffect(() => {
     setDeviceQuery(device ? getDevicePickerLabel(device) : "");
-  }, [device?.id, device?.deviceClassroom, device?.deviceId]);
+  }, [device]);
 
   useEffect(() => {
     pauseNotificationsRefreshRef.current =
@@ -599,7 +599,7 @@ const TabletPreviewView = ({
         resetMessageEditing();
       }
       onToast("Usunięto powiadomienie.", "success");
-    } catch (error) {
+    } catch {
       onToast("Nie udało się usunąć powiadomienia.", "danger");
     } finally {
       setMessageMutationId(null);
@@ -636,7 +636,7 @@ const TabletPreviewView = ({
       );
       resetMessageEditing();
       onToast("Zapisano zmiany w powiadomieniu.", "success");
-    } catch (error) {
+    } catch {
       onToast("Nie udało się zapisać zmian w powiadomieniu.", "danger");
     } finally {
       setMessageMutationId(null);

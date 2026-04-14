@@ -26,7 +26,6 @@ import {
   getDeviceDisplayName,
   getNextDeviceSortState,
   hasDeviceDisplayProfile,
-  matchesDeviceSearch,
   normalizeRoomValue,
   ROOM_SEARCH_DEBOUNCE_MS,
   ROOM_SEARCH_MIN_LENGTH,
@@ -134,6 +133,7 @@ const AdminRegistry = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [deviceSort, setDeviceSort] = useState<DeviceSortState>(defaultDeviceSortState);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
+  const [visibleDeviceIds, setVisibleDeviceIds] = useState<number[]>([]);
   const [batchMutationLoading, setBatchMutationLoading] = useState(false);
   const [batchThemeValue, setBatchThemeValue] = useState<Device["displayTheme"]>("dark");
   const [batchThemeLoading, setBatchThemeLoading] = useState(false);
@@ -239,9 +239,15 @@ const AdminRegistry = () => {
   }, [devices, pairingCode, pairingDevice]);
   const allPendingDevices = devices.filter((device) => device.status === "PENDING");
   const pairedDevices = devices.filter((device) => device.status === "ACTIVE");
-  const activeDevices = sortDevices(
-    pairedDevices.filter((device) => matchesDeviceSearch(device, searchTerm)),
-    deviceSort,
+  const activeDevices = sortDevices(pairedDevices, deviceSort);
+  const selectedDeviceIdSet = useMemo(() => new Set(selectedDeviceIds), [selectedDeviceIds]);
+  const visibleDeviceIdSet = useMemo(() => new Set(visibleDeviceIds), [visibleDeviceIds]);
+  const selectedVisibleDevices = useMemo(
+    () =>
+      pairedDevices.filter(
+        (device) => selectedDeviceIdSet.has(device.id) && visibleDeviceIdSet.has(device.id),
+      ),
+    [pairedDevices, selectedDeviceIdSet, visibleDeviceIdSet],
   );
   const onlineDevicesCount = pairedDevices.filter(
     (device) => device.connectionStatus === "ONLINE",
@@ -254,6 +260,14 @@ const AdminRegistry = () => {
   useEffect(() => {
     window.localStorage.setItem(ADMIN_THEME_STORAGE_KEY, adminTheme);
   }, [adminTheme]);
+
+  useEffect(() => {
+    if (activeDevices.length > 0) {
+      return;
+    }
+
+    setVisibleDeviceIds((current) => (current.length === 0 ? current : []));
+  }, [activeDevices.length]);
 
   useEffect(() => {
     document.documentElement.classList.add(ADMIN_SCROLL_ROOT_CLASS);
@@ -519,17 +533,20 @@ const AdminRegistry = () => {
     closeDrawer();
   };
 
-  const setTabletPreviewSearchParams = (deviceId?: number | null) => {
-    if (!deviceId) {
-      setSearchParams({ view: "tablet-preview" });
-      return;
-    }
+  const setTabletPreviewSearchParams = useCallback(
+    (deviceId?: number | null) => {
+      if (!deviceId) {
+        setSearchParams({ view: "tablet-preview" });
+        return;
+      }
 
-    setSearchParams({
-      view: "tablet-preview",
-      deviceId: String(deviceId),
-    });
-  };
+      setSearchParams({
+        view: "tablet-preview",
+        deviceId: String(deviceId),
+      });
+    },
+    [setSearchParams],
+  );
 
   const openTabletPreviewView = (deviceId?: number | null) => {
     closeMobilePanels();
@@ -819,9 +836,7 @@ const AdminRegistry = () => {
   };
 
   const handleBatchThemeUpdate = async () => {
-    const selectedDevices = pairedDevices.filter((device) =>
-      selectedDeviceIds.includes(device.id),
-    );
+    const selectedDevices = selectedVisibleDevices;
 
     if (selectedDevices.length === 0) {
       pushToast("Zaznacz co najmniej jeden tablet.", "danger");
@@ -871,9 +886,7 @@ const AdminRegistry = () => {
   };
 
   const handleBatchBlackScreenUpdate = async () => {
-    const selectedDevices = pairedDevices.filter((device) =>
-      selectedDeviceIds.includes(device.id),
-    );
+    const selectedDevices = selectedVisibleDevices;
 
     if (selectedDevices.length === 0) {
       pushToast("Zaznacz co najmniej jeden tablet.", "danger");
@@ -1080,7 +1093,14 @@ const AdminRegistry = () => {
     if (!previewState || previewState.deviceId !== previewDevice.id) {
       void openDevicePreview(previewDevice);
     }
-  }, [activeDevices, currentView, previewDevice, previewDeviceId, previewState]);
+  }, [
+    activeDevices,
+    currentView,
+    previewDevice,
+    previewDeviceId,
+    previewState,
+    setTabletPreviewSearchParams,
+  ]);
 
   useEffect(() => {
     if (previewState?.phase !== "loading-profile" || previewState.requestedAt === null) {
@@ -1594,13 +1614,11 @@ const AdminRegistry = () => {
   };
 
   const handleToggleAllActiveDevices = (checked: boolean) => {
-    setSelectedDeviceIds(checked ? activeDevices.map((device) => device.id) : []);
+    setSelectedDeviceIds(checked ? [...visibleDeviceIds] : []);
   };
 
   const handleDeleteSelectedDevices = async () => {
-    const selectedDevices = activeDevices.filter((device) =>
-      selectedDeviceIds.includes(device.id),
-    );
+    const selectedDevices = selectedVisibleDevices;
 
     if (selectedDevices.length === 0) {
       pushToast("Zaznacz co najmniej jeden tablet.", "danger");
@@ -1732,12 +1750,12 @@ const AdminRegistry = () => {
   };
 
   useEffect(() => {
-    const visibleIds = new Set(activeDevices.map((device) => device.id));
+    const visibleIds = new Set(visibleDeviceIds);
     setSelectedDeviceIds((current) => {
       const next = current.filter((deviceId) => visibleIds.has(deviceId));
       return next.length === current.length ? current : next;
     });
-  }, [activeDevices]);
+  }, [visibleDeviceIds]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -1886,6 +1904,7 @@ const AdminRegistry = () => {
               batchThemeValue={batchThemeValue}
               batchBlackScreenValue={batchBlackScreenValue}
               selectedDeviceIds={selectedDeviceIds}
+              visibleDeviceIds={visibleDeviceIds}
               searchTerm={searchTerm}
               sortState={deviceSort}
               pairingCode={pairingCode}
@@ -1900,6 +1919,7 @@ const AdminRegistry = () => {
               pairingCodeTone={pairingCodeTone}
               pairingRoomTone={pairingRoomTone}
               onSearchTermChange={setSearchTerm}
+              onVisibleDeviceIdsChange={setVisibleDeviceIds}
               onSortColumn={(column) => {
                 setDeviceSort((currentSort) => getNextDeviceSortState(currentSort, column));
               }}

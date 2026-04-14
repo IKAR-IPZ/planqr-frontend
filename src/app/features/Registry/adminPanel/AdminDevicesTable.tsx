@@ -1,23 +1,12 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   AllCommunityModule,
   ModuleRegistry,
-  type BodyScrollEvent,
   type CellKeyDownEvent,
   type ColDef,
-  type ColumnResizedEvent,
-  type DisplayedColumnsChangedEvent,
   type GridApi,
-  type GridSizeChangedEvent,
   type GridReadyEvent,
+  type GridSizeChangedEvent,
   type ICellRendererParams,
   type IHeaderParams,
   type RowClickedEvent,
@@ -33,6 +22,7 @@ import {
   getDeviceDisplayName,
   splitDeviceClassroom,
 } from "./helpers";
+import EnumOptionsFilter, { type EnumOptionsFilterOption } from "./EnumOptionsFilter";
 import type { Device, DeviceSortColumn, DeviceSortState } from "./types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -48,8 +38,7 @@ interface AdminDevicesTableProps {
   caption: string;
   devices: Device[];
   sortState: DeviceSortState;
-  desktopBatchActions?: ReactNode;
-  desktopPinnedTitle?: string;
+  quickFilterText: string;
   selectAllRef: RefObject<HTMLInputElement | null>;
   allActiveSelected: boolean;
   selectedIds: ReadonlySet<number>;
@@ -57,6 +46,7 @@ interface AdminDevicesTableProps {
   blackScreenMutationDeviceId: number | null;
   batchThemeUpdating: boolean;
   batchBlackScreenUpdating: boolean;
+  onVisibleDeviceIdsChange: (ids: number[]) => void;
   onSortColumn: (column: DeviceSortColumn) => void;
   onToggleAllActiveDevices: (checked: boolean) => void;
   onToggleDeviceSelection: (deviceId: number) => void;
@@ -80,6 +70,8 @@ interface DeviceGridRow {
   connectionLabel: string;
   connectionTone: string;
   formattedLastSeen: string;
+  displayThemeLabel: string;
+  blackScreenModeLabel: string;
   isSelected: boolean;
 }
 
@@ -150,6 +142,17 @@ const sizeRoomColumnToContent = (api: GridApi<DeviceGridRow>) => {
   );
 };
 
+const getDisplayThemeLabel = (theme: Device["displayTheme"]) =>
+  theme === "light" ? "Jasny" : "Ciemny";
+
+const getBlackScreenModeLabel = (mode: Device["blackScreenMode"]) => {
+  if (mode === "follow") {
+    return "Harmonogram";
+  }
+
+  return mode === "on" ? "Włączony" : "Wyłączony";
+};
+
 const stopGridEventPropagation = (
   event:
     | React.MouseEvent<HTMLElement>
@@ -208,29 +211,55 @@ const getSortButtonState = (sortState: DeviceSortState, column: DeviceSortColumn
   };
 };
 
-
 const SortableHeader = ({
+  column,
+  showFilter,
+  enableFilterButton,
   label,
   columnKey,
   sortState,
   onSortColumn,
   align = "left",
 }: SortableHeaderProps) => {
+  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const sortButtonState = getSortButtonState(sortState, columnKey);
+  const filterActive = column.isFilterActive();
 
   return (
     <div className={`admin-devices-grid__header admin-devices-grid__header--${align}`}>
-      <button
-        type="button"
-        className={`admin-table__sort-button${
-          sortButtonState.active ? " admin-table__sort-button--active" : ""
-        }`}
-        onClick={() => onSortColumn(columnKey)}
-        aria-label={`${label}. ${sortButtonState.label}. Kliknij, aby zmienić sortowanie.`}
-      >
-        <span>{label}</span>
-        <i className={sortButtonState.icon} aria-hidden="true" />
-      </button>
+      <div className="admin-devices-grid__header-main">
+        <button
+          type="button"
+          className={`admin-table__sort-button${
+            sortButtonState.active ? " admin-table__sort-button--active" : ""
+          }`}
+          onClick={() => onSortColumn(columnKey)}
+          aria-label={`${label}. ${sortButtonState.label}. Kliknij, aby zmienić sortowanie.`}
+        >
+          <span>{label}</span>
+          <i className={sortButtonState.icon} aria-hidden="true" />
+        </button>
+        {enableFilterButton ? (
+          <button
+            ref={filterButtonRef}
+            type="button"
+            className={`admin-devices-grid__filter-button${
+              filterActive ? " admin-devices-grid__filter-button--active" : ""
+            }`}
+            aria-pressed={filterActive}
+            aria-label={`Filtruj kolumnę ${label}`}
+            title={`Filtruj kolumnę ${label}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (filterButtonRef.current) {
+                showFilter(filterButtonRef.current);
+              }
+            }}
+          >
+            <i className="fas fa-filter" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 };
@@ -446,12 +475,29 @@ const DeviceActionsCell = ({
   );
 };
 
+const areIdListsEqual = (left: number[], right: number[]) =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
+
+const enumFilterColumn = (
+  options: EnumOptionsFilterOption[],
+  filterParams?: Partial<{
+    searchPlaceholder: string;
+    emptyStateLabel: string;
+    searchable: boolean;
+  }>,
+): Partial<ColDef<DeviceGridRow>> => ({
+  filter: EnumOptionsFilter,
+  filterParams: {
+    options,
+    ...filterParams,
+  },
+});
+
 const AdminDevicesTable = ({
   caption,
   devices,
   sortState,
-  desktopBatchActions,
-  desktopPinnedTitle,
+  quickFilterText,
   selectAllRef,
   allActiveSelected,
   selectedIds,
@@ -459,6 +505,7 @@ const AdminDevicesTable = ({
   blackScreenMutationDeviceId,
   batchThemeUpdating,
   batchBlackScreenUpdating,
+  onVisibleDeviceIdsChange,
   onSortColumn,
   onToggleAllActiveDevices,
   onToggleDeviceSelection,
@@ -470,11 +517,7 @@ const AdminDevicesTable = ({
 }: AdminDevicesTableProps) => {
   const isMobile = useIsMobileViewport();
   const gridApiRef = useRef<GridApi<DeviceGridRow> | null>(null);
-  const [desktopGridChrome, setDesktopGridChrome] = useState({
-    pinnedLeftWidth: 0,
-    centerWidth: 0,
-    scrollLeft: 0,
-  });
+  const reportedVisibleIdsRef = useRef<number[]>([]);
 
   const rows = useMemo<DeviceGridRow[]>(
     () =>
@@ -492,19 +535,13 @@ const AdminDevicesTable = ({
           connectionLabel: getConnectionLabel(device),
           connectionTone: getConnectionTone(device),
           formattedLastSeen: formatLastSeen(device.lastSeen),
+          displayThemeLabel: getDisplayThemeLabel(device.displayTheme),
+          blackScreenModeLabel: getBlackScreenModeLabel(device.blackScreenMode),
           isSelected: selectedIds.has(device.id),
         };
       }),
     [devices, selectedIds],
   );
-  const partiallySelected =
-    rows.some((row) => row.isSelected) && !allActiveSelected;
-
-  useEffect(() => {
-    if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = partiallySelected;
-    }
-  }, [partiallySelected, selectAllRef]);
 
   const widestRoomLabel = useMemo(
     () =>
@@ -516,62 +553,48 @@ const AdminDevicesTable = ({
     [rows],
   );
 
-  const updateDesktopGridChrome = useCallback(
-    (api: GridApi<DeviceGridRow>, nextScrollLeft?: number) => {
-      const visibleColumns = (api.getColumns() ?? []).filter((column) => column.isVisible());
-      const pinnedLeftWidth = visibleColumns.reduce(
-        (total, column) =>
-          column.getPinned() === "left" || column.getPinned() === true
-            ? total + column.getActualWidth()
-            : total,
-        0,
-      );
-      const pinnedRightWidth = visibleColumns.reduce(
-        (total, column) =>
-          column.getPinned() === "right" ? total + column.getActualWidth() : total,
-        0,
-      );
-      const totalWidth = visibleColumns.reduce(
-        (total, column) => total + column.getActualWidth(),
-        0,
-      );
-      const centerWidth = Math.max(totalWidth - pinnedLeftWidth - pinnedRightWidth, 0);
+  const facultyFilterOptions = useMemo<EnumOptionsFilterOption[]>(
+    () =>
+      Array.from(new Set(rows.map((row) => row.facultyCode.trim()).filter(Boolean))).map(
+        (value) => ({
+          value,
+        }),
+      ),
+    [rows],
+  );
 
-      setDesktopGridChrome((current) => {
-        const scrollLeft = nextScrollLeft ?? current.scrollLeft;
+  const syncVisibleDeviceIds = useCallback(
+    (api: GridApi<DeviceGridRow>) => {
+      const nextVisibleIds: number[] = [];
 
-        if (
-          current.pinnedLeftWidth === pinnedLeftWidth &&
-          current.centerWidth === centerWidth &&
-          current.scrollLeft === scrollLeft
-        ) {
-          return current;
+      api.forEachNodeAfterFilterAndSort((node) => {
+        if (typeof node.data?.id === "number") {
+          nextVisibleIds.push(node.data.id);
         }
-
-        return {
-          pinnedLeftWidth,
-          centerWidth,
-          scrollLeft,
-        };
       });
+
+      if (areIdListsEqual(reportedVisibleIdsRef.current, nextVisibleIds)) {
+        return;
+      }
+
+      reportedVisibleIdsRef.current = nextVisibleIds;
+      onVisibleDeviceIdsChange(nextVisibleIds);
     },
-    [],
+    [onVisibleDeviceIdsChange],
   );
 
   const scheduleRoomColumnResize = useCallback(
     (api: GridApi<DeviceGridRow>) => {
       if (typeof window === "undefined") {
         sizeRoomColumnToContent(api);
-        updateDesktopGridChrome(api);
         return;
       }
 
       window.requestAnimationFrame(() => {
         sizeRoomColumnToContent(api);
-        updateDesktopGridChrome(api);
       });
     },
-    [updateDesktopGridChrome],
+    [],
   );
 
   useEffect(() => {
@@ -582,12 +605,22 @@ const AdminDevicesTable = ({
     scheduleRoomColumnResize(gridApiRef.current);
   }, [scheduleRoomColumnResize, widestRoomLabel]);
 
+  useEffect(() => {
+    if (!gridApiRef.current) {
+      return;
+    }
+
+    gridApiRef.current.setGridOption("quickFilterText", quickFilterText);
+    syncVisibleDeviceIds(gridApiRef.current);
+  }, [quickFilterText, syncVisibleDeviceIds]);
+
   const defaultColDef = useMemo<ColDef<DeviceGridRow>>(
     () => ({
       sortable: false,
       resizable: false,
       suppressMovable: true,
       suppressHeaderMenuButton: true,
+      filter: false,
     }),
     [],
   );
@@ -617,6 +650,7 @@ const AdminDevicesTable = ({
       },
       {
         colId: ROOM_COLUMN_ID,
+        field: "roomLabel",
         minWidth: ROOM_COLUMN_MIN_WIDTH,
         width: ROOM_COLUMN_MIN_WIDTH,
         pinned: isMobile ? undefined : "left",
@@ -634,6 +668,7 @@ const AdminDevicesTable = ({
       },
       {
         colId: "faculty",
+        field: "facultyCode",
         minWidth: 110,
         flex: 0.8,
         headerComponent: SortableHeader,
@@ -645,9 +680,15 @@ const AdminDevicesTable = ({
           align: "center",
         },
         cellRenderer: FacultyCell,
+        ...enumFilterColumn(facultyFilterOptions, {
+          searchPlaceholder: "Szukaj wydziału",
+          emptyStateLabel: "Brak wydziałów dla bieżących danych.",
+          searchable: true,
+        }),
       },
       {
         colId: "deviceId",
+        field: "formattedDeviceId",
         minWidth: 140,
         flex: 0.95,
         headerComponent: SortableHeader,
@@ -662,6 +703,7 @@ const AdminDevicesTable = ({
       },
       {
         colId: "status",
+        field: "connectionLabel",
         minWidth: 140,
         flex: 0.9,
         headerComponent: SortableHeader,
@@ -673,9 +715,25 @@ const AdminDevicesTable = ({
           align: "center",
         },
         cellRenderer: StatusCell,
+        ...enumFilterColumn(
+          [
+            {
+              value: "Online",
+              description: "Tablety z aktywnym połączeniem",
+            },
+            {
+              value: "Offline",
+              description: "Tablety bez aktywnego połączenia",
+            },
+          ],
+          {
+            searchable: false,
+          },
+        ),
       },
       {
         colId: "lastSeen",
+        field: "formattedLastSeen",
         minWidth: 180,
         flex: 1.2,
         headerComponent: SortableHeader,
@@ -690,6 +748,7 @@ const AdminDevicesTable = ({
       },
       {
         colId: "displayTheme",
+        field: "displayThemeLabel",
         minWidth: 160,
         flex: 1,
         headerComponent: SortableHeader,
@@ -706,9 +765,25 @@ const AdminDevicesTable = ({
           batchThemeUpdating,
           onDeviceThemeChange,
         },
+        ...enumFilterColumn(
+          [
+            {
+              value: "Ciemny",
+              description: "Interfejs w ciemnym motywie",
+            },
+            {
+              value: "Jasny",
+              description: "Interfejs w jasnym motywie",
+            },
+          ],
+          {
+            searchable: false,
+          },
+        ),
       },
       {
         colId: "blackScreen",
+        field: "blackScreenModeLabel",
         minWidth: BLACK_SCREEN_COLUMN_MIN_WIDTH,
         width: BLACK_SCREEN_COLUMN_MIN_WIDTH,
         flex: 0.95,
@@ -726,6 +801,25 @@ const AdminDevicesTable = ({
           batchBlackScreenUpdating,
           onDeviceBlackScreenModeChange,
         },
+        ...enumFilterColumn(
+          [
+            {
+              value: "Włączony",
+              group: "Sterowanie ręczne",
+            },
+            {
+              value: "Wyłączony",
+              group: "Sterowanie ręczne",
+            },
+            {
+              value: "Harmonogram",
+              group: "Automatyka",
+            },
+          ],
+          {
+            searchable: false,
+          },
+        ),
       },
       {
         colId: "actions",
@@ -747,11 +841,12 @@ const AdminDevicesTable = ({
       batchBlackScreenUpdating,
       batchThemeUpdating,
       blackScreenMutationDeviceId,
+      facultyFilterOptions,
+      isMobile,
       onDeleteDevice,
       onDeviceBlackScreenModeChange,
       onDeviceThemeChange,
       onEditDevice,
-      isMobile,
       onPreviewDevice,
       onSortColumn,
       onToggleAllActiveDevices,
@@ -761,8 +856,6 @@ const AdminDevicesTable = ({
       themeMutationDeviceId,
     ],
   );
-
-  const showPinnedBatchTitle = !isMobile && Boolean(desktopPinnedTitle);
 
   const handleRowClicked = (event: RowClickedEvent<DeviceGridRow>) => {
     if (!event.data || isInteractiveTarget(event.event?.target ?? null)) {
@@ -787,50 +880,18 @@ const AdminDevicesTable = ({
 
   const handleGridReady = (event: GridReadyEvent<DeviceGridRow>) => {
     gridApiRef.current = event.api;
+    event.api.setGridOption("quickFilterText", quickFilterText);
     scheduleRoomColumnResize(event.api);
+    syncVisibleDeviceIds(event.api);
   };
 
-  const handleBodyScroll = (event: BodyScrollEvent<DeviceGridRow>) => {
-    updateDesktopGridChrome(event.api, event.left);
-  };
-
-  const handleGridChromeChange = (
-    event:
-      | ColumnResizedEvent<DeviceGridRow>
-      | DisplayedColumnsChangedEvent<DeviceGridRow>
-      | GridSizeChangedEvent<DeviceGridRow>,
-  ) => {
-    updateDesktopGridChrome(event.api);
+  const handleGridSizeChanged = (event: GridSizeChangedEvent<DeviceGridRow>) => {
+    scheduleRoomColumnResize(event.api);
   };
 
   return (
     <div className="admin-devices-grid">
       <span className="admin-table__caption">{caption}</span>
-      {desktopBatchActions ? (
-        <div className="admin-devices-grid__batch-shell">
-          {showPinnedBatchTitle ? (
-            <div
-              className="admin-devices-grid__batch-pinned"
-              style={{ width: `${desktopGridChrome.pinnedLeftWidth}px` }}
-            >
-              <div className="admin-devices-grid__batch-title">{desktopPinnedTitle}</div>
-            </div>
-          ) : null}
-          <div className="admin-devices-grid__batch-viewport">
-            <div
-              className="admin-devices-grid__batch-scroll"
-              style={{
-                width: `${desktopGridChrome.centerWidth}px`,
-                transform: `translateX(-${desktopGridChrome.scrollLeft}px)`,
-              }}
-            >
-              <div className="admin-table__batch-actions admin-table__batch-actions--grid">
-                {desktopBatchActions}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
       <div className="ag-theme-quartz admin-devices-grid__theme">
         <AgGridReact<DeviceGridRow>
           rowData={rows}
@@ -845,15 +906,20 @@ const AdminDevicesTable = ({
           suppressScrollOnNewData
           suppressMovableColumns
           suppressCellFocus={false}
+          overlayNoRowsTemplate={
+            '<span class="admin-devices-grid__overlay">Brak wyników dla bieżących filtrów.</span>'
+          }
           rowClass="admin-devices-grid__row"
           rowClassRules={{
             "admin-devices-grid__row--selected": ({ data }) => Boolean(data?.isSelected),
           }}
           onGridReady={handleGridReady}
-          onBodyScroll={handleBodyScroll}
-          onColumnResized={handleGridChromeChange}
-          onDisplayedColumnsChanged={handleGridChromeChange}
-          onGridSizeChanged={handleGridChromeChange}
+          onGridSizeChanged={handleGridSizeChanged}
+          onFilterChanged={({ api }) => {
+            api.refreshHeader();
+            syncVisibleDeviceIds(api);
+          }}
+          onModelUpdated={({ api }) => syncVisibleDeviceIds(api)}
           onRowClicked={handleRowClicked}
           onCellKeyDown={handleCellKeyDown}
         />

@@ -49,6 +49,7 @@ const PendingDeviceAssignmentSection = ({
 
   return (
     <AdminPanelSection
+      className="admin-devices-view__assignment"
       title="Dodaj tablet"
       actions={
         <div className="admin-status-inline">
@@ -97,7 +98,7 @@ const PendingDeviceAssignmentSection = ({
 
             <button
               type="button"
-              className="admin-button admin-button--primary"
+              className="admin-button admin-button--primary admin-button--small"
               onClick={onLookup}
               disabled={selectedDevice !== null || isLookingUp || !codeValue.trim()}
             >
@@ -106,7 +107,7 @@ const PendingDeviceAssignmentSection = ({
 
             <button
               type="button"
-              className="admin-button admin-button--ghost"
+              className="admin-button admin-button--ghost admin-button--small"
               onClick={onReset}
               disabled={isLookingUp || isAssigning}
             >
@@ -154,7 +155,7 @@ const PendingDeviceAssignmentSection = ({
 
             <button
               type="button"
-              className="admin-button admin-button--secondary"
+              className="admin-button admin-button--secondary admin-button--small"
               onClick={onAssign}
               disabled={selectedDevice === null || isAssigning || !roomValue.trim()}
             >
