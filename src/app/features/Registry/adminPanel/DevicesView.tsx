@@ -221,51 +221,55 @@ const DevicesView = ({
 
   const batchActionsContent = (
     <>
-      <label className="admin-form-field admin-form-field--compact admin-table__header-field">
-        <select
-          className="admin-form-field__input"
-          aria-label="Batchowa zmiana trybu tabletu"
-          value={batchThemeValue}
-          onChange={(event) =>
-            onBatchThemeValueChange(event.target.value as Device["displayTheme"])
-          }
-          disabled={batchThemeUpdating || !hasPairedDevices}
+      <div className="admin-table__batch-control">
+        <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+          <select
+            className="admin-form-field__input admin-table__theme-select"
+            aria-label="Batchowa zmiana trybu tabletu"
+            value={batchThemeValue}
+            onChange={(event) =>
+              onBatchThemeValueChange(event.target.value as Device["displayTheme"])
+            }
+            disabled={batchThemeUpdating || !hasPairedDevices}
+          >
+            <option value="dark">Ciemny</option>
+            <option value="light">Jasny</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          className="admin-button admin-button--secondary admin-button--small"
+          onClick={onApplyBatchTheme}
+          disabled={batchThemeUpdating || selectedCount === 0}
         >
-          <option value="dark">Ciemny</option>
-          <option value="light">Jasny</option>
-        </select>
-      </label>
-      <button
-        type="button"
-        className="admin-button admin-button--secondary admin-button--small"
-        onClick={onApplyBatchTheme}
-        disabled={batchThemeUpdating || selectedCount === 0}
-      >
-        {batchThemeUpdating ? "Zapisywanie" : "Zmień tryb"}
-      </button>
-      <label className="admin-form-field admin-form-field--compact admin-table__header-field">
-        <select
-          className="admin-form-field__input"
-          aria-label="Batchowa zmiana czarnego ekranu"
-          value={batchBlackScreenValue}
-          onChange={(event) =>
-            onBatchBlackScreenValueChange(event.target.value as Device["blackScreenMode"])
-          }
-          disabled={batchBlackScreenUpdating || !hasPairedDevices}
+          {batchThemeUpdating ? "Zapisywanie" : "Ustaw"}
+        </button>
+      </div>
+      <div className="admin-table__batch-control">
+        <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+          <select
+            className="admin-form-field__input admin-table__mode-select"
+            aria-label="Batchowa zmiana czarnego ekranu"
+            value={batchBlackScreenValue}
+            onChange={(event) =>
+              onBatchBlackScreenValueChange(event.target.value as Device["blackScreenMode"])
+            }
+            disabled={batchBlackScreenUpdating || !hasPairedDevices}
+          >
+            <option value="on">Włączony</option>
+            <option value="off">Wyłączony</option>
+            <option value="follow">Harmonogram</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          className="admin-button admin-button--secondary admin-button--small"
+          onClick={onApplyBatchBlackScreen}
+          disabled={batchBlackScreenUpdating || selectedCount === 0}
         >
-          <option value="on">Włączony</option>
-          <option value="off">Wyłączony</option>
-          <option value="follow">Harmonogram</option>
-        </select>
-      </label>
-      <button
-        type="button"
-        className="admin-button admin-button--secondary admin-button--small"
-        onClick={onApplyBatchBlackScreen}
-        disabled={batchBlackScreenUpdating || selectedCount === 0}
-      >
-        {batchBlackScreenUpdating ? "Zapisywanie" : "Ustaw czarny ekran"}
-      </button>
+          {batchBlackScreenUpdating ? "Zapisywanie" : "Ustaw"}
+        </button>
+      </div>
       <button
         type="button"
         className="admin-button admin-button--danger admin-button--small"

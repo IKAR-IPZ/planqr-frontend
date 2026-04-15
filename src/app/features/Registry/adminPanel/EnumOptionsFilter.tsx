@@ -74,44 +74,21 @@ const EnumOptionsFilter = <TData,>({
     providedEmptyStateLabel ?? filterParams.emptyStateLabel ?? "Brak pasujących opcji.";
   const searchable = providedSearchable ?? filterParams.searchable ?? options.length >= 8;
 
-  const groupedOptions = useMemo(() => {
+  const visibleOptions = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
-    const visibleOptions = normalizedSearchTerm
+    return normalizedSearchTerm
       ? options.filter((option) => {
           const label = option.label ?? option.value;
-          const description = option.description ?? "";
+          const group = option.group ?? "";
 
-          return `${label} ${description}`.toLowerCase().includes(normalizedSearchTerm);
+          return `${label} ${group}`.toLowerCase().includes(normalizedSearchTerm);
         })
       : options;
-
-    const nextGroups = new Map<string, EnumOptionsFilterOption[]>();
-
-    visibleOptions.forEach((option) => {
-      const groupKey = option.group ?? "";
-      const currentGroup = nextGroups.get(groupKey);
-
-      if (currentGroup) {
-        currentGroup.push(option);
-        return;
-      }
-
-      nextGroups.set(groupKey, [option]);
-    });
-
-    return Array.from(nextGroups.entries()).map(([group, groupOptions]) => ({
-      group,
-      options: groupOptions,
-    }));
   }, [options, searchTerm]);
 
   const isDirty = !areValueListsEqual(draftValues, appliedValues);
   const allSelected = draftValues.length === optionValues.length;
   const noneSelected = draftValues.length === 0;
-  const showGroupLabels =
-    groupedOptions.length > 1 || groupedOptions.some((group) => group.group.trim().length > 0);
-  const flatOptions = showGroupLabels ? [] : groupedOptions.flatMap((group) => group.options);
-
   useGridFilter({
     doesFilterPass: ({ node }: IDoesFilterPassParams<TData>) => {
       if (!model?.values) {
@@ -216,11 +193,11 @@ const EnumOptionsFilter = <TData,>({
       </div>
 
       <div className="admin-enum-filter__list" role="group" aria-label="Opcje filtra">
-        {groupedOptions.length === 0 ? (
+        {visibleOptions.length === 0 ? (
           <div className="admin-enum-filter__empty">{emptyStateLabel}</div>
-        ) : !showGroupLabels ? (
+        ) : (
           <div className="admin-enum-filter__group-items">
-            {flatOptions.map((option) => {
+            {visibleOptions.map((option) => {
               const checked = draftValues.includes(option.value);
 
               return (
@@ -232,43 +209,11 @@ const EnumOptionsFilter = <TData,>({
                   />
                   <span className="admin-enum-filter__option-label">
                     <strong>{option.label ?? option.value}</strong>
-                    {option.description ? <span>{option.description}</span> : null}
                   </span>
                 </label>
               );
             })}
           </div>
-        ) : (
-          groupedOptions.map(({ group, options: groupItems }) => (
-            <section
-              key={group || "__default__"}
-              className="admin-enum-filter__group"
-              aria-label={group || "Opcje"}
-            >
-              {showGroupLabels ? (
-                <div className="admin-enum-filter__group-title">{group || "Opcje"}</div>
-              ) : null}
-              <div className="admin-enum-filter__group-items">
-                {groupItems.map((option) => {
-                  const checked = draftValues.includes(option.value);
-
-                  return (
-                    <label key={option.value} className="admin-enum-filter__option">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => handleToggleValue(option.value)}
-                      />
-                      <span className="admin-enum-filter__option-label">
-                        <strong>{option.label ?? option.value}</strong>
-                        {option.description ? <span>{option.description}</span> : null}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </section>
-          ))
         )}
       </div>
 

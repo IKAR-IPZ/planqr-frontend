@@ -29,9 +29,13 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 const MOBILE_BREAKPOINT_PX = 720;
 const ROOM_COLUMN_ID = "room";
-const ROOM_COLUMN_MIN_WIDTH = 180;
+const ROOM_COLUMN_MIN_WIDTH = 80;
+const ROOM_COLUMN_MAX_WIDTH = 280;
 const ROOM_COLUMN_EXTRA_WIDTH = 32;
-const BLACK_SCREEN_COLUMN_MIN_WIDTH = 190;
+const DISPLAY_THEME_COLUMN_MIN_WIDTH = 132;
+const DISPLAY_THEME_COLUMN_MAX_WIDTH = 152;
+const BLACK_SCREEN_COLUMN_MIN_WIDTH = 156;
+const BLACK_SCREEN_COLUMN_MAX_WIDTH = 182;
 const ACTIONS_COLUMN_MIN_WIDTH = 144;
 
 interface AdminDevicesTableProps {
@@ -118,7 +122,13 @@ const sizeRoomColumnToContent = (api: GridApi<DeviceGridRow>) => {
   api.autoSizeColumns({
     colIds: [ROOM_COLUMN_ID],
     skipHeader: true,
-    columnLimits: [{ colId: ROOM_COLUMN_ID, minWidth: ROOM_COLUMN_MIN_WIDTH }],
+    columnLimits: [
+      {
+        colId: ROOM_COLUMN_ID,
+        minWidth: ROOM_COLUMN_MIN_WIDTH,
+        maxWidth: ROOM_COLUMN_MAX_WIDTH,
+      },
+    ],
   });
 
   const roomColumn = api.getColumn(ROOM_COLUMN_ID);
@@ -131,9 +141,9 @@ const sizeRoomColumnToContent = (api: GridApi<DeviceGridRow>) => {
     [
       {
         key: ROOM_COLUMN_ID,
-        newWidth: Math.max(
-          roomColumn.getActualWidth() + ROOM_COLUMN_EXTRA_WIDTH,
-          ROOM_COLUMN_MIN_WIDTH,
+        newWidth: Math.min(
+          Math.max(roomColumn.getActualWidth() + ROOM_COLUMN_EXTRA_WIDTH, ROOM_COLUMN_MIN_WIDTH),
+          ROOM_COLUMN_MAX_WIDTH,
         ),
       },
     ],
@@ -652,6 +662,7 @@ const AdminDevicesTable = ({
         colId: ROOM_COLUMN_ID,
         field: "roomLabel",
         minWidth: ROOM_COLUMN_MIN_WIDTH,
+        maxWidth: ROOM_COLUMN_MAX_WIDTH,
         width: ROOM_COLUMN_MIN_WIDTH,
         pinned: isMobile ? undefined : "left",
         lockPinned: !isMobile,
@@ -749,8 +760,10 @@ const AdminDevicesTable = ({
       {
         colId: "displayTheme",
         field: "displayThemeLabel",
-        minWidth: 160,
-        flex: 1,
+        minWidth: DISPLAY_THEME_COLUMN_MIN_WIDTH,
+        maxWidth: DISPLAY_THEME_COLUMN_MAX_WIDTH,
+        width: DISPLAY_THEME_COLUMN_MIN_WIDTH,
+        flex: 0.72,
         headerComponent: SortableHeader,
         headerComponentParams: {
           label: "Tryb",
@@ -785,8 +798,9 @@ const AdminDevicesTable = ({
         colId: "blackScreen",
         field: "blackScreenModeLabel",
         minWidth: BLACK_SCREEN_COLUMN_MIN_WIDTH,
+        maxWidth: BLACK_SCREEN_COLUMN_MAX_WIDTH,
         width: BLACK_SCREEN_COLUMN_MIN_WIDTH,
-        flex: 0.95,
+        flex: 0.84,
         headerComponent: SortableHeader,
         headerComponentParams: {
           label: "Czarny ekran",
