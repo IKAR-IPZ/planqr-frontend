@@ -22,6 +22,9 @@ interface PendingDeviceAssignmentSectionProps {
   onRoomChange: (value: string) => void;
   onRoomSuggestionSelect: (room: string) => void;
   onAssign: () => void;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 const PendingDeviceAssignmentSection = ({
@@ -44,12 +47,19 @@ const PendingDeviceAssignmentSection = ({
   onRoomChange,
   onRoomSuggestionSelect,
   onAssign,
+  collapsible = false,
+  collapsed = false,
+  onToggleCollapsed,
 }: PendingDeviceAssignmentSectionProps) => {
   const hasCodeSuggestions = !selectedDevice && codeSuggestions.length > 0 && codeValue.trim();
 
   return (
     <AdminPanelSection
+      className="admin-devices-view__assignment"
       title="Dodaj tablet"
+      collapsible={collapsible}
+      collapsed={collapsed}
+      onToggleCollapsed={onToggleCollapsed}
       actions={
         <div className="admin-status-inline">
           <span>
@@ -97,7 +107,7 @@ const PendingDeviceAssignmentSection = ({
 
             <button
               type="button"
-              className="admin-button admin-button--primary"
+              className="admin-button admin-button--primary admin-button--small"
               onClick={onLookup}
               disabled={selectedDevice !== null || isLookingUp || !codeValue.trim()}
             >
@@ -106,7 +116,7 @@ const PendingDeviceAssignmentSection = ({
 
             <button
               type="button"
-              className="admin-button admin-button--ghost"
+              className="admin-button admin-button--ghost admin-button--small"
               onClick={onReset}
               disabled={isLookingUp || isAssigning}
             >
@@ -154,7 +164,7 @@ const PendingDeviceAssignmentSection = ({
 
             <button
               type="button"
-              className="admin-button admin-button--secondary"
+              className="admin-button admin-button--secondary admin-button--small"
               onClick={onAssign}
               disabled={selectedDevice === null || isAssigning || !roomValue.trim()}
             >
