@@ -891,14 +891,12 @@ export default function Tablet() {
                     {leftPanelStatus === 'Aktualnie:' ? 'Aktualne zajęcia:' : 'Następne zajęcia:'}
                   </div>
                   <div className="class-stacked-line">
-                    <span className="stacked-label">Przedmiot:</span>
                     <span className="stacked-val subject">
                       {classToShowOnLeftPanel.description} {classToShowOnLeftPanel.form ? `(${classToShowOnLeftPanel.form})` : ''}
                     </span>
                   </div>
                   {classToShowOnLeftPanel.group_name && (
                     <div className="class-stacked-line">
-                      <span className="stacked-label">Grupa:</span>
                       <span className="stacked-val">{classToShowOnLeftPanel.group_name}</span>
                     </div>
                   )}

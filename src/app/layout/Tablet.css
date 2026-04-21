@@ -600,7 +600,7 @@
   }
 
   .event-title {
-    font-size: 1.25rem;
+    font-size: 1.44rem;
     font-weight: 700;
     margin-bottom: 0.25rem;
     white-space: nowrap;
@@ -609,7 +609,7 @@
   }
 
   .event-time {
-    font-size: 0.9rem;
+    font-size: 1.04rem;
     color: inherit;
     opacity: 0.9;
     font-weight: 600;
@@ -617,7 +617,7 @@
   }
 
   .event-instructor {
-    font-size: 0.95rem;
+    font-size: 1.09rem;
     color: inherit;
     opacity: 0.85;
   }
