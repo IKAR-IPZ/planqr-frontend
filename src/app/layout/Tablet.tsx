@@ -5,7 +5,20 @@ import { fetchMessages } from '../services/messageService';
 import { reportTabletDisplayProfile } from '../services/displayProfileService';
 import { QRCodeCanvas } from 'qrcode.react';
 
-import logo from '../../assets/ZUT_Logo.png';
+import logo from '../../assets/zut_fav.png';
+
+// Faculty logos – must be imported statically so Vite bundles them
+import logoWA     from '../../assets/logotypy_wydzialow/wydzial_architektury/WA sygnet outline.png';
+import logoWBiNoZ from '../../assets/logotypy_wydzialow/wydzial_biotechnologii_i_nauk_o_zwierzetach/WBiNoZ 2026_skrót szarości.png';
+import logoWBiIS  from '../../assets/logotypy_wydzialow/wydzial_budownictwa_i_inzynierii_srodowiska/WBiIS sygnet outline bez tła.png';
+import logoWEkon  from '../../assets/logotypy_wydzialow/wydzial_ekonomiczny/WEkon_4.jpg';
+import logoWE     from '../../assets/logotypy_wydzialow/wydzial_elektryczny/WE_4.jpg';
+import logoWI     from '../../assets/logotypy_wydzialow/wydzial_informatyki/WI_4.jpg';
+import logoWIMiM  from '../../assets/logotypy_wydzialow/wydzial_inzynierii_mechanicznej_i_mechatroniki/WIMiM_4.jpg';
+import logoWKSIR  from '../../assets/logotypy_wydzialow/wydzial_ksztaltowania_srodowiska_i_rolnictwa/WKŚIR_4.jpg';
+import logoWNoZiR from '../../assets/logotypy_wydzialow/wydzial_nauk_o_zywnosci_i_rybactwa/WNoŻiR_4.jpg';
+import logoWTMiT  from '../../assets/logotypy_wydzialow/wydzial_techniki_morskiej_i_transportu/WTMiT_4.jpg';
+import logoWTiICh from '../../assets/logotypy_wydzialow/wydzial_technologii_i_inzynierii_chemicznej/WTiICh_4.jpg';
 
 interface ScheduleEvent {
   id: string;
@@ -97,6 +110,27 @@ const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
   startTime: '22:00',
   endTime: '06:00',
   blackScreenAfterScheduleEnd: false,
+};
+
+/**
+ * Maps the room URL param (case-insensitive) to a faculty logo.
+ * More-specific prefixes are checked before shorter ones so that
+ * e.g. "wimim" is caught before the generic "wi" rule.
+ */
+const getFacultyLogo = (room: string): string | null => {
+  const r = room.toLowerCase();
+  if (r.startsWith('biotechnologia')) return logoWBiNoZ;
+  if (r.startsWith('wtiich'))         return logoWTiICh;
+  if (r.startsWith('wtmit'))          return logoWTMiT;
+  if (r.startsWith('wnozir'))         return logoWNoZiR;
+  if (r.startsWith('wksir'))          return logoWKSIR;
+  if (r.startsWith('wimim'))          return logoWIMiM;
+  if (r.startsWith('wbiis'))          return logoWBiIS;
+  if (r.startsWith('ekonomia'))       return logoWEkon;
+  if (r.startsWith('wa'))             return logoWA;
+  if (r.startsWith('we'))             return logoWE;
+  if (r.startsWith('wi'))             return logoWI;
+  return null;
 };
 
 const buildTabletPath = (room: string, secretUrl: string) =>
@@ -305,6 +339,8 @@ export default function Tablet() {
   });
   const [scheduleItems, setScheduleItems] = useState<ScheduleEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const facultyLogo = useMemo(() => getFacultyLogo(roomInfo.room), [roomInfo.room]);
 
   // Time metrics for calendar view
   const calendarStartHour = 7; // Fixed start hour
@@ -818,8 +854,8 @@ export default function Tablet() {
           blackScreenMode === 'on'
             ? 'Czarny ekran wymuszony przez administratora'
             : isNightModeActive
-            ? 'Tryb nocny aktywny'
-            : 'Czarny ekran po zakończeniu zajęć aktywny'
+              ? 'Tryb nocny aktywny'
+              : 'Czarny ekran po zakończeniu zajęć aktywny'
         }
       />
     );
@@ -843,7 +879,7 @@ export default function Tablet() {
 
           <div className="tablet-class-status">
             {classToShowOnLeftPanel && (
-              <div 
+              <div
                 className="current-class-info"
                 style={{
                   borderLeftColor: classToShowOnLeftPanel.color || '#14b8a6',
@@ -897,6 +933,9 @@ export default function Tablet() {
 
         <div className="tablet-footer-logo">
           <img src={logo} alt="ZUT Logo" className="tablet-logo-bottom" />
+          {facultyLogo && (
+            <img src={facultyLogo} alt="Logo wydziału" className="tablet-logo-faculty" />
+          )}
         </div>
       </div>
 
