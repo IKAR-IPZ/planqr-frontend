@@ -918,7 +918,11 @@ export default function Tablet() {
                           {n.isRoomChange && <span className="tablet-message-event" style={{ color: '#ef4444', fontWeight: 'bold' }}>ZMIANA SALI</span>}
                         </div>
                         <div className="tablet-message-body">{n.body}</div>
-                        {n.createdAt && <div className="tablet-message-time">{n.createdAt}</div>}
+                        {n.createdAt && (
+                          <div className="tablet-message-time">
+                            {new Date(n.createdAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
                       </div>
                     ))}
 
