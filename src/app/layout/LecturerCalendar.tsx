@@ -1025,7 +1025,6 @@ export default function LecturerCalendar() {
 
     try {
       const attendanceList = await fetchLessonAttendanceList({
-        lessonId: lesson.id,
         doorId,
         from: attendanceWindow.from,
         to: attendanceWindow.to,

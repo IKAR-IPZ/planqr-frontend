@@ -38,7 +38,6 @@ export default function AttendancePanel() {
 
     try {
       const attendanceList = await fetchLessonAttendanceList({
-        lessonId,
         doorId,
         from,
         to,

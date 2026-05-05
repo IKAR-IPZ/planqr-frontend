@@ -12,8 +12,8 @@ export interface LessonAttendanceStudent {
 
 export interface LessonAttendanceList {
   status: "success";
-  lessonId: string;
   doorId: string;
+  lecturerId: string | null;
   from: string;
   to: string;
   generatedAt: string;
@@ -24,14 +24,12 @@ export interface LessonAttendanceList {
 }
 
 interface FetchLessonAttendanceListParams {
-  lessonId: string | number;
   doorId: string;
   from: string;
   to: string;
 }
 
 export const fetchLessonAttendanceList = async ({
-  lessonId,
   doorId,
   from,
   to,
@@ -43,7 +41,7 @@ export const fetchLessonAttendanceList = async ({
   });
 
   const response = await fetch(
-    `/api/attendance/lessons/${encodeURIComponent(String(lessonId))}/list?${params.toString()}`,
+    `/api/attendance/list?${params.toString()}`,
     {
       method: "GET",
       credentials: "include",
