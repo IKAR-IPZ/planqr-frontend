@@ -6,18 +6,26 @@ export interface AttendanceRow {
   albumNumber: string;
   enteredAt: string | null;
   source: AttendanceSource;
+  firstScannedAt?: string;
+  lastScannedAt?: string;
+  scanCount?: number;
+  attendanceLogIds?: number[];
 }
 
 export interface AttendanceDraft {
   status: AttendanceDraftStatus;
+  lessonId?: string | null;
   rows: AttendanceRow[];
   sentAt?: string | null;
+  loadedAt?: string | null;
+  doorId?: string | null;
+  totalScans?: number;
+  truncated?: boolean;
 }
 
 const MOCK_SCANNER_LINKS: Record<string, string> = {
   admin: "KT-ADM-01",
   rafikg: "KT-LAB-12",
-  default: "KT-DEMO-01",
 };
 
 const normalizeKey = (value?: string | number | null) =>
@@ -29,58 +37,68 @@ const hashSeed = (value: string) =>
 const buildRowId = (prefix: string, seed: string, index = 0) =>
   `${prefix}-${hashSeed(`${seed}-${index}`)}-${index}`;
 
-const buildSeedRows = (lessonId?: string | number | null, room?: string | null) => {
-  const seed = `${normalizeKey(lessonId)}-${normalizeKey(room)}`;
-  const base = 55700 + (hashSeed(seed) % 120);
-  const minuteOffset = hashSeed(`${seed}-time`) % 7;
+interface ScannerAttendanceRowSource {
+  studentId: string;
+  albumNumber: string;
+  enteredAt: string;
+  firstScannedAt: string;
+  lastScannedAt: string;
+  scanCount: number;
+  attendanceLogIds: number[];
+}
 
-  return [
-    {
-      id: buildRowId("scanner", seed, 0),
-      albumNumber: String(base),
-      enteredAt: `08:0${minuteOffset}`,
-      source: "scanner" as const,
-    },
-    {
-      id: buildRowId("scanner", seed, 1),
-      albumNumber: String(base + 2),
-      enteredAt: `08:1${(minuteOffset + 2) % 10}`,
-      source: "scanner" as const,
-    },
-    {
-      id: buildRowId("manual", seed, 2),
-      albumNumber: String(base + 5),
-      enteredAt: null,
-      source: "manual" as const,
-    },
-  ];
-};
-
-export const getAttendanceScannerLink = (login?: string | null) => {
+export const resolveAttendanceDoorId = (
+  login?: string | null,
+  room?: string | null,
+) => {
   const normalizedLogin = normalizeKey(login);
+  const mappedDoorId = normalizedLogin ? MOCK_SCANNER_LINKS[normalizedLogin] : null;
 
-  if (!normalizedLogin) {
-    return null;
-  }
-
-  return (
-    MOCK_SCANNER_LINKS[normalizedLogin] ??
-    MOCK_SCANNER_LINKS.default ??
-    null
-  );
+  return mappedDoorId ?? room?.trim() ?? null;
 };
 
-export const hasAttendanceScanner = (login?: string | null) =>
-  Boolean(getAttendanceScannerLink(login));
+export const getAttendanceScannerLink = resolveAttendanceDoorId;
+
+export const hasAttendanceScanner = (
+  login?: string | null,
+  room?: string | null,
+) => Boolean(resolveAttendanceDoorId(login, room));
 
 export const createAttendanceDraft = (
   lessonId?: string | number | null,
   room?: string | null,
-): AttendanceDraft => ({
-  status: "idle",
-  rows: buildSeedRows(lessonId, room),
-  sentAt: null,
-});
+): AttendanceDraft => {
+  const normalizedLessonId = normalizeKey(lessonId);
+
+  return {
+    status: "idle",
+    lessonId: normalizedLessonId || null,
+    rows: [],
+    sentAt: null,
+    loadedAt: null,
+    doorId: room?.trim() || null,
+    totalScans: 0,
+    truncated: false,
+  };
+};
+
+export const createScannerAttendanceRows = (
+  students: ScannerAttendanceRowSource[],
+): AttendanceRow[] =>
+  students.map((student, index) => ({
+    id: buildRowId(
+      "scanner",
+      `${student.studentId}-${student.firstScannedAt}-${student.lastScannedAt}`,
+      index,
+    ),
+    albumNumber: student.albumNumber || student.studentId,
+    enteredAt: student.enteredAt,
+    source: "scanner",
+    firstScannedAt: student.firstScannedAt,
+    lastScannedAt: student.lastScannedAt,
+    scanCount: student.scanCount,
+    attendanceLogIds: student.attendanceLogIds,
+  }));
 
 export const createManualAttendanceRow = (
   albumNumber: string,

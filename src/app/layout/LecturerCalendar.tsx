@@ -30,9 +30,12 @@ import LessonAttendancePanel from "../features/attendance/LessonAttendancePanel"
 import {
   createAttendanceDraft,
   createManualAttendanceRow,
+  createScannerAttendanceRows,
   hasAttendanceScanner,
+  resolveAttendanceDoorId,
   type AttendanceDraft,
 } from "../features/attendance/attendanceDrafts";
+import { fetchLessonAttendanceList } from "../services/attendanceService";
 import {
   createMessage,
   deleteMessage,
@@ -272,6 +275,26 @@ const formatMessageTimestamp = (value?: string) => {
   return messageTimeFormatter.format(new Date(value));
 };
 
+const getAttendanceWindow = (lesson: LessonEvent) => {
+  if (!lesson.start) {
+    return null;
+  }
+
+  const start = new Date(lesson.start);
+  const end = lesson.end
+    ? new Date(lesson.end)
+    : new Date(start.getTime() + 90 * 60 * 1000);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  return {
+    from: start.toISOString(),
+    to: end.toISOString(),
+  };
+};
+
 const hasMessageBeenEdited = (message: MessageRecord) => {
   if (!message.updatedAt) {
     return false;
@@ -336,6 +359,8 @@ export default function LecturerCalendar() {
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [isSyncingPlan, setIsSyncingPlan] = useState(false);
   const [isAttendancePanelOpen, setIsAttendancePanelOpen] = useState(false);
+  const [isAttendanceLoading, setIsAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
   const [attendanceDrafts, setAttendanceDrafts] = useState<
     Record<string, AttendanceDraft>
   >({});
@@ -370,7 +395,7 @@ export default function LecturerCalendar() {
   const isDockedLayout = isTripleDocked || isDoubleDocked;
   const isFullScreenDrawer = workspaceMode === "fullscreen-drawer";
   const canUseAttendance = Boolean(
-    selectedLesson && hasAttendanceScanner(actualLogin),
+    selectedLesson && hasAttendanceScanner(actualLogin, selectedLesson.room),
   );
   const isAttendanceVisible = Boolean(
     selectedLesson && canUseAttendance && isAttendancePanelOpen,
@@ -745,6 +770,8 @@ export default function LecturerCalendar() {
     setIsEditingRoom(false);
     setEditedRoom(selectedLesson?.room || "");
     setIsAttendancePanelOpen(false);
+    setIsAttendanceLoading(false);
+    setAttendanceError(null);
     setNewMessage("");
     setEditingMessageId(null);
     setEditingMessageBody("");
@@ -984,13 +1011,59 @@ export default function LecturerCalendar() {
     });
   };
 
+  const loadAttendanceForLesson = async (lesson: LessonEvent) => {
+    const doorId = resolveAttendanceDoorId(actualLogin, lesson.room);
+    const attendanceWindow = getAttendanceWindow(lesson);
+
+    if (!doorId || !attendanceWindow) {
+      setAttendanceError("Brakuje sali albo zakresu czasu dla listy obecności.");
+      return;
+    }
+
+    setIsAttendanceLoading(true);
+    setAttendanceError(null);
+
+    try {
+      const attendanceList = await fetchLessonAttendanceList({
+        lessonId: lesson.id,
+        doorId,
+        from: attendanceWindow.from,
+        to: attendanceWindow.to,
+      });
+      const scannerRows = createScannerAttendanceRows(attendanceList.students);
+
+      setAttendanceDrafts((current) => {
+        const baseDraft = current[lesson.id] ?? createAttendanceDraft(lesson.id, lesson.room);
+        const manualRows = baseDraft.rows.filter((row) => row.source === "manual");
+
+        return {
+          ...current,
+          [lesson.id]: {
+            ...baseDraft,
+            rows: [...scannerRows, ...manualRows],
+            loadedAt: attendanceList.generatedAt,
+            doorId: attendanceList.doorId,
+            totalScans: attendanceList.totalScans,
+            truncated: attendanceList.truncated,
+          },
+        };
+      });
+    } catch (error) {
+      console.error("Error loading attendance list:", error);
+      setAttendanceError("Nie udało się pobrać wpisów z logów obecności.");
+    } finally {
+      setIsAttendanceLoading(false);
+    }
+  };
+
   const handleOpenAttendancePanel = () => {
-    if (!selectedLesson || !hasAttendanceScanner(actualLogin)) {
+    if (!selectedLesson || !hasAttendanceScanner(actualLogin, selectedLesson.room)) {
       return;
     }
 
     ensureAttendanceDraft();
     setIsAttendancePanelOpen(true);
+    void loadAttendanceForLesson(selectedLesson);
   };
 
   const handleAttendanceSendList = () => {
@@ -999,7 +1072,7 @@ export default function LecturerCalendar() {
       status: "sent",
       sentAt: new Date().toISOString(),
     }));
-    pushToast("Lista obecności została wysłana w trybie demonstracyjnym.", "success");
+    pushToast("Lista obecności jest gotowa do pobrania przez usługę zewnętrzną.", "success");
   };
 
   const handleCalendarMove = (direction: "prev" | "next" | "today") => {
@@ -1286,23 +1359,27 @@ export default function LecturerCalendar() {
     <LessonAttendancePanel
       layout="panel"
       lessonId={selectedLesson.id}
+      isLoading={isAttendanceLoading}
+      error={attendanceError}
       draft={
         currentAttendanceDraft ??
         createAttendanceDraft(selectedLesson.id, selectedLesson.room)
       }
-      onOpenList={() =>
+      onOpenList={() => {
         updateAttendanceDraft((current) => ({
           ...current,
           status: "open",
           sentAt: null,
-        }))
-      }
+        }));
+        void loadAttendanceForLesson(selectedLesson);
+      }}
       onCloseList={() =>
         updateAttendanceDraft((current) => ({
           ...current,
           status: "closed",
         }))
       }
+      onRefresh={() => void loadAttendanceForLesson(selectedLesson)}
       onSendList={handleAttendanceSendList}
       onAddRow={(albumNumber, enteredAt) =>
         updateAttendanceDraft((current) => ({

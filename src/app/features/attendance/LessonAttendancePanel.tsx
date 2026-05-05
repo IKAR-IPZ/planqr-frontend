@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FaFileExport, FaPlus, FaTimes, FaTrash } from "react-icons/fa";
+import { FaFileExport, FaPlus, FaSyncAlt, FaTimes, FaTrash } from "react-icons/fa";
 import "../Registry/AdminRegistry.css";
 import type {
   AttendanceDraft,
@@ -11,9 +11,12 @@ interface LessonAttendancePanelProps {
   lessonId?: string | number | null;
   draft?: AttendanceDraft | null;
   layout?: "panel" | "page";
+  isLoading?: boolean;
+  error?: string | null;
   onOpenList?: () => void;
   onCloseList?: () => void;
   onSendList?: () => void;
+  onRefresh?: () => void;
   onAddRow?: (albumNumber: string, enteredAt: string | null) => void;
   onRemoveRow?: (rowId: string) => void;
   onClosePanel?: () => void;
@@ -57,9 +60,12 @@ export default function LessonAttendancePanel({
   lessonId,
   draft,
   layout = "panel",
+  isLoading = false,
+  error = null,
   onOpenList,
   onCloseList,
   onSendList,
+  onRefresh,
   onAddRow,
   onRemoveRow,
   onClosePanel,
@@ -100,6 +106,19 @@ export default function LessonAttendancePanel({
           <div className="lesson-attendance__status">
             <strong>{getDraftStatusLabel(draft.status)}</strong>
           </div>
+
+          {onRefresh ? (
+            <button
+              type="button"
+              className="admin-icon-button"
+              onClick={onRefresh}
+              disabled={isLoading}
+              aria-label="Odśwież logi obecności"
+              title="Odśwież"
+            >
+              <FaSyncAlt />
+            </button>
+          ) : null}
 
           {onClosePanel ? (
             <button
@@ -150,7 +169,15 @@ export default function LessonAttendancePanel({
       </div>
 
       <div className="lesson-attendance__list-shell">
-        {draft.rows.length === 0 ? (
+        {error ? (
+          <div className="lesson-attendance__feedback lesson-attendance__feedback--error">
+            {error}
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className="lesson-attendance__feedback">Wczytywanie logów obecności...</div>
+        ) : draft.rows.length === 0 ? (
           <div className="lesson-attendance__empty-inline">Brak wpisów.</div>
         ) : (
           <ul className="lesson-attendance__list">
@@ -161,7 +188,9 @@ export default function LessonAttendancePanel({
                   <span className="lesson-attendance__separator">—</span>
                   <span>{row.enteredAt || "--:--"}</span>
                   <span className="lesson-attendance__source">
-                    {row.source === "scanner" ? "skaner" : "ręczny"}
+                    {row.source === "scanner"
+                      ? `skaner${row.scanCount && row.scanCount > 1 ? ` x${row.scanCount}` : ""}`
+                      : "ręczny"}
                   </span>
                 </div>
 
@@ -182,7 +211,13 @@ export default function LessonAttendancePanel({
 
       <footer className="lesson-attendance__footer">
         <div className="lesson-attendance__footer-note">
-          {draft.sentAt ? `Wysłano ${formatSentAt(draft.sentAt)}` : ""}
+          {draft.sentAt
+            ? `Wysłano ${formatSentAt(draft.sentAt)}`
+            : draft.loadedAt
+              ? `Wczytano ${formatSentAt(draft.loadedAt)}`
+              : ""}
+          {draft.totalScans ? ` · skany: ${draft.totalScans}` : ""}
+          {draft.truncated ? " · wynik obcięty" : ""}
         </div>
 
         <div className="lesson-attendance__footer-actions">
