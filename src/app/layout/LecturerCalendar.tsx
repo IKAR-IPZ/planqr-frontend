@@ -28,14 +28,19 @@ import AdminPanelThemeToggle from "../features/Registry/adminPanel/AdminPanelThe
 import "../features/Registry/AdminRegistry.css";
 import LessonAttendancePanel from "../features/attendance/LessonAttendancePanel";
 import {
+  applyAttendanceListToDraft,
   createAttendanceDraft,
-  createManualAttendanceRow,
-  createScannerAttendanceRows,
   hasAttendanceScanner,
   resolveAttendanceDoorId,
   type AttendanceDraft,
 } from "../features/attendance/attendanceDrafts";
-import { fetchLessonAttendanceList } from "../services/attendanceService";
+import {
+  addAttendanceSessionUser,
+  closeAttendanceSession,
+  fetchLessonAttendanceList,
+  removeAttendanceSessionUser,
+  sendAttendanceSession,
+} from "../services/attendanceService";
 import {
   createMessage,
   deleteMessage,
@@ -1011,11 +1016,17 @@ export default function LecturerCalendar() {
     });
   };
 
-  const loadAttendanceForLesson = async (lesson: LessonEvent) => {
+  const loadAttendanceForLesson = async (
+    lesson: LessonEvent,
+    sessionIdOverride?: number | null,
+  ) => {
     const doorId = resolveAttendanceDoorId(actualLogin, lesson.room);
     const attendanceWindow = getAttendanceWindow(lesson);
+    const sessionId = sessionIdOverride === undefined
+      ? attendanceDrafts[lesson.id]?.sessionId
+      : sessionIdOverride;
 
-    if (!doorId || !attendanceWindow) {
+    if ((!doorId && !sessionId) || !attendanceWindow) {
       setAttendanceError("Brakuje sali albo zakresu czasu dla listy obecności.");
       return;
     }
@@ -1026,30 +1037,22 @@ export default function LecturerCalendar() {
     try {
       const attendanceList = await fetchLessonAttendanceList({
         doorId,
+        sessionId,
         from: attendanceWindow.from,
         to: attendanceWindow.to,
       });
-      const scannerRows = createScannerAttendanceRows(attendanceList.students);
 
       setAttendanceDrafts((current) => {
         const baseDraft = current[lesson.id] ?? createAttendanceDraft(lesson.id, lesson.room);
-        const manualRows = baseDraft.rows.filter((row) => row.source === "manual");
 
         return {
           ...current,
-          [lesson.id]: {
-            ...baseDraft,
-            rows: [...scannerRows, ...manualRows],
-            loadedAt: attendanceList.generatedAt,
-            doorId: attendanceList.doorId,
-            totalScans: attendanceList.totalScans,
-            truncated: attendanceList.truncated,
-          },
+          [lesson.id]: applyAttendanceListToDraft(baseDraft, attendanceList),
         };
       });
     } catch (error) {
       console.error("Error loading attendance list:", error);
-      setAttendanceError("Nie udało się pobrać wpisów z logów obecności.");
+      setAttendanceError("Nie udało się pobrać aktywnej sesji obecności.");
     } finally {
       setIsAttendanceLoading(false);
     }
@@ -1062,16 +1065,93 @@ export default function LecturerCalendar() {
 
     ensureAttendanceDraft();
     setIsAttendancePanelOpen(true);
-    void loadAttendanceForLesson(selectedLesson);
+    void loadAttendanceForLesson(selectedLesson, null);
   };
 
-  const handleAttendanceSendList = () => {
-    updateAttendanceDraft((current) => ({
-      ...current,
-      status: "sent",
-      sentAt: new Date().toISOString(),
-    }));
-    pushToast("Lista obecności jest gotowa do pobrania przez usługę zewnętrzną.", "success");
+  const handleAttendanceCloseList = async () => {
+    if (!selectedLesson || !currentAttendanceDraft?.sessionId) {
+      return;
+    }
+
+    setIsAttendanceLoading(true);
+    setAttendanceError(null);
+
+    try {
+      const attendanceList = await closeAttendanceSession(currentAttendanceDraft.sessionId);
+      updateAttendanceDraft((current) => applyAttendanceListToDraft(current, attendanceList));
+      pushToast("Sesja obecności została zamknięta.", "success");
+    } catch (error) {
+      console.error("Error closing attendance session:", error);
+      setAttendanceError("Nie udało się zamknąć sesji obecności.");
+    } finally {
+      setIsAttendanceLoading(false);
+    }
+  };
+
+  const handleAttendanceSendList = async () => {
+    if (!selectedLesson || !currentAttendanceDraft?.sessionId) {
+      return;
+    }
+
+    setIsAttendanceLoading(true);
+    setAttendanceError(null);
+
+    try {
+      const attendanceList = await sendAttendanceSession(currentAttendanceDraft.sessionId);
+      updateAttendanceDraft((current) => applyAttendanceListToDraft(current, attendanceList));
+      pushToast("JSON listy obecności jest gotowy w backendzie.", "success");
+    } catch (error) {
+      console.error("Error sending attendance session:", error);
+      setAttendanceError("Nie udało się przygotować JSON listy obecności.");
+    } finally {
+      setIsAttendanceLoading(false);
+    }
+  };
+
+  const handleAttendanceAddRow = async (albumNumber: string, enteredAt: string | null) => {
+    if (!selectedLesson || !currentAttendanceDraft?.sessionId) {
+      return;
+    }
+
+    setIsAttendanceLoading(true);
+    setAttendanceError(null);
+
+    try {
+      await addAttendanceSessionUser(currentAttendanceDraft.sessionId, {
+        username: albumNumber,
+        cardHex: albumNumber,
+        enteredAt,
+      });
+      await loadAttendanceForLesson(selectedLesson, currentAttendanceDraft.sessionId);
+    } catch (error) {
+      console.error("Error adding attendance user:", error);
+      setAttendanceError("Nie udało się dodać wpisu do sesji obecności.");
+    } finally {
+      setIsAttendanceLoading(false);
+    }
+  };
+
+  const handleAttendanceRemoveRow = async (rowId: string, userId?: number) => {
+    if (!selectedLesson || !currentAttendanceDraft?.sessionId || !userId) {
+      updateAttendanceDraft((current) => ({
+        ...current,
+        rows: current.rows.filter((row) => row.id !== rowId),
+      }));
+      return;
+    }
+
+    setIsAttendanceLoading(true);
+    setAttendanceError(null);
+
+    try {
+      await removeAttendanceSessionUser(currentAttendanceDraft.sessionId, userId);
+      await loadAttendanceForLesson(selectedLesson, currentAttendanceDraft.sessionId);
+    } catch (error) {
+      console.error("Error removing attendance user:", error);
+      setAttendanceError("Nie udało się usunąć wpisu z sesji obecności.");
+    } finally {
+      setIsAttendanceLoading(false);
+    }
   };
 
   const handleCalendarMove = (direction: "prev" | "next" | "today") => {
@@ -1365,36 +1445,23 @@ export default function LecturerCalendar() {
         createAttendanceDraft(selectedLesson.id, selectedLesson.room)
       }
       onOpenList={() => {
-        updateAttendanceDraft((current) => ({
-          ...current,
-          status: "open",
-          sentAt: null,
-        }));
-        void loadAttendanceForLesson(selectedLesson);
+        void loadAttendanceForLesson(
+          selectedLesson,
+          currentAttendanceDraft?.status === "open"
+            ? currentAttendanceDraft?.sessionId ?? null
+            : null,
+        );
       }}
-      onCloseList={() =>
-        updateAttendanceDraft((current) => ({
-          ...current,
-          status: "closed",
-        }))
+      onCloseList={() => void handleAttendanceCloseList()}
+      onRefresh={() =>
+        void loadAttendanceForLesson(
+          selectedLesson,
+          currentAttendanceDraft?.sessionId,
+        )
       }
-      onRefresh={() => void loadAttendanceForLesson(selectedLesson)}
-      onSendList={handleAttendanceSendList}
-      onAddRow={(albumNumber, enteredAt) =>
-        updateAttendanceDraft((current) => ({
-          ...current,
-          rows: [
-            ...current.rows,
-            createManualAttendanceRow(albumNumber, enteredAt),
-          ],
-        }))
-      }
-      onRemoveRow={(rowId) =>
-        updateAttendanceDraft((current) => ({
-          ...current,
-          rows: current.rows.filter((row) => row.id !== rowId),
-        }))
-      }
+      onSendList={() => void handleAttendanceSendList()}
+      onAddRow={(albumNumber, enteredAt) => void handleAttendanceAddRow(albumNumber, enteredAt)}
+      onRemoveRow={(rowId, userId) => void handleAttendanceRemoveRow(rowId, userId)}
       onClosePanel={() => setIsAttendancePanelOpen(false)}
     />
   ) : null;

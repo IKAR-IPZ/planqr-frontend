@@ -18,7 +18,7 @@ interface LessonAttendancePanelProps {
   onSendList?: () => void;
   onRefresh?: () => void;
   onAddRow?: (albumNumber: string, enteredAt: string | null) => void;
-  onRemoveRow?: (rowId: string) => void;
+  onRemoveRow?: (rowId: string, userId?: number) => void;
   onClosePanel?: () => void;
 }
 
@@ -95,7 +95,8 @@ export default function LessonAttendancePanel({
   const canReopen = draft.status !== "open" && draft.status !== "sent";
   const canClose = draft.status === "open";
   const canSend = draft.status === "closed";
-  const addDisabled = !isOpen || albumInput.trim().length === 0;
+  const hasSession = Boolean(draft.sessionId);
+  const addDisabled = !isOpen || !hasSession || albumInput.trim().length === 0;
 
   return (
     <section className={`lesson-attendance lesson-attendance--${layout}`}>
@@ -113,7 +114,7 @@ export default function LessonAttendancePanel({
               className="admin-icon-button"
               onClick={onRefresh}
               disabled={isLoading}
-              aria-label="Odśwież logi obecności"
+              aria-label="Odśwież listę obecności"
               title="Odśwież"
             >
               <FaSyncAlt />
@@ -137,16 +138,16 @@ export default function LessonAttendancePanel({
         <input
           type="text"
           value={albumInput}
-          placeholder="Numer albumu"
+          placeholder="Numer albumu lub karta"
           onChange={(event) => setAlbumInput(event.target.value)}
-          disabled={!isOpen}
+          disabled={!isOpen || !hasSession}
         />
 
         <input
           type="time"
           value={timeInput}
           onChange={(event) => setTimeInput(event.target.value)}
-          disabled={!isOpen}
+          disabled={!isOpen || !hasSession}
         />
 
         <button
@@ -176,7 +177,7 @@ export default function LessonAttendancePanel({
         ) : null}
 
         {isLoading ? (
-          <div className="lesson-attendance__feedback">Wczytywanie logów obecności...</div>
+          <div className="lesson-attendance__feedback">Wczytywanie listy obecności...</div>
         ) : draft.rows.length === 0 ? (
           <div className="lesson-attendance__empty-inline">Brak wpisów.</div>
         ) : (
@@ -198,7 +199,7 @@ export default function LessonAttendancePanel({
                   type="button"
                   className="admin-button admin-button--ghost admin-button--small"
                   disabled={!isOpen}
-                  onClick={() => onRemoveRow?.(row.id)}
+                  onClick={() => onRemoveRow?.(row.id, row.userId)}
                 >
                   <FaTrash />
                   Usuń
@@ -216,7 +217,8 @@ export default function LessonAttendancePanel({
             : draft.loadedAt
               ? `Wczytano ${formatSentAt(draft.loadedAt)}`
               : ""}
-          {draft.totalScans ? ` · skany: ${draft.totalScans}` : ""}
+          {draft.sessionId ? ` · sesja: ${draft.sessionId}` : ""}
+          {draft.totalPresent ? ` · wpisy: ${draft.totalPresent}` : ""}
           {draft.truncated ? " · wynik obcięty" : ""}
         </div>
 
@@ -232,7 +234,7 @@ export default function LessonAttendancePanel({
           <button
             type="button"
             className="admin-button admin-button--ghost admin-button--small"
-            disabled={!canClose}
+            disabled={!canClose || !hasSession}
             onClick={onCloseList}
           >
             Zamknij listę
@@ -240,7 +242,7 @@ export default function LessonAttendancePanel({
           <button
             type="button"
             className="admin-button admin-button--primary admin-button--small"
-            disabled={!canSend}
+            disabled={!canSend || !hasSession}
             onClick={onSendList}
           >
             <FaFileExport />
