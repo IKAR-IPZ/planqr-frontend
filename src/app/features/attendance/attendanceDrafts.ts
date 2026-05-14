@@ -13,6 +13,7 @@ export interface AttendanceRow {
   userId?: number;
   albumNumber: string;
   username?: string;
+  displayName?: string;
   cardHex?: string;
   enteredAt: string | null;
   source: AttendanceSource;
@@ -32,6 +33,7 @@ export interface AttendanceDraft {
   loadedAt?: string | null;
   doorId?: string | null;
   lecturerUsername?: string | null;
+  lecturerDisplayName?: string | null;
   lecturerCardHex?: string | null;
   openedAt?: string | null;
   closedAt?: string | null;
@@ -86,6 +88,7 @@ export const createAttendanceDraft = (
     loadedAt: null,
     doorId: room?.trim() || null,
     lecturerUsername: null,
+    lecturerDisplayName: null,
     lecturerCardHex: null,
     openedAt: null,
     closedAt: null,
@@ -118,6 +121,7 @@ export const createScannerAttendanceRows = (
     userId: student.userId,
     albumNumber: student.albumNumber || student.studentId,
     username: student.username,
+    displayName: student.displayName,
     cardHex: student.cardHex,
     enteredAt: student.enteredAt,
     source: resolveRowSource(student.source),
@@ -152,6 +156,7 @@ export const applyAttendanceListToDraft = (
     : current.sentAt,
   doorId: attendanceList.doorId,
   lecturerUsername: attendanceList.lecturerUsername,
+  lecturerDisplayName: attendanceList.lecturerDisplayName,
   lecturerCardHex: attendanceList.lecturerCardHex,
   openedAt: attendanceList.openedAt,
   closedAt: attendanceList.closedAt,

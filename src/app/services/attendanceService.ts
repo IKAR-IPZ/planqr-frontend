@@ -7,6 +7,9 @@ export interface LessonAttendanceStudent {
   studentId: string;
   albumNumber: string;
   username: string;
+  displayName: string;
+  givenName: string | null;
+  surname: string | null;
   cardHex: string;
   present: true;
   source: AttendanceStudentSource;
@@ -24,6 +27,7 @@ export interface LessonAttendanceList {
   dydaktykId: number;
   lecturerId: string | null;
   lecturerUsername: string;
+  lecturerDisplayName: string;
   lecturerCardHex: string;
   doorId: string | null;
   openedAt: string;

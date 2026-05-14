@@ -185,7 +185,13 @@ export default function LessonAttendancePanel({
             {draft.rows.map((row) => (
               <li key={row.id} className="lesson-attendance__line">
                 <div className="lesson-attendance__line-main">
-                  <strong>{row.albumNumber}</strong>
+                  <strong>{row.displayName || row.albumNumber}</strong>
+                  {row.displayName && row.username && row.displayName !== row.username ? (
+                    <>
+                      <span className="lesson-attendance__separator">/</span>
+                      <span>{row.username}</span>
+                    </>
+                  ) : null}
                   <span className="lesson-attendance__separator">—</span>
                   <span>{row.enteredAt || "--:--"}</span>
                   <span className="lesson-attendance__source">
