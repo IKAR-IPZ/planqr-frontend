@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { FaFileExport, FaPlus, FaSyncAlt, FaTimes, FaTrash } from "react-icons/fa";
+import { FaDownload, FaFileExport, FaPlus, FaSyncAlt, FaTimes, FaTrash } from "react-icons/fa";
 import "../Registry/AdminRegistry.css";
 import type {
   AttendanceDraft,
   AttendanceDraftStatus,
 } from "./attendanceDrafts";
+import { downloadAttendanceXlsx } from "./attendanceExport";
 import "./LessonAttendancePanel.css";
 
 interface LessonAttendancePanelProps {
@@ -97,6 +98,7 @@ export default function LessonAttendancePanel({
   const canSend = draft.status === "closed";
   const hasSession = Boolean(draft.sessionId);
   const addDisabled = !isOpen || !hasSession || albumInput.trim().length === 0;
+  const canDownload = draft.rows.length > 0;
 
   return (
     <section className={`lesson-attendance lesson-attendance--${layout}`}>
@@ -229,6 +231,15 @@ export default function LessonAttendancePanel({
         </div>
 
         <div className="lesson-attendance__footer-actions">
+          <button
+            type="button"
+            className="admin-button admin-button--ghost admin-button--small"
+            disabled={!canDownload}
+            onClick={() => downloadAttendanceXlsx(draft, lessonId)}
+          >
+            <FaDownload />
+            Pobierz XLSX
+          </button>
           <button
             type="button"
             className="admin-button admin-button--secondary admin-button--small"
