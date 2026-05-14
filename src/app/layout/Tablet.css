@@ -80,6 +80,117 @@
     overflow: hidden;
   }
 
+  .tablet-emergency-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    grid-template-columns: minmax(18rem, 0.85fr) minmax(0, 1.3fr);
+    align-items: center;
+    gap: clamp(2rem, 5vw, 5rem);
+    padding: clamp(2rem, 5vw, 5rem);
+    overflow: hidden;
+    background: #b91c1c;
+    color: #fff;
+  }
+
+  .tablet-emergency-screen__pulse {
+    position: absolute;
+    inset: 1.2rem;
+    border: clamp(0.45rem, 1vw, 0.9rem) solid rgba(255, 255, 255, 0.85);
+    animation: tabletEmergencyPulse 1.35s ease-in-out infinite;
+  }
+
+  .tablet-emergency-screen__pictogram {
+    position: relative;
+    z-index: 1;
+    min-height: min(54vh, 30rem);
+    display: grid;
+    place-items: center;
+    border: clamp(0.35rem, 0.8vw, 0.7rem) solid #fff;
+    background: #7f1d1d;
+    box-shadow: 0 0 0 1rem rgba(255, 255, 255, 0.12);
+  }
+
+  .tablet-emergency-screen__exit {
+    font-size: clamp(4rem, 11vw, 10rem);
+    font-weight: 900;
+    letter-spacing: 0;
+  }
+
+  .tablet-emergency-screen__arrow {
+    margin-top: -1rem;
+    font-size: clamp(5rem, 14vw, 13rem);
+    font-weight: 900;
+    line-height: 0.8;
+  }
+
+  .tablet-emergency-screen__content {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: clamp(1.25rem, 2.5vw, 2.4rem);
+  }
+
+  .tablet-emergency-screen__content section {
+    padding: clamp(1.1rem, 2vw, 2rem);
+    border-left: clamp(0.4rem, 0.7vw, 0.75rem) solid #fff;
+    background: rgba(127, 29, 29, 0.86);
+  }
+
+  .tablet-emergency-screen__content span {
+    display: inline-flex;
+    margin-bottom: 0.5rem;
+    padding: 0.3rem 0.55rem;
+    background: #fff;
+    color: #7f1d1d;
+    font-size: clamp(1.1rem, 1.6vw, 1.7rem);
+    font-weight: 900;
+  }
+
+  .tablet-emergency-screen__content h1,
+  .tablet-emergency-screen__content h2 {
+    margin: 0 0 0.7rem;
+    color: #fff;
+    font-size: clamp(4rem, 9vw, 9rem);
+    line-height: 0.95;
+    letter-spacing: 0;
+  }
+
+  .tablet-emergency-screen__content h2 {
+    font-size: clamp(3.2rem, 7vw, 7rem);
+  }
+
+  .tablet-emergency-screen__content p {
+    max-width: 62rem;
+    margin: 0;
+    color: #fff;
+    font-size: clamp(2rem, 3.5vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.14;
+  }
+
+  .tablet-emergency-screen__audio-state {
+    position: absolute;
+    right: 2rem;
+    bottom: 1.5rem;
+    z-index: 1;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: clamp(1rem, 1.3vw, 1.4rem);
+    font-weight: 700;
+  }
+
+  @keyframes tabletEmergencyPulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+
+    50% {
+      opacity: 1;
+    }
+  }
+
   /* Scaling for tablets 1280x800 (and 140% simulated scale on FHD monitors) */
   @media (max-width: 1366px), (max-height: 850px) {
     .tablet-wrapper {
@@ -88,6 +199,20 @@
         width: 142.85vw; /* 100 / 0.7 */
         height: 142.85vh;
         border-radius: 28px; /* scale roughly back to 20px visual */
+    }
+
+    .tablet-emergency-screen {
+      grid-template-columns: 1fr;
+      gap: 1.4rem;
+      padding: 2rem;
+    }
+
+    .tablet-emergency-screen__pictogram {
+      min-height: 13rem;
+    }
+
+    .tablet-emergency-screen__content {
+      gap: 1rem;
     }
   }
 

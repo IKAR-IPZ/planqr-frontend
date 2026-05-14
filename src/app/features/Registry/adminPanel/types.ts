@@ -28,6 +28,15 @@ export interface NightModeSettings {
   blackScreenAfterScheduleEnd: boolean;
 }
 
+export interface EmergencyAlertSettings {
+  enabled: boolean;
+  audioEnabled: boolean;
+  messagePl: string;
+  messageEn: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
 export interface AdminRecord {
   id: string;
   username: string;

@@ -247,12 +247,22 @@ DATABASE_URL=postgresql://postgres:postgres@db-host:5432/planqr_db?schema=public
 JWT_SECRET=change-me
 LDAP_URL=ldap://ldap.zut.edu.pl
 LDAP_DN=uid=%s,cn=users,cn=accounts,dc=zut,dc=edu,dc=pl
+LDAP_SYNC_ENABLED=false
+LDAP_SYNC_MODE=all
+LDAP_SYNC_SEARCH_BASE_DN=cn=users,cn=accounts,dc=zut,dc=edu,dc=pl
+LDAP_SYNC_FULL_FILTER=(uid=*)
+LDAP_SYNC_FULL_PAGE_SIZE=500
+LDAP_SYNC_FULL_USER_LIMIT=0
+LDAP_SYNC_KNOWN_USER_LIMIT=2000
+LDAP_SYNC_BATCH_SIZE=50
 ```
 
 Ważne:
 - `BACKEND_INTERNAL_URL=http://backend:9099` zostaw bez zmian przy pełnym stacku
 - `DATABASE_URL` musi wskazywać bazę widoczną z kontenera backendu
 - `CORS_ORIGIN` musi odpowiadać adresowi frontendu widocznemu w przeglądarce
+- `LDAP_SYNC_ENABLED=true` uruchamia sync przez anonymous bind, bez usera i hasła
+- `LDAP_SYNC_MODE=all` synchronizuje profile LDAP do tabeli `ldap_users`
 - jeżeli frontend działa na `https://localhost:8443`, ustaw backendowi `CORS_ORIGIN=https://localhost:8443`
 - jeżeli zmienisz `BACKEND_HOST_PORT`, ustaw też zgodny `BACKEND_PUBLIC_URL`, na przykład `http://localhost:9191`
 - zalecana konfiguracja to `DISABLE_HTTPS=true`, bo TLS kończy się na `nginx` frontendu

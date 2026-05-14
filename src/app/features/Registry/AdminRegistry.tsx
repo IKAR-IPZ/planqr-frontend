@@ -18,6 +18,7 @@ import ScheduleView from "./adminPanel/ScheduleView";
 import TabletPreviewView from "./adminPanel/TabletPreviewView";
 import {
   adminViewMeta,
+  defaultEmergencyAlertSettings,
   defaultDeviceSortState,
   defaultAdminPanelTheme,
   defaultNightModeSettings,
@@ -39,6 +40,7 @@ import type {
     AdminRecord,
     Device,
     DeviceSortState,
+    EmergencyAlertSettings,
     NightModeSettings,
     Tone,
   } from "./adminPanel/types";
@@ -154,6 +156,12 @@ const AdminRegistry = () => {
   const [nightModeSaving, setNightModeSaving] = useState(false);
   const [nightModeFeedback, setNightModeFeedback] = useState<string | null>(null);
   const [nightModeFeedbackTone, setNightModeFeedbackTone] =
+    useState<Tone>("neutral");
+  const [emergencyAlertSettings, setEmergencyAlertSettings] =
+    useState<EmergencyAlertSettings>(defaultEmergencyAlertSettings);
+  const [emergencyAlertSaving, setEmergencyAlertSaving] = useState(false);
+  const [emergencyAlertFeedback, setEmergencyAlertFeedback] = useState<string | null>(null);
+  const [emergencyAlertFeedbackTone, setEmergencyAlertFeedbackTone] =
     useState<Tone>("neutral");
 
   const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
@@ -975,6 +983,7 @@ const AdminRegistry = () => {
 
       const data = await response.json();
       setNightModeSettings(data.nightMode ?? defaultNightModeSettings);
+      setEmergencyAlertSettings(data.emergencyAlert ?? defaultEmergencyAlertSettings);
     } catch (error) {
       console.error("Error fetching night mode settings:", error);
       setNightModeFeedback("Nie udało się pobrać ustawień.");
@@ -1018,6 +1027,48 @@ const AdminRegistry = () => {
       setNightModeFeedbackTone("danger");
     } finally {
       setNightModeSaving(false);
+    }
+  };
+
+  const handleEmergencyAlertSave = async () => {
+    const confirmationMessage = emergencyAlertSettings.enabled
+      ? "Włączyć alarm ewakuacyjny na wszystkich tabletach?"
+      : "Wyłączyć alarm ewakuacyjny na wszystkich tabletach?";
+
+    if (!window.confirm(confirmationMessage)) {
+      return;
+    }
+
+    try {
+      setEmergencyAlertSaving(true);
+      setEmergencyAlertFeedback(null);
+
+      const response = await fetch("/api/devices/emergency-alert", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emergencyAlertSettings),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się zapisać alarmu ewakuacyjnego.");
+      }
+
+      setEmergencyAlertSettings(data.emergencyAlert ?? emergencyAlertSettings);
+      setEmergencyAlertFeedback(`Zapisano. Wysłano do ${data.delivered ?? 0} ekranów.`);
+      setEmergencyAlertFeedbackTone("success");
+      pushToast(
+        `Zapisano alarm ewakuacyjny. Wysłano do ${data.delivered ?? 0} ekranów.`,
+        "success",
+      );
+    } catch (error) {
+      console.error("Error saving emergency alert settings:", error);
+      setEmergencyAlertFeedback(
+        error instanceof Error ? error.message : "Nie udało się zapisać alarmu ewakuacyjnego.",
+      );
+      setEmergencyAlertFeedbackTone("danger");
+    } finally {
+      setEmergencyAlertSaving(false);
     }
   };
 
@@ -2011,16 +2062,25 @@ const AdminRegistry = () => {
           {currentView === "schedule" ? (
             <ScheduleView
               settings={nightModeSettings}
+              emergencyAlert={emergencyAlertSettings}
               loading={nightModeLoading}
               saving={nightModeSaving}
+              emergencySaving={emergencyAlertSaving}
               feedback={nightModeFeedback}
               feedbackTone={nightModeFeedbackTone}
+              emergencyFeedback={emergencyAlertFeedback}
+              emergencyFeedbackTone={emergencyAlertFeedbackTone}
               onRefresh={fetchNightModeSettings}
               onSettingChange={(next) => {
                 setNightModeSettings(next);
                 setNightModeFeedback(null);
               }}
+              onEmergencyAlertChange={(next) => {
+                setEmergencyAlertSettings(next);
+                setEmergencyAlertFeedback(null);
+              }}
               onSave={handleNightModeSettingsSave}
+              onEmergencyAlertSave={handleEmergencyAlertSave}
             />
           ) : null}
         </main>

@@ -18,6 +18,7 @@ import {
   FaSyncAlt,
   FaTimes,
   FaTrash,
+  FaUndo,
   FaUserShield,
 } from "react-icons/fa";
 import * as leoProfanity from "leo-profanity";
@@ -311,6 +312,21 @@ const hasMessageBeenEdited = (message: MessageRecord) => {
   );
 };
 
+const normalizeRoomFromMessage = (room: string | null | undefined) => {
+  const normalized = room?.trim().replace(/\s+/g, " ") ?? "";
+  return normalized === "Unknown" || normalized === "Nieznana sala"
+    ? ""
+    : normalized;
+};
+
+const getLatestRoomChangeMessage = (messages: MessageRecord[]) =>
+  [...messages]
+    .filter((message) => message.isRoomChange && message.newRoom)
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    )[0] ?? null;
+
 const getEventTextColor = (color?: string) => {
   if (!color || !color.startsWith("#")) {
     return "#f8fafc";
@@ -419,10 +435,15 @@ export default function LecturerCalendar() {
   const currentAttendanceDraft = selectedLesson
     ? attendanceDrafts[selectedLesson.id] ?? null
     : null;
+  const latestRoomChangeMessage = getLatestRoomChangeMessage(messages);
+  const canUndoRoomChange = Boolean(
+    latestRoomChangeMessage &&
+      (session?.access.isAdmin || latestRoomChangeMessage.login === actualLogin),
+  );
   const calendarSubtitle =
     calendarTitle ||
     (isAdminPreviewMode
-      ? "Uzupełnij pełną nazwę prowadzącego, aby wczytać plan."
+      ? "Uzupełnij pełne nazwisko i imię prowadzącego, aby wczytać plan."
       : "");
 
   const scheduleCalendarResize = () => {
@@ -772,6 +793,31 @@ export default function LecturerCalendar() {
   }, [selectedLesson?.id]);
 
   useEffect(() => {
+    if (!selectedLesson || !latestRoomChangeMessage?.newRoom) {
+      return;
+    }
+
+    const nextRoom = normalizeRoomFromMessage(latestRoomChangeMessage.newRoom);
+
+    if (!nextRoom || selectedLesson.room === nextRoom) {
+      return;
+    }
+
+    setEvents((current) =>
+      current.map((event) =>
+        event.id === selectedLesson.id ? { ...event, room: nextRoom } : event,
+      ),
+    );
+    setSelectedLesson((current) =>
+      current?.id === selectedLesson.id ? { ...current, room: nextRoom } : current,
+    );
+
+    if (!isEditingRoom) {
+      setEditedRoom(nextRoom);
+    }
+  }, [isEditingRoom, latestRoomChangeMessage, selectedLesson]);
+
+  useEffect(() => {
     setIsEditingRoom(false);
     setEditedRoom(selectedLesson?.room || "");
     setIsAttendancePanelOpen(false);
@@ -974,6 +1020,42 @@ export default function LecturerCalendar() {
     } catch (error) {
       console.error("Error sending room change message:", error);
       pushToast("Nie udało się zapisać zmiany sali.", "danger");
+    }
+  };
+
+  const handleUndoRoomChange = async () => {
+    if (!selectedLesson || !latestRoomChangeMessage) {
+      return;
+    }
+
+    const previousRoom = normalizeRoomFromMessage(latestRoomChangeMessage.room);
+    const previousRoomLabel = previousRoom || "brak ustawionej sali";
+
+    setMessageMutationId(latestRoomChangeMessage.id);
+
+    try {
+      await deleteMessage(latestRoomChangeMessage.id);
+      await loadMessagesForLesson(selectedLesson.id);
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedLesson.id
+            ? { ...event, room: previousRoom }
+            : event,
+        ),
+      );
+      setSelectedLesson((current) =>
+        current?.id === selectedLesson.id
+          ? { ...current, room: previousRoom }
+          : current,
+      );
+      setEditedRoom(previousRoom);
+      setIsEditingRoom(false);
+      pushToast(`Cofnięto zmianę sali: ${previousRoomLabel}.`, "success");
+    } catch (error) {
+      console.error("Error undoing room change:", error);
+      pushToast("Nie udało się cofnąć zmiany sali.", "danger");
+    } finally {
+      setMessageMutationId(null);
     }
   };
 
@@ -1244,14 +1326,28 @@ export default function LecturerCalendar() {
               {selectedLesson.room ? `Sala ${selectedLesson.room}` : "Sala nieustawiona"}
             </div>
 
-            <button
-              type="button"
-              className="admin-button admin-button--ghost admin-button--small"
-              onClick={() => setIsEditingRoom(true)}
-            >
-              <FaEdit />
-              Zmień salę
-            </button>
+            <div className="lecturer-console__row-actions">
+              <button
+                type="button"
+                className="admin-button admin-button--ghost admin-button--small"
+                onClick={() => setIsEditingRoom(true)}
+              >
+                <FaEdit />
+                Zmień salę
+              </button>
+
+              {canUndoRoomChange ? (
+                <button
+                  type="button"
+                  className="admin-button admin-button--ghost admin-button--small"
+                  disabled={messageMutationId === latestRoomChangeMessage?.id}
+                  onClick={() => void handleUndoRoomChange()}
+                >
+                  <FaUndo />
+                  Cofnij zmianę
+                </button>
+              ) : null}
+            </div>
           </>
         ) : (
           <div className="lecturer-console__room-editor">
@@ -1537,8 +1633,8 @@ export default function LecturerCalendar() {
               <input
                 className="lecturer-console__preview-input"
                 type="text"
-                placeholder="Pełne imię i nazwisko"
-                aria-label="Pełne imię i nazwisko"
+                placeholder="Pełne nazwisko i imię"
+                aria-label="Pełne nazwisko i imię"
                 value={previewFullNameInput}
                 onChange={(event) => setPreviewFullNameInput(event.target.value)}
                 autoComplete="off"
@@ -1666,7 +1762,7 @@ export default function LecturerCalendar() {
                   <div className="lecturer-console__empty-state">
                     <strong>Wybierz dydaktyka</strong>
                     <p>
-                      Uzupełnij pełne imię i nazwisko w pasku podglądu, aby
+                      Uzupełnij pełne nazwisko i imię w pasku podglądu, aby
                       wczytać plan zajęć.
                     </p>
                   </div>
