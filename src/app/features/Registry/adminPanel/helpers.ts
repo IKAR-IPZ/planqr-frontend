@@ -4,8 +4,8 @@ import type {
   AdminRecord,
   Device,
   DeviceSortState,
-  EmergencyAlertSettings,
   NightModeSettings,
+  TabletPriorityMessage,
   Tone,
 } from "./types";
 
@@ -89,13 +89,9 @@ export const defaultNightModeSettings: NightModeSettings = {
   blackScreenAfterScheduleEnd: false,
 };
 
-export const defaultEmergencyAlertSettings: EmergencyAlertSettings = {
+export const defaultPriorityMessage: TabletPriorityMessage = {
   enabled: false,
-  audioEnabled: true,
-  messagePl:
-    "EWAKUACJA. Opuść budynek najbliższym bezpiecznym wyjściem ewakuacyjnym. Nie korzystaj z wind. Wykonuj polecenia obsługi.",
-  messageEn:
-    "EVACUATION. Leave the building using the nearest safe emergency exit. Do not use elevators. Follow staff instructions.",
+  template: null,
   updatedAt: null,
   updatedBy: null,
 };

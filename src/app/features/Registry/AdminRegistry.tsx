@@ -18,10 +18,10 @@ import ScheduleView from "./adminPanel/ScheduleView";
 import TabletPreviewView from "./adminPanel/TabletPreviewView";
 import {
   adminViewMeta,
-  defaultEmergencyAlertSettings,
   defaultDeviceSortState,
   defaultAdminPanelTheme,
   defaultNightModeSettings,
+  defaultPriorityMessage,
   formatPairingDeviceId,
   formatPairingDeviceInput,
   getDeviceDisplayName,
@@ -40,8 +40,8 @@ import type {
     AdminRecord,
     Device,
     DeviceSortState,
-    EmergencyAlertSettings,
     NightModeSettings,
+    PriorityMessageTemplate,
     Tone,
   } from "./adminPanel/types";
 
@@ -118,6 +118,11 @@ const getStoredAdminTheme = (): AdminPanelTheme => {
   return storedTheme === "dark" ? "dark" : defaultAdminPanelTheme;
 };
 
+const normalizeDeviceRecord = (device: Device): Device => ({
+  ...device,
+  priorityMessage: device.priorityMessage ?? defaultPriorityMessage,
+});
+
 const AdminRegistry = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -157,12 +162,17 @@ const AdminRegistry = () => {
   const [nightModeFeedback, setNightModeFeedback] = useState<string | null>(null);
   const [nightModeFeedbackTone, setNightModeFeedbackTone] =
     useState<Tone>("neutral");
-  const [emergencyAlertSettings, setEmergencyAlertSettings] =
-    useState<EmergencyAlertSettings>(defaultEmergencyAlertSettings);
-  const [emergencyAlertSaving, setEmergencyAlertSaving] = useState(false);
-  const [emergencyAlertFeedback, setEmergencyAlertFeedback] = useState<string | null>(null);
-  const [emergencyAlertFeedbackTone, setEmergencyAlertFeedbackTone] =
-    useState<Tone>("neutral");
+  const [priorityMessageTemplates, setPriorityMessageTemplates] = useState<
+    PriorityMessageTemplate[]
+  >([]);
+  const [priorityMessagesLoading, setPriorityMessagesLoading] = useState(false);
+  const [batchPriorityMessageTemplateId, setBatchPriorityMessageTemplateId] = useState("");
+  const [batchPriorityMessageLoading, setBatchPriorityMessageLoading] = useState(false);
+  const [batchPriorityMessageClearLoading, setBatchPriorityMessageClearLoading] =
+    useState(false);
+  const [priorityMessageCreating, setPriorityMessageCreating] = useState(false);
+  const [newPriorityMessageName, setNewPriorityMessageName] = useState("");
+  const [newPriorityMessageImageUrl, setNewPriorityMessageImageUrl] = useState("");
 
   const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
   const [previewState, setPreviewState] = useState<PreviewModalState | null>(null);
@@ -634,7 +644,7 @@ const AdminRegistry = () => {
 
       const response = await fetch("/api/devices");
       if (response.ok) {
-        const data = (await response.json()) as Device[];
+        const data = ((await response.json()) as Device[]).map(normalizeDeviceRecord);
         const nextPendingDevices = data.filter((device) => device.status === "PENDING");
         const nextPendingIds = new Set(nextPendingDevices.map((device) => device.deviceId));
 
@@ -673,6 +683,43 @@ const AdminRegistry = () => {
     }
 
     return null;
+  };
+
+  const fetchPriorityMessageTemplates = async () => {
+    try {
+      setPriorityMessagesLoading(true);
+      const response = await fetch("/api/devices/priority-messages", {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Nie udało się pobrać komunikatów priorytetowych.");
+      }
+
+      const data = await response.json();
+      const templates = Array.isArray(data.templates)
+        ? (data.templates as PriorityMessageTemplate[])
+        : [];
+
+      setPriorityMessageTemplates(templates);
+      setBatchPriorityMessageTemplateId((current) => {
+        if (current && templates.some((template) => template.id === current)) {
+          return current;
+        }
+
+        return templates[0]?.id ?? "";
+      });
+    } catch (error) {
+      console.error("Error fetching priority message templates:", error);
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się pobrać komunikatów priorytetowych.",
+        "danger",
+      );
+    } finally {
+      setPriorityMessagesLoading(false);
+    }
   };
 
   const openDevicePreview = async (
@@ -773,7 +820,7 @@ const AdminRegistry = () => {
     }
 
     if (data.device) {
-      const nextDevice = data.device as Device;
+      const nextDevice = normalizeDeviceRecord(data.device as Device);
       setDevices((current) =>
         current.map((device) => (device.id === nextDevice.id ? nextDevice : device)),
       );
@@ -867,7 +914,9 @@ const AdminRegistry = () => {
         throw new Error(data.message || "Nie udało się zapisać motywu dla zaznaczonych tabletów.");
       }
 
-      const updatedDevices = Array.isArray(data.devices) ? (data.devices as Device[]) : [];
+      const updatedDevices = Array.isArray(data.devices)
+        ? (data.devices as Device[]).map(normalizeDeviceRecord)
+        : [];
       if (updatedDevices.length > 0) {
         const updatedDeviceMap = new Map(updatedDevices.map((device) => [device.id, device]));
         setDevices((current) =>
@@ -919,7 +968,9 @@ const AdminRegistry = () => {
         );
       }
 
-      const updatedDevices = Array.isArray(data.devices) ? (data.devices as Device[]) : [];
+      const updatedDevices = Array.isArray(data.devices)
+        ? (data.devices as Device[]).map(normalizeDeviceRecord)
+        : [];
       if (updatedDevices.length > 0) {
         const updatedDeviceMap = new Map(updatedDevices.map((device) => [device.id, device]));
         setDevices((current) =>
@@ -947,6 +998,153 @@ const AdminRegistry = () => {
       );
     } finally {
       setBatchBlackScreenLoading(false);
+    }
+  };
+
+  const applyReturnedDevices = (returnedDevices: unknown) => {
+    if (!Array.isArray(returnedDevices) || returnedDevices.length === 0) {
+      return;
+    }
+
+    const updatedDevices = (returnedDevices as Device[]).map(normalizeDeviceRecord);
+    const updatedDeviceMap = new Map(updatedDevices.map((device) => [device.id, device]));
+    setDevices((current) =>
+      current.map((device) => updatedDeviceMap.get(device.id) ?? device),
+    );
+  };
+
+  const handleBatchPriorityMessageActivate = async () => {
+    const selectedDevices = selectedVisibleDevices;
+
+    if (selectedDevices.length === 0) {
+      pushToast("Zaznacz co najmniej jeden tablet.", "danger");
+      return;
+    }
+
+    if (!batchPriorityMessageTemplateId) {
+      pushToast("Wybierz komunikat priorytetowy.", "danger");
+      return;
+    }
+
+    try {
+      setBatchPriorityMessageLoading(true);
+      const response = await fetch("/api/devices/priority-messages/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          deviceIds: selectedDevices.map((device) => device.id),
+          templateId: batchPriorityMessageTemplateId,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Nie udało się włączyć komunikatu priorytetowego.",
+        );
+      }
+
+      applyReturnedDevices(data.devices);
+      pushToast(
+        `Włączono komunikat priorytetowy na ${data.updatedCount ?? selectedDevices.length} tabletach.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się włączyć komunikatu priorytetowego.",
+        "danger",
+      );
+    } finally {
+      setBatchPriorityMessageLoading(false);
+    }
+  };
+
+  const handleBatchPriorityMessageClear = async () => {
+    const selectedDevices = selectedVisibleDevices;
+
+    if (selectedDevices.length === 0) {
+      pushToast("Zaznacz co najmniej jeden tablet.", "danger");
+      return;
+    }
+
+    try {
+      setBatchPriorityMessageClearLoading(true);
+      const response = await fetch("/api/devices/priority-messages/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          deviceIds: selectedDevices.map((device) => device.id),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Nie udało się wyłączyć komunikatu priorytetowego.",
+        );
+      }
+
+      applyReturnedDevices(data.devices);
+      pushToast(
+        `Wyłączono komunikat priorytetowy na ${data.updatedCount ?? selectedDevices.length} tabletach.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się wyłączyć komunikatu priorytetowego.",
+        "danger",
+      );
+    } finally {
+      setBatchPriorityMessageClearLoading(false);
+    }
+  };
+
+  const handlePriorityMessageTemplateCreate = async () => {
+    const name = newPriorityMessageName.trim();
+    const imageUrl = newPriorityMessageImageUrl.trim();
+
+    if (!name || !imageUrl) {
+      pushToast("Podaj nazwę i URL obrazka/GIF.", "danger");
+      return;
+    }
+
+    try {
+      setPriorityMessageCreating(true);
+      const response = await fetch("/api/devices/priority-messages/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, imageUrl }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się dodać definicji komunikatu.");
+      }
+
+      const templates = Array.isArray(data.templates)
+        ? (data.templates as PriorityMessageTemplate[])
+        : [];
+      const template = data.template as PriorityMessageTemplate | undefined;
+
+      setPriorityMessageTemplates(templates);
+      setBatchPriorityMessageTemplateId(template?.id ?? templates[0]?.id ?? "");
+      setNewPriorityMessageName("");
+      setNewPriorityMessageImageUrl("");
+      pushToast("Dodano definicję komunikatu priorytetowego.", "success");
+    } catch (error) {
+      pushToast(
+        error instanceof Error ? error.message : "Nie udało się dodać definicji komunikatu.",
+        "danger",
+      );
+    } finally {
+      setPriorityMessageCreating(false);
     }
   };
 
@@ -983,7 +1181,6 @@ const AdminRegistry = () => {
 
       const data = await response.json();
       setNightModeSettings(data.nightMode ?? defaultNightModeSettings);
-      setEmergencyAlertSettings(data.emergencyAlert ?? defaultEmergencyAlertSettings);
     } catch (error) {
       console.error("Error fetching night mode settings:", error);
       setNightModeFeedback("Nie udało się pobrać ustawień.");
@@ -1030,48 +1227,6 @@ const AdminRegistry = () => {
     }
   };
 
-  const handleEmergencyAlertSave = async () => {
-    const confirmationMessage = emergencyAlertSettings.enabled
-      ? "Włączyć alarm ewakuacyjny na wszystkich tabletach?"
-      : "Wyłączyć alarm ewakuacyjny na wszystkich tabletach?";
-
-    if (!window.confirm(confirmationMessage)) {
-      return;
-    }
-
-    try {
-      setEmergencyAlertSaving(true);
-      setEmergencyAlertFeedback(null);
-
-      const response = await fetch("/api/devices/emergency-alert", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(emergencyAlertSettings),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.message || "Nie udało się zapisać alarmu ewakuacyjnego.");
-      }
-
-      setEmergencyAlertSettings(data.emergencyAlert ?? emergencyAlertSettings);
-      setEmergencyAlertFeedback(`Zapisano. Wysłano do ${data.delivered ?? 0} ekranów.`);
-      setEmergencyAlertFeedbackTone("success");
-      pushToast(
-        `Zapisano alarm ewakuacyjny. Wysłano do ${data.delivered ?? 0} ekranów.`,
-        "success",
-      );
-    } catch (error) {
-      console.error("Error saving emergency alert settings:", error);
-      setEmergencyAlertFeedback(
-        error instanceof Error ? error.message : "Nie udało się zapisać alarmu ewakuacyjnego.",
-      );
-      setEmergencyAlertFeedbackTone("danger");
-    } finally {
-      setEmergencyAlertSaving(false);
-    }
-  };
-
   const handleReloadAllTablets = async () => {
     try {
       setReloadingTablets(true);
@@ -1101,6 +1256,7 @@ const AdminRegistry = () => {
   useEffect(() => {
     void fetchDevices();
     void fetchNightModeSettings();
+    void fetchPriorityMessageTemplates();
     void fetchAdmins();
     void fetchSession().then(setSession).catch((error) => {
       console.error("Error fetching session:", error);
@@ -1169,7 +1325,7 @@ const AdminRegistry = () => {
           throw new Error("Nie udało się pobrać danych urządzenia.");
         }
 
-        const nextDevice = (await response.json()) as Device;
+        const nextDevice = normalizeDeviceRecord((await response.json()) as Device);
         if (cancelled) {
           return;
         }
@@ -1416,7 +1572,7 @@ const AdminRegistry = () => {
         };
       }
 
-      const device = data as Device;
+      const device = normalizeDeviceRecord(data as Device);
       setDevices((current) => {
         const exists = current.some((currentDevice) => currentDevice.id === device.id);
         return exists
@@ -1950,10 +2106,18 @@ const AdminRegistry = () => {
               batchUpdating={batchMutationLoading}
               batchThemeUpdating={batchThemeLoading}
               batchBlackScreenUpdating={batchBlackScreenLoading}
+              batchPriorityMessageUpdating={batchPriorityMessageLoading}
+              batchPriorityMessageClearing={batchPriorityMessageClearLoading}
+              priorityMessagesLoading={priorityMessagesLoading}
+              priorityMessageCreating={priorityMessageCreating}
               themeMutationDeviceId={themeMutationDeviceId}
               blackScreenMutationDeviceId={blackScreenMutationDeviceId}
               batchThemeValue={batchThemeValue}
               batchBlackScreenValue={batchBlackScreenValue}
+              batchPriorityMessageTemplateId={batchPriorityMessageTemplateId}
+              priorityMessageTemplates={priorityMessageTemplates}
+              newPriorityMessageName={newPriorityMessageName}
+              newPriorityMessageImageUrl={newPriorityMessageImageUrl}
               selectedDeviceIds={selectedDeviceIds}
               visibleDeviceIds={visibleDeviceIds}
               searchTerm={searchTerm}
@@ -1977,8 +2141,15 @@ const AdminRegistry = () => {
               onDeleteSelectedDevices={() => void handleDeleteSelectedDevices()}
               onBatchThemeValueChange={setBatchThemeValue}
               onBatchBlackScreenValueChange={setBatchBlackScreenValue}
+              onBatchPriorityMessageTemplateChange={setBatchPriorityMessageTemplateId}
+              onNewPriorityMessageNameChange={setNewPriorityMessageName}
+              onNewPriorityMessageImageUrlChange={setNewPriorityMessageImageUrl}
               onApplyBatchTheme={() => void handleBatchThemeUpdate()}
               onApplyBatchBlackScreen={() => void handleBatchBlackScreenUpdate()}
+              onApplyBatchPriorityMessage={() => void handleBatchPriorityMessageActivate()}
+              onClearBatchPriorityMessage={() => void handleBatchPriorityMessageClear()}
+              onCreatePriorityMessage={() => void handlePriorityMessageTemplateCreate()}
+              onRefreshPriorityMessages={() => void fetchPriorityMessageTemplates()}
               onClearSelectedDevices={clearDeviceSelection}
               onToggleAllActiveDevices={handleToggleAllActiveDevices}
               onToggleDeviceSelection={handleToggleDeviceSelection}
@@ -2062,25 +2233,16 @@ const AdminRegistry = () => {
           {currentView === "schedule" ? (
             <ScheduleView
               settings={nightModeSettings}
-              emergencyAlert={emergencyAlertSettings}
               loading={nightModeLoading}
               saving={nightModeSaving}
-              emergencySaving={emergencyAlertSaving}
               feedback={nightModeFeedback}
               feedbackTone={nightModeFeedbackTone}
-              emergencyFeedback={emergencyAlertFeedback}
-              emergencyFeedbackTone={emergencyAlertFeedbackTone}
               onRefresh={fetchNightModeSettings}
               onSettingChange={(next) => {
                 setNightModeSettings(next);
                 setNightModeFeedback(null);
               }}
-              onEmergencyAlertChange={(next) => {
-                setEmergencyAlertSettings(next);
-                setEmergencyAlertFeedback(null);
-              }}
               onSave={handleNightModeSettingsSave}
-              onEmergencyAlertSave={handleEmergencyAlertSave}
             />
           ) : null}
         </main>

@@ -36,6 +36,7 @@ const DISPLAY_THEME_COLUMN_MIN_WIDTH = 132;
 const DISPLAY_THEME_COLUMN_MAX_WIDTH = 152;
 const BLACK_SCREEN_COLUMN_MIN_WIDTH = 156;
 const BLACK_SCREEN_COLUMN_MAX_WIDTH = 182;
+const PRIORITY_MESSAGE_COLUMN_MIN_WIDTH = 160;
 const ACTIONS_COLUMN_MIN_WIDTH = 144;
 
 interface AdminDevicesTableProps {
@@ -76,6 +77,7 @@ interface DeviceGridRow {
   formattedLastSeen: string;
   displayThemeLabel: string;
   blackScreenModeLabel: string;
+  priorityMessageLabel: string;
   isSelected: boolean;
 }
 
@@ -363,6 +365,18 @@ const LastSeenCell = ({ data }: ICellRendererParams<DeviceGridRow>) => (
   </div>
 );
 
+const PriorityMessageCell = ({ data }: ICellRendererParams<DeviceGridRow>) => (
+  <div className="admin-devices-grid__cell admin-table__cell--center">
+    <span
+      className={`admin-status-pill admin-status-pill--${
+        data?.device.priorityMessage?.enabled ? "warning" : "neutral"
+      }`}
+    >
+      {data?.priorityMessageLabel || "Wyłączony"}
+    </span>
+  </div>
+);
+
 const DeviceThemeCell = ({
   data,
   themeMutationDeviceId,
@@ -547,6 +561,9 @@ const AdminDevicesTable = ({
           formattedLastSeen: formatLastSeen(device.lastSeen),
           displayThemeLabel: getDisplayThemeLabel(device.displayTheme),
           blackScreenModeLabel: getBlackScreenModeLabel(device.blackScreenMode),
+          priorityMessageLabel: device.priorityMessage?.enabled
+            ? device.priorityMessage.template?.name ?? "Aktywny"
+            : "Wyłączony",
           isSelected: selectedIds.has(device.id),
         };
       }),
@@ -571,6 +588,20 @@ const AdminDevicesTable = ({
         }),
       ),
     [rows],
+  );
+
+  const priorityMessageFilterOptions = useMemo<EnumOptionsFilterOption[]>(
+    () =>
+      Array.from(
+        new Set(
+          devices.map((device) =>
+            device.priorityMessage?.enabled
+              ? device.priorityMessage.template?.name ?? "Aktywny"
+              : "Wyłączony",
+          ),
+        ),
+      ).map((value) => ({ value })),
+    [devices],
   );
 
   const syncVisibleDeviceIds = useCallback(
@@ -836,6 +867,20 @@ const AdminDevicesTable = ({
         ),
       },
       {
+        colId: "priorityMessage",
+        field: "priorityMessageLabel",
+        headerName: "Komunikat",
+        minWidth: PRIORITY_MESSAGE_COLUMN_MIN_WIDTH,
+        flex: 0.95,
+        cellRenderer: PriorityMessageCell,
+        ...enumFilterColumn(
+          priorityMessageFilterOptions,
+          {
+            searchable: true,
+          },
+        ),
+      },
+      {
         colId: "actions",
         headerName: "Akcje",
         minWidth: ACTIONS_COLUMN_MIN_WIDTH,
@@ -865,6 +910,7 @@ const AdminDevicesTable = ({
       onSortColumn,
       onToggleAllActiveDevices,
       onToggleDeviceSelection,
+      priorityMessageFilterOptions,
       selectAllRef,
       sortState,
       themeMutationDeviceId,

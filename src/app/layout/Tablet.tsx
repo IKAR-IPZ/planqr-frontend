@@ -51,24 +51,34 @@ interface TabletNightModeConfig {
   blackScreenAfterScheduleEnd: boolean;
 }
 
-interface TabletEmergencyAlertConfig {
-  enabled: boolean;
-  audioEnabled: boolean;
-  messagePl: string;
-  messageEn: string;
-}
-
 type TabletDisplayTheme = 'light' | 'dark';
 type TabletBlackScreenMode = 'follow' | 'on' | 'off';
 
+interface PriorityMessageTemplate {
+  id: string;
+  name: string;
+  imageUrl: string;
+  mediaType: 'image' | 'gif';
+  isBuiltin: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+interface TabletPriorityMessageConfig {
+  enabled: boolean;
+  template: PriorityMessageTemplate | null;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
 interface DisplaySettingsResponse {
   nightMode?: TabletNightModeConfig | null;
-  emergencyAlert?: TabletEmergencyAlertConfig | null;
 }
 
 interface PreviewDeviceResponse {
   displayTheme?: TabletDisplayTheme | null;
   blackScreenMode?: TabletBlackScreenMode | null;
+  priorityMessage?: TabletPriorityMessageConfig | null;
 }
 
 interface DeviceStatusResponse {
@@ -79,7 +89,7 @@ interface DeviceStatusResponse {
     nightMode?: TabletNightModeConfig | null;
     displayTheme?: TabletDisplayTheme | null;
     blackScreenMode?: TabletBlackScreenMode | null;
-    emergencyAlert?: TabletEmergencyAlertConfig | null;
+    priorityMessage?: TabletPriorityMessageConfig | null;
   } | null;
 }
 
@@ -107,18 +117,10 @@ const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
   endTime: '06:00',
   blackScreenAfterScheduleEnd: false,
 };
-const DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG: TabletEmergencyAlertConfig = {
+const DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG: TabletPriorityMessageConfig = {
   enabled: false,
-  audioEnabled: true,
-  messagePl:
-    'EWAKUACJA. Opuść budynek najbliższym bezpiecznym wyjściem ewakuacyjnym. Nie korzystaj z wind. Wykonuj polecenia obsługi.',
-  messageEn:
-    'EVACUATION. Leave the building using the nearest safe emergency exit. Do not use elevators. Follow staff instructions.',
+  template: null,
 };
-const EMERGENCY_AUDIO_SEQUENCE = [
-  '/audio/komunikat-ewakuacyjny-polski.mp3',
-  '/audio/evacuation-announcement-english.mp3',
-];
 
 const buildTabletPath = (room: string, secretUrl: string) =>
   `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
@@ -158,26 +160,37 @@ const normalizeNightModeConfig = (
       : DEFAULT_TABLET_NIGHT_MODE_CONFIG.blackScreenAfterScheduleEnd,
 });
 
-const normalizeEmergencyAlertConfig = (
-  emergencyAlert?: TabletEmergencyAlertConfig | null
-): TabletEmergencyAlertConfig => ({
-  enabled:
-    typeof emergencyAlert?.enabled === 'boolean'
-      ? emergencyAlert.enabled
-      : DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG.enabled,
-  audioEnabled:
-    typeof emergencyAlert?.audioEnabled === 'boolean'
-      ? emergencyAlert.audioEnabled
-      : DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG.audioEnabled,
-  messagePl:
-    typeof emergencyAlert?.messagePl === 'string' && emergencyAlert.messagePl.trim()
-      ? emergencyAlert.messagePl.trim()
-      : DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG.messagePl,
-  messageEn:
-    typeof emergencyAlert?.messageEn === 'string' && emergencyAlert.messageEn.trim()
-      ? emergencyAlert.messageEn.trim()
-      : DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG.messageEn,
-});
+const normalizePriorityMessageConfig = (
+  priorityMessage?: TabletPriorityMessageConfig | null
+): TabletPriorityMessageConfig => {
+  const template = priorityMessage?.template;
+  const imageUrl =
+    typeof template?.imageUrl === 'string' && template.imageUrl.trim()
+      ? template.imageUrl.trim()
+      : '';
+
+  if (!priorityMessage?.enabled || !template || !imageUrl) {
+    return DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG;
+  }
+
+  return {
+    enabled: true,
+    template: {
+      id: typeof template.id === 'string' ? template.id : 'priority-message',
+      name:
+        typeof template.name === 'string' && template.name.trim()
+          ? template.name.trim()
+          : 'Komunikat priorytetowy',
+      imageUrl,
+      mediaType: template.mediaType === 'gif' ? 'gif' : 'image',
+      isBuiltin: Boolean(template.isBuiltin),
+      createdAt: template.createdAt ?? null,
+      updatedAt: template.updatedAt ?? null,
+    },
+    updatedAt: priorityMessage.updatedAt ?? null,
+    updatedBy: priorityMessage.updatedBy ?? null,
+  };
+};
 
 const persistNightModeConfig = (nightMode: TabletNightModeConfig) => {
   if (typeof window === 'undefined') {
@@ -340,10 +353,8 @@ export default function Tablet() {
   const [nightModeConfig, setNightModeConfig] = useState<TabletNightModeConfig>(() =>
     isPreviewMode ? DEFAULT_TABLET_NIGHT_MODE_CONFIG : readStoredNightModeConfig()
   );
-  const [emergencyAlertConfig, setEmergencyAlertConfig] =
-    useState<TabletEmergencyAlertConfig>(DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG);
-  const emergencyAudioRef = useRef<HTMLAudioElement | null>(null);
-  const emergencyAudioIndexRef = useRef(0);
+  const [priorityMessageConfig, setPriorityMessageConfig] =
+    useState<TabletPriorityMessageConfig>(DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG);
 
   // States
   const [currentDateTime, setCurrentDateTime] = useState({
@@ -388,8 +399,8 @@ export default function Tablet() {
     }
   }, [isPreviewMode]);
 
-  const applyEmergencyAlertConfig = useCallback((config?: DeviceStatusResponse['config']) => {
-    setEmergencyAlertConfig(normalizeEmergencyAlertConfig(config?.emergencyAlert));
+  const applyPriorityMessageConfig = useCallback((config?: DeviceStatusResponse['config']) => {
+    setPriorityMessageConfig(normalizePriorityMessageConfig(config?.priorityMessage));
   }, []);
 
   const applyDeviceDisplayConfig = useCallback((config?: DeviceStatusResponse['config']) => {
@@ -435,7 +446,6 @@ export default function Tablet() {
 
         const nextNightModeConfig = normalizeNightModeConfig(nightModeData.nightMode);
         setNightModeConfig(nextNightModeConfig);
-        setEmergencyAlertConfig(normalizeEmergencyAlertConfig(nightModeData.emergencyAlert));
 
         if (Number.isInteger(previewDeviceId) && previewDeviceId > 0) {
           const deviceResponse = await fetch(`/api/devices/${previewDeviceId}`, {
@@ -448,6 +458,7 @@ export default function Tablet() {
           const deviceData = (await deviceResponse.json()) as PreviewDeviceResponse;
           setDisplayTheme(normalizeDisplayTheme(deviceData.displayTheme));
           setBlackScreenMode(normalizeBlackScreenMode(deviceData.blackScreenMode));
+          setPriorityMessageConfig(normalizePriorityMessageConfig(deviceData.priorityMessage));
         }
       } catch (error) {
         console.error('[Tablet] Failed to load preview display settings:', error);
@@ -536,7 +547,7 @@ export default function Tablet() {
           clearNightModeConfig();
           clearDeviceDisplaySettings();
           setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
-          setEmergencyAlertConfig(DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG);
+          setPriorityMessageConfig(DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG);
           setDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
           setBlackScreenMode(DEFAULT_TABLET_BLACK_SCREEN_MODE);
           forceHardReload(payload.path || '/registry');
@@ -545,7 +556,7 @@ export default function Tablet() {
 
         if (payload.type === 'config-updated') {
           applyNightModeConfig(payload.config);
-          applyEmergencyAlertConfig(payload.config);
+          applyPriorityMessageConfig(payload.config);
           applyDeviceDisplayConfig(payload.config);
           syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: payload.hardReload });
           return;
@@ -554,7 +565,7 @@ export default function Tablet() {
         if (payload.type === 'reload') {
           if (payload.config) {
             applyNightModeConfig(payload.config);
-            applyEmergencyAlertConfig(payload.config);
+            applyPriorityMessageConfig(payload.config);
             applyDeviceDisplayConfig(payload.config);
             syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, payload.config, { forceReload: true });
             return;
@@ -583,7 +594,7 @@ export default function Tablet() {
       eventSource.removeEventListener('tablet-command', handleTabletCommand as EventListener);
       eventSource.close();
     };
-  }, [applyDeviceDisplayConfig, applyEmergencyAlertConfig, applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
+  }, [applyDeviceDisplayConfig, applyNightModeConfig, applyPriorityMessageConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   useEffect(() => {
     if (!deviceId) return;
@@ -612,7 +623,7 @@ export default function Tablet() {
           clearNightModeConfig();
           clearDeviceDisplaySettings();
           setNightModeConfig(DEFAULT_TABLET_NIGHT_MODE_CONFIG);
-          setEmergencyAlertConfig(DEFAULT_TABLET_EMERGENCY_ALERT_CONFIG);
+          setPriorityMessageConfig(DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG);
           setDisplayTheme(DEFAULT_TABLET_DISPLAY_THEME);
           setBlackScreenMode(DEFAULT_TABLET_BLACK_SCREEN_MODE);
           forceHardReload('/registry');
@@ -620,7 +631,7 @@ export default function Tablet() {
         }
 
         applyNightModeConfig(data.config);
-        applyEmergencyAlertConfig(data.config);
+        applyPriorityMessageConfig(data.config);
         applyDeviceDisplayConfig(data.config);
         syncTabletRouteFromConfig(currentRouteRoom, currentRouteSecret, data.config);
       } catch (error) {
@@ -635,7 +646,7 @@ export default function Tablet() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [applyDeviceDisplayConfig, applyEmergencyAlertConfig, applyNightModeConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
+  }, [applyDeviceDisplayConfig, applyNightModeConfig, applyPriorityMessageConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
 
   // 2. Clock
   useEffect(() => {
@@ -652,76 +663,6 @@ export default function Tablet() {
     const intervalId = setInterval(updateTime, 1000);
     return () => clearInterval(intervalId);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    let retryTimeoutId: number | null = null;
-
-    const stopCurrentAudio = () => {
-      if (retryTimeoutId !== null) {
-        window.clearTimeout(retryTimeoutId);
-        retryTimeoutId = null;
-      }
-
-      if (emergencyAudioRef.current) {
-        emergencyAudioRef.current.pause();
-        emergencyAudioRef.current.src = '';
-        emergencyAudioRef.current.load();
-        emergencyAudioRef.current = null;
-      }
-    };
-
-    const playNextAudio = () => {
-      if (
-        cancelled ||
-        isPreviewMode ||
-        !emergencyAlertConfig.enabled ||
-        !emergencyAlertConfig.audioEnabled
-      ) {
-        return;
-      }
-
-      stopCurrentAudio();
-      const source =
-        EMERGENCY_AUDIO_SEQUENCE[
-          emergencyAudioIndexRef.current % EMERGENCY_AUDIO_SEQUENCE.length
-        ];
-      emergencyAudioIndexRef.current += 1;
-      const audio = new Audio(source);
-      emergencyAudioRef.current = audio;
-      audio.preload = 'auto';
-
-      audio.addEventListener(
-        'ended',
-        () => {
-          playNextAudio();
-        },
-        { once: true }
-      );
-      audio.addEventListener(
-        'error',
-        () => {
-          retryTimeoutId = window.setTimeout(playNextAudio, 2000);
-        },
-        { once: true }
-      );
-
-      void audio.play().catch(() => {
-        retryTimeoutId = window.setTimeout(playNextAudio, 5000);
-      });
-    };
-
-    if (!isPreviewMode && emergencyAlertConfig.enabled && emergencyAlertConfig.audioEnabled) {
-      playNextAudio();
-    } else {
-      stopCurrentAudio();
-    }
-
-    return () => {
-      cancelled = true;
-      stopCurrentAudio();
-    };
-  }, [emergencyAlertConfig.audioEnabled, emergencyAlertConfig.enabled, isPreviewMode]);
 
   const isNightModeActive = useMemo(
     () => {
@@ -936,29 +877,14 @@ export default function Tablet() {
   const timelineOffset = Math.min(Math.max(rawTimelineOffset, 0), maxTimelineOffset);
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
-  if (emergencyAlertConfig.enabled) {
+  if (priorityMessageConfig.enabled && priorityMessageConfig.template) {
     return (
-      <div className="tablet-emergency-screen" role="alert" aria-live="assertive">
-        <div className="tablet-emergency-screen__pulse" aria-hidden="true" />
-        <div className="tablet-emergency-screen__pictogram" aria-hidden="true">
-          <span className="tablet-emergency-screen__exit">EXIT</span>
-          <span className="tablet-emergency-screen__arrow">→</span>
-        </div>
-        <div className="tablet-emergency-screen__content">
-          <section>
-            <span>PL</span>
-            <h1>EWAKUACJA</h1>
-            <p>{emergencyAlertConfig.messagePl}</p>
-          </section>
-          <section>
-            <span>EN</span>
-            <h2>EVACUATION</h2>
-            <p>{emergencyAlertConfig.messageEn}</p>
-          </section>
-        </div>
-        <div className="tablet-emergency-screen__audio-state">
-          Komunikat głosowy: {emergencyAlertConfig.audioEnabled ? 'włączony' : 'wyłączony'}
-        </div>
+      <div className="tablet-priority-message-screen" role="alert" aria-live="assertive">
+        <img
+          className="tablet-priority-message-screen__image"
+          src={priorityMessageConfig.template.imageUrl}
+          alt={priorityMessageConfig.template.name}
+        />
       </div>
     );
   }

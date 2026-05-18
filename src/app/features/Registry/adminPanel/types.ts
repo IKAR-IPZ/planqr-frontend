@@ -19,6 +19,7 @@ export interface Device {
   devicePixelRatio?: number | null;
   screenOrientation?: string | null;
   displayProfileReportedAt?: string | null;
+  priorityMessage?: TabletPriorityMessage;
 }
 
 export interface NightModeSettings {
@@ -28,11 +29,19 @@ export interface NightModeSettings {
   blackScreenAfterScheduleEnd: boolean;
 }
 
-export interface EmergencyAlertSettings {
+export interface PriorityMessageTemplate {
+  id: string;
+  name: string;
+  imageUrl: string;
+  mediaType: "image" | "gif";
+  isBuiltin: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface TabletPriorityMessage {
   enabled: boolean;
-  audioEnabled: boolean;
-  messagePl: string;
-  messageEn: string;
+  template: PriorityMessageTemplate | null;
   updatedAt: string | null;
   updatedBy: string | null;
 }

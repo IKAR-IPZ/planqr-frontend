@@ -1024,6 +1024,11 @@ body.admin-console-scroll-root #root {
   justify-content: flex-start;
 }
 
+.admin-batch-panel .admin-table__batch-control--wide {
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
 .admin-batch-panel .admin-table__batch-control .admin-form-field--compact {
   width: var(--admin-batch-select-width);
   min-width: var(--admin-batch-select-width);
@@ -1031,6 +1036,38 @@ body.admin-console-scroll-root #root {
 
 .admin-batch-panel .admin-table__batch-actions > .admin-button {
   align-self: flex-start;
+}
+
+.admin-priority-batch {
+  width: 100%;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-muted);
+}
+
+.admin-priority-batch__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-priority-batch__header strong {
+  min-width: 0;
+  color: var(--admin-text);
+  font-size: 0.9rem;
+}
+
+.admin-priority-batch__form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-priority-batch__form .admin-form-field--compact,
+.admin-priority-batch__form .admin-button {
+  width: 100%;
 }
 
 .admin-device-assignment {
@@ -2213,68 +2250,6 @@ body.admin-console-scroll-root #root {
   gap: 0.75rem;
 }
 
-.admin-emergency-card {
-  margin: 1rem;
-  padding: 1rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: center;
-  border: 1px solid var(--admin-border);
-  background: var(--admin-surface-muted);
-}
-
-.admin-emergency-card.is-active {
-  border-color: rgba(180, 35, 24, 0.38);
-  background: var(--admin-danger-soft);
-}
-
-.admin-emergency-card__copy {
-  min-width: 0;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.admin-emergency-card__copy strong {
-  color: var(--admin-text);
-  font-size: 1rem;
-}
-
-.admin-emergency-card__copy p,
-.admin-emergency-preview p {
-  margin: 0;
-  color: var(--admin-text-muted);
-  line-height: 1.45;
-}
-
-.admin-emergency-card__eyebrow {
-  color: var(--admin-danger);
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.admin-emergency-preview {
-  margin: 0 1rem 1rem;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.admin-emergency-preview > div {
-  padding: 0.85rem;
-  border: 1px solid var(--admin-border);
-  background: var(--admin-surface);
-}
-
-.admin-emergency-preview span {
-  display: inline-flex;
-  margin-bottom: 0.4rem;
-  color: var(--admin-danger);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
 .admin-form-grid--times {
   align-items: end;
   grid-template-columns: repeat(2, minmax(0, 220px)) auto;
@@ -3237,21 +3212,6 @@ body.admin-console-scroll-root #root {
   .admin-toolbar__actions {
     display: grid;
     grid-template-columns: 1fr;
-  }
-
-  .admin-emergency-card,
-  .admin-emergency-preview {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-emergency-card {
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  .admin-emergency-preview {
-    margin-left: 0;
-    margin-right: 0;
   }
 
   .admin-table__batch-actions .admin-button,
