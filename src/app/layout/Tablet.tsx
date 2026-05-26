@@ -4,6 +4,7 @@ import './Tablet.css';
 import { fetchMessages } from '../services/messageService';
 import { reportTabletDisplayProfile } from '../services/displayProfileService';
 import { QRCodeCanvas } from 'qrcode.react';
+import { appConfig } from '../../config/appConfig';
 
 import logo from '../../assets/ZUT_Logo.png';
 
@@ -1059,7 +1060,7 @@ export default function Tablet() {
           <div className="qr-container-column">
             <div className="qr-wrapper-mini">
               <QRCodeCanvas
-                value={`https://plan.zut.edu.pl/#${encodeURIComponent(roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`)}&&&&`}
+                value={`${appConfig.zutPlanBaseUrl}/#${encodeURIComponent(roomInfo.room.startsWith(roomInfo.building) ? roomInfo.room : `${roomInfo.building} ${roomInfo.room}`)}&&&&`}
                 size={58}
                 fgColor="#0f172a"
               />
