@@ -107,6 +107,11 @@ export const adminViewMeta: Record<
     title: "Tablety",
     icon: "fas fa-tablet-alt",
   },
+  "pending-tablets": {
+    label: "Oczekujące tablety",
+    title: "Oczekujące tablety",
+    icon: "fas fa-hourglass-half",
+  },
   "tablet-preview": {
     label: "Podgląd tabletu",
     title: "Podgląd tabletu",

@@ -71,6 +71,8 @@ const DOUBLE_DOCKED_MIN_HEIGHT = 760;
 const FULLSCREEN_DRAWER_MAX_WIDTH = 720;
 const TOAST_DURATION_MS = 4500;
 const ADMIN_PREVIEW_MODE = "admin-preview";
+const PREVIEW_TEACHER_SEARCH_DEBOUNCE_MS = 250;
+const PREVIEW_TEACHER_SEARCH_MIN_LENGTH = 2;
 
 type CalendarView = "timeGridDay" | "timeGridWeek" | "dayGridMonth";
 type LecturerToastTone = "success" | "warning" | "danger" | "neutral";
@@ -122,6 +124,43 @@ const normalizePreviewFieldValue = (value: string | null | undefined) =>
 
 const buildPreviewTeacherName = (surname: string, givenName: string) =>
   surname && givenName ? `${surname} ${givenName}` : "";
+
+const fetchPreviewTeacherMatches = async (
+  query: string,
+  signal?: AbortSignal,
+) => {
+  const normalizedQuery = normalizePreviewFieldValue(query);
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const response = await fetch(
+    `/schedule.php?kind=teacher&query=${encodeURIComponent(normalizedQuery)}`,
+    { signal },
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+
+  return Array.isArray(data)
+    ? Array.from(
+        new Set(
+          data
+            .filter(
+              (item: { item?: unknown }) => typeof item?.item === "string",
+            )
+            .map((item: { item: string }) =>
+              normalizePreviewFieldValue(item.item),
+            )
+            .filter(Boolean),
+        ),
+      )
+    : [];
+};
 
 const resolveWorkspaceMode = (
   width: number,
@@ -399,6 +438,13 @@ export default function LecturerCalendar() {
         : "timeGridDay",
     );
   const [previewFullNameInput, setPreviewFullNameInput] = useState("");
+  const [previewTeacherSuggestions, setPreviewTeacherSuggestions] = useState<
+    string[]
+  >([]);
+  const [isPreviewTeacherSuggestionsOpen, setPreviewTeacherSuggestionsOpen] =
+    useState(false);
+  const [isPreviewTeacherSearchLoading, setPreviewTeacherSearchLoading] =
+    useState(false);
 
   const isAdminPreviewMode =
     searchParams.get("mode") === ADMIN_PREVIEW_MODE;
@@ -443,7 +489,7 @@ export default function LecturerCalendar() {
   const calendarSubtitle =
     calendarTitle ||
     (isAdminPreviewMode
-      ? "Uzupełnij pełne nazwisko i imię prowadzącego, aby wczytać plan."
+      ? "Wpisz nazwisko i imię prowadzącego, aby wczytać plan."
       : "");
 
   const scheduleCalendarResize = () => {
@@ -670,6 +716,61 @@ export default function LecturerCalendar() {
   }, [previewTeacherName]);
 
   useEffect(() => {
+    if (!isAdminPreviewMode) {
+      setPreviewTeacherSuggestions([]);
+      setPreviewTeacherSuggestionsOpen(false);
+      setPreviewTeacherSearchLoading(false);
+      return;
+    }
+
+    const query = normalizePreviewFieldValue(previewFullNameInput);
+
+    if (query === previewTeacherName) {
+      setPreviewTeacherSuggestions([]);
+      setPreviewTeacherSuggestionsOpen(false);
+      setPreviewTeacherSearchLoading(false);
+      return;
+    }
+
+    if (query.length < PREVIEW_TEACHER_SEARCH_MIN_LENGTH) {
+      setPreviewTeacherSuggestions([]);
+      setPreviewTeacherSuggestionsOpen(false);
+      setPreviewTeacherSearchLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      setPreviewTeacherSearchLoading(true);
+
+      void fetchPreviewTeacherMatches(query, controller.signal)
+        .then((matches) => {
+          setPreviewTeacherSuggestions(matches);
+          setPreviewTeacherSuggestionsOpen(matches.length > 0);
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+
+          console.error("Error fetching lecturer suggestions:", error);
+          setPreviewTeacherSuggestions([]);
+          setPreviewTeacherSuggestionsOpen(false);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setPreviewTeacherSearchLoading(false);
+          }
+        });
+    }, PREVIEW_TEACHER_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [isAdminPreviewMode, previewFullNameInput, previewTeacherName]);
+
+  useEffect(() => {
     if (!session) {
       setActiveTeacher(null);
       return;
@@ -877,8 +978,8 @@ export default function LecturerCalendar() {
     setIsAttendancePanelOpen(false);
   };
 
-  const handlePreviewApply = () => {
-    const nextFullName = normalizePreviewFieldValue(previewFullNameInput);
+  const applyPreviewTeacherName = (fullName: string) => {
+    const nextFullName = normalizePreviewFieldValue(fullName);
     const nextSearchParams = new URLSearchParams();
 
     nextSearchParams.set("mode", ADMIN_PREVIEW_MODE);
@@ -890,8 +991,22 @@ export default function LecturerCalendar() {
     setSearchParams(nextSearchParams);
   };
 
+  const handlePreviewApply = () => {
+    setPreviewTeacherSuggestionsOpen(false);
+    applyPreviewTeacherName(previewFullNameInput);
+  };
+
+  const handlePreviewTeacherSelect = (teacherName: string) => {
+    setPreviewFullNameInput(teacherName);
+    setPreviewTeacherSuggestions([]);
+    setPreviewTeacherSuggestionsOpen(false);
+    applyPreviewTeacherName(teacherName);
+  };
+
   const handlePreviewClear = () => {
     setPreviewFullNameInput("");
+    setPreviewTeacherSuggestions([]);
+    setPreviewTeacherSuggestionsOpen(false);
     setSearchParams({ mode: ADMIN_PREVIEW_MODE });
   };
 
@@ -1630,15 +1745,51 @@ export default function LecturerCalendar() {
                 handlePreviewApply();
               }}
             >
-              <input
-                className="lecturer-console__preview-input"
-                type="text"
-                placeholder="Pełne nazwisko i imię"
-                aria-label="Pełne nazwisko i imię"
-                value={previewFullNameInput}
-                onChange={(event) => setPreviewFullNameInput(event.target.value)}
-                autoComplete="off"
-              />
+              <div className="admin-autocomplete lecturer-console__preview-autocomplete">
+                <input
+                  className="lecturer-console__preview-input"
+                  type="text"
+                  placeholder="Nazwisko i imię"
+                  aria-label="Nazwisko i imię"
+                  value={previewFullNameInput}
+                  onChange={(event) => {
+                    setPreviewFullNameInput(event.target.value);
+                    setPreviewTeacherSuggestionsOpen(true);
+                  }}
+                  onFocus={() => {
+                    setPreviewTeacherSuggestionsOpen(
+                      previewTeacherSuggestions.length > 0,
+                    );
+                  }}
+                  onBlur={() => {
+                    window.setTimeout(() => {
+                      setPreviewTeacherSuggestionsOpen(false);
+                    }, 120);
+                  }}
+                  autoComplete="off"
+                />
+                {isPreviewTeacherSearchLoading ? (
+                  <span className="admin-autocomplete__loading">
+                    <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                  </span>
+                ) : null}
+                {isPreviewTeacherSuggestionsOpen &&
+                previewTeacherSuggestions.length > 0 ? (
+                  <div className="admin-autocomplete__list lecturer-console__teacher-suggestions">
+                    {previewTeacherSuggestions.map((teacherName) => (
+                      <button
+                        key={teacherName}
+                        type="button"
+                        className="admin-autocomplete__item"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => handlePreviewTeacherSelect(teacherName)}
+                      >
+                        {teacherName}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
               <button
                 type="submit"
@@ -1762,8 +1913,8 @@ export default function LecturerCalendar() {
                   <div className="lecturer-console__empty-state">
                     <strong>Wybierz dydaktyka</strong>
                     <p>
-                      Uzupełnij pełne nazwisko i imię w pasku podglądu, aby
-                      wczytać plan zajęć.
+                      Wpisz nazwisko i imię w pasku podglądu, aby wczytać plan
+                      zajęć.
                     </p>
                   </div>
                 ) : (

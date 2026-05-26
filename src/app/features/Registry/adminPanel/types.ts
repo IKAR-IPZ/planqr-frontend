@@ -11,6 +11,7 @@ export interface Device {
   connectionStatus: "PENDING" | "ONLINE" | "OFFLINE";
   isConnected: boolean;
   lastSeen: string;
+  lastIpAddress?: string | null;
   macAddress?: string;
   viewportWidthPx?: number | null;
   viewportHeightPx?: number | null;
@@ -56,7 +57,12 @@ export interface AdminRecord {
   canBeRemovedFromPanel: boolean;
 }
 
-export type AdminPanelView = "devices" | "tablet-preview" | "admins" | "schedule";
+export type AdminPanelView =
+  | "devices"
+  | "pending-tablets"
+  | "tablet-preview"
+  | "admins"
+  | "schedule";
 export type AdminPanelTheme = "light" | "dark";
 export type DeviceSortColumn =
   | "room"

@@ -202,8 +202,12 @@ body.lecturer-console-scroll-root {
   gap: 0.5rem;
 }
 
-.lecturer-console__preview-input {
+.lecturer-console__preview-autocomplete {
   width: min(100%, 18rem);
+}
+
+.lecturer-console__preview-input {
+  width: 100%;
   min-height: 38px;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border);
@@ -221,6 +225,12 @@ body.lecturer-console-scroll-root {
 
 .lecturer-console__appbar-preview .admin-button {
   flex-shrink: 0;
+}
+
+.lecturer-console__teacher-suggestions {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  box-shadow: var(--admin-shadow);
 }
 
 .lecturer-console__calendar-frame .fc {
@@ -672,7 +682,7 @@ body.lecturer-console-scroll-root {
     justify-content: flex-start;
   }
 
-  .lecturer-console__preview-input {
+  .lecturer-console__preview-autocomplete {
     width: min(100%, 18rem);
   }
 
@@ -749,7 +759,7 @@ body.lecturer-console-scroll-root {
     height: 1px;
   }
 
-  .lecturer-console__preview-input {
+  .lecturer-console__preview-autocomplete {
     width: 100%;
   }
 
