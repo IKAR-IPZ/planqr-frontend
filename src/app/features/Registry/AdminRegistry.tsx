@@ -14,6 +14,7 @@ import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
 import AdminsView from "./adminPanel/AdminsView";
 import DeviceDrawer from "./adminPanel/DeviceDrawer";
 import DevicesView from "./adminPanel/DevicesView";
+import PendingTabletsView from "./adminPanel/PendingTabletsView";
 import ScheduleView from "./adminPanel/ScheduleView";
 import TabletPreviewView from "./adminPanel/TabletPreviewView";
 import {
@@ -76,6 +77,7 @@ interface PreviewModalState {
 
 const ADMIN_NAVIGATION_ORDER: AdminNavigationKey[] = [
   "devices",
+  "pending-tablets",
   "admins",
   "schedule",
   "pairing",
@@ -97,7 +99,12 @@ const PAIRING_MESSAGE = {
 } as const;
 
 const getActiveView = (value: string | null): AdminPanelView => {
-  if (value === "admins" || value === "schedule" || value === "tablet-preview") {
+  if (
+    value === "admins" ||
+    value === "schedule" ||
+    value === "tablet-preview" ||
+    value === "pending-tablets"
+  ) {
     return value;
   }
 
@@ -138,6 +145,7 @@ const AdminRegistry = () => {
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [adminMutationLoading, setAdminMutationLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [pendingSearchTerm, setPendingSearchTerm] = useState("");
   const [deviceSort, setDeviceSort] = useState<DeviceSortState>(defaultDeviceSortState);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
   const [visibleDeviceIds, setVisibleDeviceIds] = useState<number[]>([]);
@@ -173,6 +181,7 @@ const AdminRegistry = () => {
   const [priorityMessageCreating, setPriorityMessageCreating] = useState(false);
   const [newPriorityMessageName, setNewPriorityMessageName] = useState("");
   const [newPriorityMessageImageUrl, setNewPriorityMessageImageUrl] = useState("");
+  const [banIpDeviceId, setBanIpDeviceId] = useState<number | null>(null);
 
   const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
   const [previewState, setPreviewState] = useState<PreviewModalState | null>(null);
@@ -1808,6 +1817,59 @@ const AdminRegistry = () => {
     }
   };
 
+  const handleBanDeviceIp = async (device: Device) => {
+    const ipAddress = device.lastIpAddress?.trim();
+
+    if (!ipAddress || ipAddress === "unknown") {
+      pushToast("Tablet nie ma zapisanego poprawnego IP.", "danger");
+      return;
+    }
+
+    const shouldBan = window.confirm(
+      `Zbanować IP ${ipAddress} i usunąć tablet ${formatPairingDeviceId(
+        device.deviceId,
+      )} z kolejki?`,
+    );
+    if (!shouldBan) {
+      return;
+    }
+
+    try {
+      setBanIpDeviceId(device.id);
+      const response = await fetch(`/api/devices/${device.id}/ban-ip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          reason: "admin-pending-tablet-ban",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się zbanować IP tabletu.");
+      }
+
+      if (drawerDeviceId === device.id) {
+        closeDrawer();
+      }
+      if (pairingDeviceId === device.id) {
+        resetPairingSelection();
+      }
+
+      pushToast(data.message || `Zbanowano IP ${ipAddress}.`, "success");
+      await fetchDevices({ silent: true });
+    } catch (error) {
+      console.error("Error banning tablet IP:", error);
+      pushToast(
+        error instanceof Error ? error.message : "Nie udało się zbanować IP tabletu.",
+        "danger",
+      );
+    } finally {
+      setBanIpDeviceId(null);
+    }
+  };
+
   const clearDeviceSelection = () => {
     setSelectedDeviceIds([]);
   };
@@ -2182,6 +2244,26 @@ const AdminRegistry = () => {
               }}
               onAssignPairingDevice={() => {
                 void handleAssignPendingDevice();
+              }}
+            />
+          ) : null}
+
+          {currentView === "pending-tablets" ? (
+            <PendingTabletsView
+              devices={allPendingDevices}
+              loading={loading}
+              manualRefreshing={manualRefreshing}
+              banningDeviceId={banIpDeviceId}
+              searchTerm={pendingSearchTerm}
+              onSearchTermChange={setPendingSearchTerm}
+              onRefresh={() => void fetchDevices({ manual: true })}
+              onPairDevice={(device) => {
+                closeDrawer();
+                openDeviceEditor(device);
+              }}
+              onDeleteDevice={handleDeleteDevice}
+              onBanDeviceIp={(device) => {
+                void handleBanDeviceIp(device);
               }}
             />
           ) : null}

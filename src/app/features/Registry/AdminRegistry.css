@@ -1690,6 +1690,10 @@ body.admin-console-scroll-root #root {
   width: 16%;
 }
 
+.admin-table--pending .admin-table__col--ip {
+  width: 18%;
+}
+
 .admin-table--pending .admin-table__col--status {
   width: 16%;
 }
@@ -1700,6 +1704,30 @@ body.admin-console-scroll-root #root {
 
 .admin-table--pending .admin-table__col--actions {
   width: 32%;
+}
+
+.admin-table--pending-tablets {
+  min-width: 760px;
+}
+
+.admin-table--pending-tablets .admin-table__col--device-id {
+  width: 18%;
+}
+
+.admin-table--pending-tablets .admin-table__col--ip {
+  width: 20%;
+}
+
+.admin-table--pending-tablets .admin-table__col--status {
+  width: 20%;
+}
+
+.admin-table--pending-tablets .admin-table__col--heartbeat {
+  width: 24%;
+}
+
+.admin-table--pending-tablets .admin-table__col--actions {
+  width: 18%;
 }
 
 .admin-table--pending th,
