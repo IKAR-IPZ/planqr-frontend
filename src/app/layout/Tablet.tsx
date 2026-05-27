@@ -102,6 +102,8 @@ interface TabletCommandPayload {
 }
 
 const TABLET_RELOAD_PARAM = '_tabletReload';
+const TABLET_UUID_STORAGE_KEY = 'tablet_uuid';
+const TABLET_DEVICE_ID_PATTERN = /^\d{6}$/;
 const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
 const TABLET_THEME_STORAGE_KEY = 'tablet_display_theme';
 const TABLET_BLACK_SCREEN_MODE_STORAGE_KEY = 'tablet_black_screen_mode';
@@ -125,6 +127,8 @@ const DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG: TabletPriorityMessageConfig = {
 
 const buildTabletPath = (room: string, secretUrl: string) =>
   `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
+
+const isValidTabletDeviceId = (value: string) => TABLET_DEVICE_ID_PATTERN.test(value.trim());
 
 const normalizeDisplayTheme = (theme?: string | null): TabletDisplayTheme =>
   theme === 'light' ? 'light' : DEFAULT_TABLET_DISPLAY_THEME;
@@ -373,8 +377,9 @@ export default function Tablet() {
       return;
     }
 
-    const storedDeviceId = window.localStorage.getItem('tablet_uuid') || '';
-    if (!storedDeviceId) {
+    const storedDeviceId = window.localStorage.getItem(TABLET_UUID_STORAGE_KEY)?.trim() || '';
+    if (!isValidTabletDeviceId(storedDeviceId)) {
+      window.localStorage.removeItem(TABLET_UUID_STORAGE_KEY);
       forceHardReload('/registry');
       return;
     }
@@ -609,7 +614,8 @@ export default function Tablet() {
           cache: 'no-store',
         });
         if (!response.ok) {
-          if (response.status === 404 && !cancelled) {
+          if ((response.status === 400 || response.status === 404) && !cancelled) {
+            window.localStorage.removeItem(TABLET_UUID_STORAGE_KEY);
             forceHardReload('/registry');
           }
           return;
