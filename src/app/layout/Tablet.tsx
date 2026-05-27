@@ -102,8 +102,6 @@ interface TabletCommandPayload {
 }
 
 const TABLET_RELOAD_PARAM = '_tabletReload';
-const TABLET_UUID_STORAGE_KEY = 'tablet_uuid';
-const TABLET_DEVICE_ID_PATTERN = /^\d{6}$/;
 const TABLET_NIGHT_MODE_STORAGE_KEY = 'tablet_night_mode_config';
 const TABLET_THEME_STORAGE_KEY = 'tablet_display_theme';
 const TABLET_BLACK_SCREEN_MODE_STORAGE_KEY = 'tablet_black_screen_mode';
@@ -111,6 +109,7 @@ const LEGACY_TABLET_FORCE_BLACK_SCREEN_STORAGE_KEY = 'tablet_force_black_screen'
 const TABLET_PREVIEW_PARAM = 'preview';
 const TABLET_PREVIEW_CONFIG_REFRESH_MS = 10000;
 const TABLET_PREVIEW_SCHEDULE_REFRESH_MS = 15000;
+const TABLET_STATUS_REFRESH_MS = 5000;
 const TABLET_SCHEDULE_REFRESH_MS = 60000;
 const DEFAULT_TABLET_DISPLAY_THEME: TabletDisplayTheme = 'dark';
 const DEFAULT_TABLET_BLACK_SCREEN_MODE: TabletBlackScreenMode = 'follow';
@@ -127,8 +126,6 @@ const DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG: TabletPriorityMessageConfig = {
 
 const buildTabletPath = (room: string, secretUrl: string) =>
   `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
-
-const isValidTabletDeviceId = (value: string) => TABLET_DEVICE_ID_PATTERN.test(value.trim());
 
 const normalizeDisplayTheme = (theme?: string | null): TabletDisplayTheme =>
   theme === 'light' ? 'light' : DEFAULT_TABLET_DISPLAY_THEME;
@@ -196,6 +193,14 @@ const normalizePriorityMessageConfig = (
     updatedBy: priorityMessage.updatedBy ?? null,
   };
 };
+
+const getPriorityMessageSignature = (priorityMessage: TabletPriorityMessageConfig) =>
+  [
+    priorityMessage.enabled ? 'enabled' : 'disabled',
+    priorityMessage.template?.id ?? 'none',
+    priorityMessage.template?.imageUrl ?? 'none',
+    priorityMessage.updatedAt ?? 'none',
+  ].join(':');
 
 const persistNightModeConfig = (nightMode: TabletNightModeConfig) => {
   if (typeof window === 'undefined') {
@@ -360,6 +365,9 @@ export default function Tablet() {
   );
   const [priorityMessageConfig, setPriorityMessageConfig] =
     useState<TabletPriorityMessageConfig>(DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG);
+  const priorityMessageSignatureRef = useRef(
+    getPriorityMessageSignature(DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG)
+  );
 
   // States
   const [currentDateTime, setCurrentDateTime] = useState({
@@ -377,9 +385,8 @@ export default function Tablet() {
       return;
     }
 
-    const storedDeviceId = window.localStorage.getItem(TABLET_UUID_STORAGE_KEY)?.trim() || '';
-    if (!isValidTabletDeviceId(storedDeviceId)) {
-      window.localStorage.removeItem(TABLET_UUID_STORAGE_KEY);
+    const storedDeviceId = window.localStorage.getItem('tablet_uuid') || '';
+    if (!storedDeviceId) {
       forceHardReload('/registry');
       return;
     }
@@ -406,7 +413,20 @@ export default function Tablet() {
   }, [isPreviewMode]);
 
   const applyPriorityMessageConfig = useCallback((config?: DeviceStatusResponse['config']) => {
-    setPriorityMessageConfig(normalizePriorityMessageConfig(config?.priorityMessage));
+    const nextPriorityMessageConfig = normalizePriorityMessageConfig(config?.priorityMessage);
+    const nextSignature = getPriorityMessageSignature(nextPriorityMessageConfig);
+
+    if (priorityMessageSignatureRef.current !== nextSignature) {
+      priorityMessageSignatureRef.current = nextSignature;
+      console.info('[Tablet] Priority message config changed', {
+        enabled: nextPriorityMessageConfig.enabled,
+        templateId: nextPriorityMessageConfig.template?.id ?? null,
+        imageUrl: nextPriorityMessageConfig.template?.imageUrl ?? null,
+        updatedAt: nextPriorityMessageConfig.updatedAt ?? null,
+      });
+    }
+
+    setPriorityMessageConfig(nextPriorityMessageConfig);
   }, []);
 
   const applyDeviceDisplayConfig = useCallback((config?: DeviceStatusResponse['config']) => {
@@ -614,8 +634,7 @@ export default function Tablet() {
           cache: 'no-store',
         });
         if (!response.ok) {
-          if ((response.status === 400 || response.status === 404) && !cancelled) {
-            window.localStorage.removeItem(TABLET_UUID_STORAGE_KEY);
+          if (response.status === 404 && !cancelled) {
             forceHardReload('/registry');
           }
           return;
@@ -647,7 +666,7 @@ export default function Tablet() {
     };
 
     syncDeviceStatus();
-    const intervalId = window.setInterval(syncDeviceStatus, 30000);
+    const intervalId = window.setInterval(syncDeviceStatus, TABLET_STATUS_REFRESH_MS);
 
     return () => {
       cancelled = true;

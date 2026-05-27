@@ -7,24 +7,6 @@ import { buildPairingQrValue, formatPairingDeviceId } from './adminPanel/helpers
 const buildTabletPath = (room: string, secretUrl: string) =>
     `/tablet/${encodeURIComponent(room)}/${encodeURIComponent(secretUrl)}`;
 
-const TABLET_UUID_STORAGE_KEY = 'tablet_uuid';
-const TABLET_DEVICE_ID_PATTERN = /^\d{6}$/;
-
-const generatePairingDeviceId = () => Math.floor(100000 + Math.random() * 900000).toString();
-
-const readStoredPairingDeviceId = () => {
-    const storedDeviceId = localStorage.getItem(TABLET_UUID_STORAGE_KEY)?.trim() || '';
-
-    if (TABLET_DEVICE_ID_PATTERN.test(storedDeviceId)) {
-        localStorage.setItem(TABLET_UUID_STORAGE_KEY, storedDeviceId);
-        return storedDeviceId;
-    }
-
-    const nextDeviceId = generatePairingDeviceId();
-    localStorage.setItem(TABLET_UUID_STORAGE_KEY, nextDeviceId);
-    return nextDeviceId;
-};
-
 interface RegistryStatusResponse {
     status: string;
     config?: {
@@ -43,7 +25,13 @@ const Registry = () => {
 
     // Initialize ID
     useEffect(() => {
-        setUuid(readStoredPairingDeviceId());
+        let deviceId = localStorage.getItem('tablet_uuid');
+        if (!deviceId) {
+            // Generate 6-digit code
+            deviceId = Math.floor(100000 + Math.random() * 900000).toString();
+            localStorage.setItem('tablet_uuid', deviceId);
+        }
+        setUuid(deviceId);
     }, []);
 
     useEffect(() => {
@@ -102,18 +90,6 @@ const Registry = () => {
             }
         };
 
-        const resetPairingDeviceId = () => {
-            if (!isMounted) {
-                return;
-            }
-
-            const nextDeviceId = generatePairingDeviceId();
-            localStorage.setItem(TABLET_UUID_STORAGE_KEY, nextDeviceId);
-            setUuid(nextDeviceId);
-            setStatus('LOADING');
-            setError(null);
-        };
-
         const performHandshake = async () => {
             if (handshakeInFlight) {
                 return;
@@ -132,11 +108,6 @@ const Registry = () => {
                     const data = await response.json();
                     handleStatus(data);
                 } else {
-                    if (response.status === 400) {
-                        resetPairingDeviceId();
-                        return;
-                    }
-
                     if (isMounted) {
                         setError("Handshake failed");
                     }
@@ -158,11 +129,6 @@ const Registry = () => {
                 });
                 if (response.status === 404) {
                     await performHandshake();
-                    return;
-                }
-
-                if (response.status === 400) {
-                    resetPairingDeviceId();
                     return;
                 }
 
