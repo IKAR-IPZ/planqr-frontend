@@ -658,6 +658,15 @@ body.lecturer-console-scroll-root {
   right: 0.75rem;
   z-index: 80;
   width: min(340px, calc(100vw - 1.5rem));
+  pointer-events: none;
+}
+
+.lecturer-console__toast-stack .admin-toast {
+  pointer-events: none;
+}
+
+.lecturer-console__toast-stack .admin-toast__close {
+  pointer-events: auto;
 }
 
 .lecturer-console[data-workspace-mode="drawer"] .lecturer-console__shell,

@@ -931,7 +931,13 @@ export default function LecturerCalendar() {
     setEditingMessageBody("");
     setEditingMessageRoom("");
     setMessageMutationId(null);
-  }, [selectedLesson?.id, selectedLesson?.room]);
+  }, [selectedLesson?.id]);
+
+  useEffect(() => {
+    if (!isEditingRoom) {
+      setEditedRoom(selectedLesson?.room || "");
+    }
+  }, [isEditingRoom, selectedLesson?.room]);
 
   const handleLogout = async () => {
     try {
@@ -1179,18 +1185,9 @@ export default function LecturerCalendar() {
     };
 
     try {
-      await createMessage(roomChangePayload);
-      await loadMessagesForLesson(selectedLesson.id);
-      setEvents((current) =>
-        current.map((event) =>
-          event.id === selectedLesson.id ? { ...event, room: nextRoom } : event,
-        ),
-      );
-      setSelectedLesson((current) =>
-        current ? { ...current, room: nextRoom } : current,
-      );
-      setEditedRoom(nextRoom);
-      setIsEditingRoom(false);
+      const createdMessage = await createMessage(roomChangePayload);
+      setMessages((current) => [...current, createdMessage]);
+      applyRoomToSelectedLesson(nextRoom);
       pushToast(`Sala została zmieniona na ${nextRoom}.`, "success");
     } catch (error) {
       console.error("Error sending room change message:", error);
@@ -1210,21 +1207,10 @@ export default function LecturerCalendar() {
 
     try {
       await deleteMessage(latestRoomChangeMessage.id);
-      await loadMessagesForLesson(selectedLesson.id);
-      setEvents((current) =>
-        current.map((event) =>
-          event.id === selectedLesson.id
-            ? { ...event, room: previousRoom }
-            : event,
-        ),
+      setMessages((current) =>
+        current.filter((message) => message.id !== latestRoomChangeMessage.id),
       );
-      setSelectedLesson((current) =>
-        current?.id === selectedLesson.id
-          ? { ...current, room: previousRoom }
-          : current,
-      );
-      setEditedRoom(previousRoom);
-      setIsEditingRoom(false);
+      applyRoomToSelectedLesson(previousRoom);
       pushToast(`Cofnięto zmianę sali: ${previousRoomLabel}.`, "success");
     } catch (error) {
       console.error("Error undoing room change:", error);
