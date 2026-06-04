@@ -95,8 +95,6 @@ interface DevicesViewProps {
   onApplyBatchBlackScreen: () => void;
   onApplyBatchPriorityMessage: () => void;
   onClearBatchPriorityMessage: () => void;
-  onRefreshPriorityMessages: () => void;
-  onClearSelectedDevices: () => void;
   onToggleAllActiveDevices: (checked: boolean) => void;
   onToggleDeviceSelection: (deviceId: number) => void;
   onRefresh: () => void;
@@ -163,8 +161,6 @@ const DevicesView = ({
   onApplyBatchBlackScreen,
   onApplyBatchPriorityMessage,
   onClearBatchPriorityMessage,
-  onRefreshPriorityMessages,
-  onClearSelectedDevices,
   onToggleAllActiveDevices,
   onToggleDeviceSelection,
   onRefresh,
@@ -252,6 +248,7 @@ const DevicesView = ({
     <>
       <div className="admin-table__batch-control">
         <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+          <span className="admin-form-field__label">Motyw tabletu</span>
           <select
             className="admin-form-field__input admin-table__theme-select"
             aria-label="Batchowa zmiana trybu tabletu"
@@ -276,6 +273,7 @@ const DevicesView = ({
       </div>
       <div className="admin-table__batch-control">
         <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+          <span className="admin-form-field__label">Czarny ekran</span>
           <select
             className="admin-form-field__input admin-table__mode-select"
             aria-label="Batchowa zmiana czarnego ekranu"
@@ -341,18 +339,6 @@ const DevicesView = ({
         >
           Wyłącz
         </button>
-        <button
-          type="button"
-          className="admin-button admin-button--ghost admin-button--small admin-button--icon"
-          onClick={onRefreshPriorityMessages}
-          disabled={priorityMessagesLoading}
-          aria-label="Odśwież listę komunikatów priorytetowych"
-        >
-          <i
-            className={`fas fa-sync-alt ${priorityMessagesLoading ? "fa-spin" : ""}`}
-            aria-hidden="true"
-          />
-        </button>
       </div>
       <button
         type="button"
@@ -361,15 +347,7 @@ const DevicesView = ({
         disabled={batchUpdating || selectedCount === 0}
       >
         <i className="fas fa-trash-alt" aria-hidden="true" />
-        Usuń zaznaczone
-      </button>
-      <button
-        type="button"
-        className="admin-button admin-button--ghost admin-button--small"
-        onClick={onClearSelectedDevices}
-        disabled={selectedCount === 0}
-      >
-        Wyczyść
+        Usuń zaznaczone tablety
       </button>
     </>
   );

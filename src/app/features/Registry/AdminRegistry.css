@@ -1053,8 +1053,6 @@ body.admin-console-scroll-root #root {
 
 .admin-batch-panel .admin-table__batch-control--priority {
   width: 100%;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--admin-border);
   align-items: flex-end;
   flex-wrap: nowrap;
 }
@@ -1065,9 +1063,13 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-batch-panel .admin-table__batch-control--priority .admin-form-field--compact {
-  flex: 0 1 10.5rem;
-  width: 10.5rem;
+  flex: 0 1 12.25rem;
+  width: 12.25rem;
   min-width: 0;
+}
+
+.admin-batch-panel .admin-table__batch-control .admin-form-field__label {
+  white-space: nowrap;
 }
 
 .admin-batch-panel .admin-table__batch-control--priority .admin-button:not(.admin-button--icon) {
@@ -1554,28 +1556,14 @@ body.admin-console-scroll-root #root {
   --ag-border-color: var(--admin-border);
   --ag-background-color: var(--admin-surface);
   --ag-foreground-color: var(--admin-text);
-  --ag-data-background-color: var(--admin-surface);
-  --ag-odd-row-background-color: var(--admin-surface);
-  --ag-data-color: var(--admin-text);
-  --ag-secondary-foreground-color: var(--admin-text-muted);
   --ag-header-background-color: var(--admin-surface-muted);
   --ag-header-foreground-color: var(--admin-text-soft);
   --ag-header-cell-hover-background-color: var(--admin-surface-muted);
-  --ag-control-panel-background-color: var(--admin-surface);
-  --ag-menu-background-color: var(--admin-surface);
-  --ag-panel-background-color: var(--admin-surface);
-  --ag-subheader-background-color: var(--admin-surface-muted);
-  --ag-subheader-toolbar-background-color: var(--admin-surface-muted);
   --ag-row-border-color: var(--admin-border);
   --ag-row-hover-color: var(--admin-neutral-soft);
   --ag-selected-row-background-color: var(--admin-accent-soft);
   --ag-pinned-column-border: none;
   --ag-wrapper-border-radius: var(--admin-radius);
-  color-scheme: light;
-}
-
-.admin-console[data-admin-theme="dark"] .admin-devices-grid__theme.ag-theme-quartz {
-  color-scheme: dark;
 }
 
 .admin-devices-grid__theme .ag-root-wrapper,
@@ -1584,28 +1572,6 @@ body.admin-console-scroll-root #root {
   border: 0;
   height: 100%;
   min-height: 0;
-  background: var(--admin-surface) !important;
-  color: var(--admin-text);
-}
-
-.admin-devices-grid__theme .ag-header,
-.admin-devices-grid__theme .ag-header-viewport,
-.admin-devices-grid__theme .ag-header-container,
-.admin-devices-grid__theme .ag-header-row,
-.admin-devices-grid__theme .ag-header-cell {
-  background: var(--admin-surface-muted) !important;
-  color: var(--admin-text-soft);
-}
-
-.admin-devices-grid__theme .ag-body,
-.admin-devices-grid__theme .ag-body-viewport,
-.admin-devices-grid__theme .ag-center-cols-viewport,
-.admin-devices-grid__theme .ag-center-cols-container,
-.admin-devices-grid__theme .ag-pinned-left-cols-container,
-.admin-devices-grid__theme .ag-pinned-left-cols-viewport,
-.admin-devices-grid__theme .ag-full-width-container {
-  background: var(--admin-surface) !important;
-  color: var(--admin-text);
 }
 
 .admin-devices-grid__theme .ag-body-viewport,
@@ -1638,14 +1604,7 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-devices-grid__theme .ag-row {
-  background: var(--admin-surface) !important;
-  color: var(--admin-text);
   cursor: pointer;
-}
-
-.admin-devices-grid__theme .ag-cell {
-  background: var(--admin-surface) !important;
-  color: var(--admin-text);
 }
 
 .admin-devices-grid__theme .ag-header-cell::after,
@@ -1732,12 +1691,12 @@ body.admin-console-scroll-root #root {
 
 .admin-devices-grid__theme .ag-row.ag-row-hover:not(.admin-devices-grid__row--selected) .ag-cell,
 .admin-devices-grid__theme .ag-row.admin-devices-grid__row:not(.admin-devices-grid__row--selected):hover .ag-cell {
-  background: var(--admin-neutral-soft) !important;
+  background: var(--admin-neutral-soft);
 }
 
 .admin-devices-grid__theme .ag-row.admin-devices-grid__row--selected .ag-cell,
 .admin-devices-grid__theme .ag-row.admin-devices-grid__row--selected.ag-row-hover .ag-cell {
-  background: var(--admin-accent-soft) !important;
+  background: var(--admin-accent-soft);
 }
 
 .admin-devices-grid__theme .ag-cell:focus-visible,

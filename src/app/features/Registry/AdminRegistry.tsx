@@ -2366,8 +2366,6 @@ const AdminRegistry = () => {
               onApplyBatchBlackScreen={() => void handleBatchBlackScreenUpdate()}
               onApplyBatchPriorityMessage={() => void handleBatchPriorityMessageActivate()}
               onClearBatchPriorityMessage={() => void handleBatchPriorityMessageClear()}
-              onRefreshPriorityMessages={() => void fetchPriorityMessageTemplates()}
-              onClearSelectedDevices={clearDeviceSelection}
               onToggleAllActiveDevices={handleToggleAllActiveDevices}
               onToggleDeviceSelection={handleToggleDeviceSelection}
               onRefresh={() => void fetchDevices({ manual: true })}
