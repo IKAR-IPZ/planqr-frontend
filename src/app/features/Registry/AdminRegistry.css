@@ -21,7 +21,9 @@ body.admin-console-scroll-root #root {
   --admin-sidebar-width: 240px;
   --admin-accent: #204090;
   --admin-accent-strong: #1b3677;
+  --admin-accent-text: var(--admin-accent);
   --admin-accent-soft: rgba(32, 64, 144, 0.08);
+  --admin-accent-border: rgba(32, 64, 144, 0.18);
   --admin-success: #208050;
   --admin-success-soft: rgba(32, 128, 80, 0.12);
   --admin-warning: #b54708;
@@ -147,7 +149,17 @@ body.admin-console-scroll-root #root {
   --admin-text: #e5edf7;
   --admin-text-muted: #a5b0c1;
   --admin-text-soft: #8491a5;
-  --admin-accent-soft: rgba(132, 161, 255, 0.12);
+  --admin-accent: #3156d4;
+  --admin-accent-strong: #2648bd;
+  --admin-accent-text: #9bb7ff;
+  --admin-accent-soft: rgba(155, 183, 255, 0.14);
+  --admin-accent-border: rgba(155, 183, 255, 0.36);
+  --admin-success: #49d18d;
+  --admin-success-soft: rgba(73, 209, 141, 0.14);
+  --admin-warning: #f7b267;
+  --admin-warning-soft: rgba(247, 178, 103, 0.15);
+  --admin-danger: #ff8a80;
+  --admin-danger-soft: rgba(255, 138, 128, 0.14);
   --admin-neutral-soft: rgba(148, 163, 184, 0.12);
   --admin-overlay: rgba(2, 6, 23, 0.58);
   --admin-toast-success-bg: #1a3125;
@@ -310,7 +322,7 @@ body.admin-console-scroll-root #root {
   border-color: var(--admin-border);
   border-left-color: var(--admin-accent);
   background: var(--admin-accent-soft);
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
 }
 
 .admin-nav__section {
@@ -460,7 +472,7 @@ body.admin-console-scroll-root #root {
 
 .admin-theme-switch__button--active {
   background: var(--admin-accent-soft);
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
 }
 
 .admin-button {
@@ -671,7 +683,7 @@ body.admin-console-scroll-root #root {
 
 .admin-surface__toggle:hover,
 .admin-surface__toggle:focus-visible {
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
   outline: none;
 }
 
@@ -795,11 +807,21 @@ body.admin-console-scroll-root #root {
   background: var(--admin-surface);
   color: var(--admin-text);
   font: inherit;
+  color-scheme: light;
 }
 
 .admin-form-field__input:focus {
   outline: none;
   border-color: var(--admin-accent);
+}
+
+.admin-console[data-admin-theme="dark"] .admin-form-field__input {
+  color-scheme: dark;
+}
+
+.admin-form-field__input::placeholder {
+  color: var(--admin-text-soft);
+  opacity: 1;
 }
 
 .admin-form-field__input--success {
@@ -2011,9 +2033,9 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-devices-grid__filter-button--active {
-  border-color: rgba(32, 64, 144, 0.18);
+  border-color: var(--admin-accent-border);
   background: var(--admin-accent-soft);
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
 }
 
 .admin-devices-grid__filter-button i {
@@ -2022,7 +2044,30 @@ body.admin-console-scroll-root #root {
 
 .admin-devices-grid__theme .ag-menu,
 .admin-devices-grid__theme .ag-popup-child {
+  border: 1px solid var(--admin-border);
   border-radius: calc(var(--admin-radius) + 2px);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 18px 42px rgba(2, 6, 23, 0.28);
+}
+
+.admin-devices-grid__theme .ag-menu,
+.admin-devices-grid__theme .ag-filter,
+.admin-devices-grid__theme .ag-popup-child,
+.admin-devices-grid__theme .ag-filter-wrapper,
+.admin-devices-grid__theme .ag-filter-body-wrapper {
+  color: var(--admin-text);
+}
+
+.admin-devices-grid__theme .ag-input-field-input,
+.admin-devices-grid__theme .ag-picker-field-wrapper {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-muted);
+  color: var(--admin-text);
+}
+
+.admin-devices-grid__theme .ag-input-field-input::placeholder {
+  color: var(--admin-text-soft);
 }
 
 .admin-devices-grid__theme .ag-filter {
@@ -2052,7 +2097,7 @@ body.admin-console-scroll-root #root {
 
 .admin-devices-grid__theme .ag-standard-button:not(:disabled) {
   border-color: var(--admin-accent);
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
 }
 
 .admin-enum-filter {
@@ -2095,9 +2140,9 @@ body.admin-console-scroll-root #root {
 }
 
 .admin-enum-filter__chip--active {
-  border-color: rgba(32, 64, 144, 0.18);
+  border-color: var(--admin-accent-border);
   background: var(--admin-accent-soft);
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
 }
 
 .admin-enum-filter__count {
@@ -2442,7 +2487,7 @@ body.admin-console-scroll-root #root {
 
 .admin-pairing-scanner__eyebrow {
   margin: 0 0 0.35rem;
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
   font-size: 0.76rem;
   line-height: 1.2;
   text-transform: uppercase;
