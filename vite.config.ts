@@ -73,6 +73,11 @@ export default defineConfig(({ mode, command }) => {
           changeOrigin: true,
           secure: false,
         },
+        '/priority-message-uploads': {
+          target: backendUrl,
+          changeOrigin: true,
+          secure: false,
+        },
         '/schedule_student.php': {
           target: studentScheduleProxy.origin,
           changeOrigin: true,

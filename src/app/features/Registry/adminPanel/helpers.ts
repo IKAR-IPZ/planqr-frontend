@@ -117,6 +117,11 @@ export const adminViewMeta: Record<
     title: "Podgląd tabletu",
     icon: "fas fa-tablet-alt",
   },
+  "priority-gallery": {
+    label: "Galeria komunikatów",
+    title: "Galeria komunikatów",
+    icon: "fas fa-images",
+  },
   admins: {
     label: "Administratorzy",
     title: "Administratorzy",

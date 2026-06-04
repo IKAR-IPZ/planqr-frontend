@@ -61,6 +61,7 @@ export type AdminPanelView =
   | "devices"
   | "pending-tablets"
   | "tablet-preview"
+  | "priority-gallery"
   | "admins"
   | "schedule";
 export type AdminPanelTheme = "light" | "dark";
