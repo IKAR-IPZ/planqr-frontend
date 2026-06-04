@@ -3,7 +3,6 @@ import AdminPanelSearchField from "./AdminPanelSearchField";
 import AdminDevicesTable from "./AdminDevicesTable";
 import AdminPanelSection from "./AdminPanelSection";
 import PendingDeviceAssignmentSection from "./PendingDeviceAssignmentSection";
-import { splitDeviceClassroom } from "./helpers";
 import type {
   Device,
   DeviceSortColumn,
@@ -204,11 +203,6 @@ const DevicesView = ({
     const priorityMessageCount = activeDevices.filter(
       (device) => device.priorityMessage?.enabled,
     ).length;
-    const facultiesCount = new Set(
-      activeDevices
-        .map((device) => splitDeviceClassroom(device.deviceClassroom).facultyCode.trim())
-        .filter(Boolean),
-    ).size;
 
     return [
       { label: "Wszystkie", value: counts.all, tone: "neutral" },
@@ -219,7 +213,6 @@ const DevicesView = ({
       { label: "Ciemny", value: darkThemeCount, tone: "neutral" },
       { label: "Czarny ekran", value: blackScreenCount, tone: "warning" },
       { label: "Komunikat", value: priorityMessageCount, tone: "warning" },
-      { label: "Wydziały", value: facultiesCount, tone: "neutral" },
     ] as const;
   }, [activeDevices, counts.all, counts.offline, counts.online, counts.pending]);
 

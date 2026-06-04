@@ -1043,7 +1043,13 @@ body.admin-console-scroll-root #root {
 
 .admin-batch-panel .admin-table__batch-control {
   width: 100%;
+  align-items: flex-end;
   justify-content: flex-start;
+}
+
+.admin-batch-panel .admin-table__batch-control > .admin-button {
+  height: 38px;
+  min-height: 38px;
 }
 
 .admin-batch-panel .admin-table__batch-control--wide {
