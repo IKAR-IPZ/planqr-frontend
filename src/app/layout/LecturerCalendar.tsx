@@ -413,6 +413,7 @@ export default function LecturerCalendar() {
   const [newMessage, setNewMessage] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageBody, setEditingMessageBody] = useState("");
+  const [editingMessageRoom, setEditingMessageRoom] = useState("");
   const [messageMutationId, setMessageMutationId] = useState<number | null>(null);
   const [editedRoom, setEditedRoom] = useState("");
   const [isEditingRoom, setIsEditingRoom] = useState(false);
@@ -812,6 +813,7 @@ export default function LecturerCalendar() {
     setNewMessage("");
     setEditingMessageId(null);
     setEditingMessageBody("");
+    setEditingMessageRoom("");
     setMessageMutationId(null);
 
     if (!activeTeacher) {
@@ -927,6 +929,7 @@ export default function LecturerCalendar() {
     setNewMessage("");
     setEditingMessageId(null);
     setEditingMessageBody("");
+    setEditingMessageRoom("");
     setMessageMutationId(null);
   }, [selectedLesson?.id, selectedLesson?.room]);
 
@@ -974,6 +977,7 @@ export default function LecturerCalendar() {
     setNewMessage("");
     setEditingMessageId(null);
     setEditingMessageBody("");
+    setEditingMessageRoom("");
     setIsEditingRoom(false);
     setIsAttendancePanelOpen(false);
   };
@@ -1039,17 +1043,55 @@ export default function LecturerCalendar() {
     }
   };
 
-  const handleDeleteMessage = async (messageId: number) => {
-    setMessageMutationId(messageId);
+  const applyRoomToSelectedLesson = (nextRoom: string) => {
+    if (!selectedLesson) {
+      return;
+    }
+
+    setEvents((current) =>
+      current.map((event) =>
+        event.id === selectedLesson.id ? { ...event, room: nextRoom } : event,
+      ),
+    );
+    setSelectedLesson((current) =>
+      current?.id === selectedLesson.id ? { ...current, room: nextRoom } : current,
+    );
+    setEditedRoom(nextRoom);
+    setIsEditingRoom(false);
+  };
+
+  const getRoomAfterMessageRemoval = (
+    deletedMessage: MessageRecord,
+    remainingMessages: MessageRecord[],
+  ) =>
+    normalizeRoomFromMessage(getLatestRoomChangeMessage(remainingMessages)?.newRoom) ||
+    normalizeRoomFromMessage(deletedMessage.room);
+
+  const handleDeleteMessage = async (message: MessageRecord) => {
+    setMessageMutationId(message.id);
 
     try {
-      await deleteMessage(messageId);
-      setMessages((current) =>
-        current.filter((message) => message.id !== messageId),
+      await deleteMessage(message.id);
+      const remainingMessages = messages.filter(
+        (currentMessage) => currentMessage.id !== message.id,
       );
-      if (editingMessageId === messageId) {
+      setMessages(remainingMessages);
+
+      if (message.isRoomChange) {
+        const restoredRoom = getRoomAfterMessageRemoval(message, remainingMessages);
+        applyRoomToSelectedLesson(restoredRoom);
+        pushToast(
+          restoredRoom
+            ? `Przywrócono salę ${restoredRoom}.`
+            : "Usunięto zmianę sali.",
+          "success",
+        );
+      }
+
+      if (editingMessageId === message.id) {
         setEditingMessageId(null);
         setEditingMessageBody("");
+        setEditingMessageRoom("");
       }
     } catch (error) {
       console.error("Error deleting message:", error);
@@ -1062,29 +1104,47 @@ export default function LecturerCalendar() {
   const handleStartMessageEdit = (message: MessageRecord) => {
     setEditingMessageId(message.id);
     setEditingMessageBody(message.body);
+    setEditingMessageRoom(message.newRoom || "");
   };
 
   const handleCancelMessageEdit = () => {
     setEditingMessageId(null);
     setEditingMessageBody("");
+    setEditingMessageRoom("");
   };
 
-  const handleSaveEditedMessage = async (messageId: number) => {
+  const handleSaveEditedMessage = async (message: MessageRecord) => {
+    const isRoomChange = Boolean(message.isRoomChange);
     const nextBody = leoProfanity.clean(editingMessageBody.trim());
+    const nextRoom = normalizeRoomFromMessage(editingMessageRoom);
 
-    if (!nextBody) {
+    if ((!isRoomChange && !nextBody) || (isRoomChange && !nextRoom)) {
       return;
     }
 
-    setMessageMutationId(messageId);
+    setMessageMutationId(message.id);
 
     try {
-      const updated = await updateMessage(messageId, { body: nextBody });
-      setMessages((current) =>
-        current.map((message) => (message.id === messageId ? updated : message)),
+      const updated = await updateMessage(
+        message.id,
+        isRoomChange ? { newRoom: nextRoom } : { body: nextBody },
       );
+      const updatedMessages = messages.map((currentMessage) =>
+        currentMessage.id === message.id ? updated : currentMessage,
+      );
+      setMessages(updatedMessages);
+
+      if (isRoomChange) {
+        const effectiveRoom =
+          normalizeRoomFromMessage(
+            getLatestRoomChangeMessage(updatedMessages)?.newRoom,
+          ) || normalizeRoomFromMessage(message.room);
+        applyRoomToSelectedLesson(effectiveRoom);
+      }
+
       setEditingMessageId(null);
       setEditingMessageBody("");
+      setEditingMessageRoom("");
     } catch (error) {
       console.error("Error updating message:", error);
       pushToast("Nie udało się zapisać zmian w powiadomieniu.", "danger");
@@ -1532,12 +1592,22 @@ export default function LecturerCalendar() {
                   </div>
 
                   {isEditing ? (
-                    <textarea
-                      className="lecturer-console__message-editor"
-                      rows={3}
-                      value={editingMessageBody}
-                      onChange={(event) => setEditingMessageBody(event.target.value)}
-                    />
+                    isRoomChange ? (
+                      <input
+                        className="lecturer-console__inline-input"
+                        type="text"
+                        value={editingMessageRoom}
+                        onChange={(event) => setEditingMessageRoom(event.target.value)}
+                        placeholder="Wpisz nową salę"
+                      />
+                    ) : (
+                      <textarea
+                        className="lecturer-console__message-editor"
+                        rows={3}
+                        value={editingMessageBody}
+                        onChange={(event) => setEditingMessageBody(event.target.value)}
+                      />
+                    )
                   ) : (
                     <p className="lecturer-console__message-text">
                       {isRoomChange
@@ -1546,15 +1616,20 @@ export default function LecturerCalendar() {
                     </p>
                   )}
 
-                  {!isRoomChange && canManageMessage ? (
+                  {canManageMessage ? (
                     <div className="lecturer-console__message-actions">
                       {isEditing ? (
                         <>
                           <button
                             type="button"
                             className="admin-button admin-button--primary admin-button--small"
-                            disabled={isBusy || !editingMessageBody.trim()}
-                            onClick={() => void handleSaveEditedMessage(message.id)}
+                            disabled={
+                              isBusy ||
+                              (isRoomChange
+                                ? !normalizeRoomFromMessage(editingMessageRoom)
+                                : !editingMessageBody.trim())
+                            }
+                            onClick={() => void handleSaveEditedMessage(message)}
                           >
                             Zapisz
                           </button>
@@ -1582,7 +1657,7 @@ export default function LecturerCalendar() {
                             type="button"
                             className="admin-button admin-button--ghost admin-button--small"
                             disabled={isBusy}
-                            onClick={() => void handleDeleteMessage(message.id)}
+                            onClick={() => void handleDeleteMessage(message)}
                           >
                             <FaTrash />
                             Usuń
