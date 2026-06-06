@@ -70,6 +70,7 @@ interface TabletPriorityMessageConfig {
   template: PriorityMessageTemplate | null;
   updatedAt?: string | null;
   updatedBy?: string | null;
+  priority?: number | null;
 }
 
 interface DisplaySettingsResponse {
@@ -130,6 +131,7 @@ const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
 const DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG: TabletPriorityMessageConfig = {
   enabled: false,
   template: null,
+  priority: null,
 };
 
 const buildTabletPath = (room: string, secretUrl: string) =>
@@ -197,6 +199,7 @@ const normalizePriorityMessageConfig = (
       createdAt: template.createdAt ?? null,
       updatedAt: template.updatedAt ?? null,
     },
+    priority: typeof priorityMessage.priority === 'number' ? priorityMessage.priority : null,
     updatedAt: priorityMessage.updatedAt ?? null,
     updatedBy: priorityMessage.updatedBy ?? null,
   };
@@ -207,6 +210,7 @@ const getPriorityMessageSignature = (priorityMessage: TabletPriorityMessageConfi
     priorityMessage.enabled ? 'enabled' : 'disabled',
     priorityMessage.template?.id ?? 'none',
     priorityMessage.template?.imageUrl ?? 'none',
+    priorityMessage.priority ?? 'none',
     priorityMessage.updatedAt ?? 'none',
   ].join(':');
 
@@ -817,7 +821,8 @@ export default function Tablet() {
     return currentMinutes >= lastLessonEndMinutes;
   }, [currentDateTime.time, nightModeConfig.blackScreenAfterScheduleEnd, scheduleItems]);
 
-  const scheduledBlackScreen = isNightModeActive || isBlackScreenAfterScheduleEndActive;
+  const isPriority10Active = priorityMessageConfig.enabled && priorityMessageConfig.priority === 10;
+  const scheduledBlackScreen = (isNightModeActive || isBlackScreenAfterScheduleEndActive) && !isPriority10Active;
   const effectiveBlackScreen =
     blackScreenMode === 'on'
       ? true
@@ -917,7 +922,7 @@ export default function Tablet() {
   const timelineOffset = Math.min(Math.max(rawTimelineOffset, 0), maxTimelineOffset);
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
-  if (priorityMessageConfig.enabled && priorityMessageConfig.template) {
+  if (priorityMessageConfig.enabled && priorityMessageConfig.template && !effectiveBlackScreen) {
     return (
       <div className="tablet-priority-message-screen" role="alert" aria-live="assertive">
         <img
