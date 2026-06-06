@@ -93,6 +93,7 @@ interface LessonEvent {
   worker_title?: string;
   lesson_form?: string;
   color?: string;
+  hasNotifications?: boolean;
 }
 
 interface LecturerToast {
@@ -207,6 +208,7 @@ const normalizeLessonEvent = (
         ? event.lesson_form_short
         : "",
   color: typeof event.color === "string" ? event.color : undefined,
+  hasNotifications: Boolean(event.hasNotifications),
 });
 
 const mapCalendarEvent = (event: EventApi): LessonEvent => ({
@@ -232,6 +234,7 @@ const mapCalendarEvent = (event: EventApi): LessonEvent => ({
       : "",
   color:
     typeof event.backgroundColor === "string" ? event.backgroundColor : undefined,
+  hasNotifications: Boolean(event.extendedProps.hasNotifications),
 });
 
 const fetchLecturerEvents = async (
@@ -1043,6 +1046,13 @@ export default function LecturerCalendar() {
       await createMessage(messagePayload);
       await loadMessagesForLesson(selectedLesson.id);
       setNewMessage("");
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedLesson.id
+            ? { ...event, hasNotifications: true }
+            : event,
+        ),
+      );
     } catch (error) {
       console.error("Error sending message:", error);
       pushToast("Nie udało się wysłać powiadomienia.", "danger");
@@ -1082,6 +1092,15 @@ export default function LecturerCalendar() {
         (currentMessage) => currentMessage.id !== message.id,
       );
       setMessages(remainingMessages);
+
+      const hasLeft = remainingMessages.length > 0;
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedLesson.id
+            ? { ...event, hasNotifications: hasLeft }
+            : event,
+        ),
+      );
 
       if (message.isRoomChange) {
         const restoredRoom = getRoomAfterMessageRemoval(message, remainingMessages);
@@ -1189,6 +1208,13 @@ export default function LecturerCalendar() {
       setMessages((current) => [...current, createdMessage]);
       applyRoomToSelectedLesson(nextRoom);
       pushToast(`Sala została zmieniona na ${nextRoom}.`, "success");
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedLesson.id
+            ? { ...event, hasNotifications: true }
+            : event,
+        ),
+      );
     } catch (error) {
       console.error("Error sending room change message:", error);
       pushToast("Nie udało się zapisać zmiany sali.", "danger");
@@ -1207,11 +1233,19 @@ export default function LecturerCalendar() {
 
     try {
       await deleteMessage(latestRoomChangeMessage.id);
-      setMessages((current) =>
-        current.filter((message) => message.id !== latestRoomChangeMessage.id),
-      );
+      const remainingMessages = messages.filter((message) => message.id !== latestRoomChangeMessage.id);
+      setMessages(remainingMessages);
       applyRoomToSelectedLesson(previousRoom);
       pushToast(`Cofnięto zmianę sali: ${previousRoomLabel}.`, "success");
+
+      const hasLeft = remainingMessages.length > 0;
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedLesson.id
+            ? { ...event, hasNotifications: hasLeft }
+            : event,
+        ),
+      );
     } catch (error) {
       console.error("Error undoing room change:", error);
       pushToast("Nie udało się cofnąć zmiany sali.", "danger");
@@ -1434,6 +1468,9 @@ export default function LecturerCalendar() {
       "lecturer-console__calendar-event",
       selectedLesson?.id === event.id
         ? "lecturer-console__calendar-event--selected"
+        : "",
+      event.hasNotifications
+        ? "lecturer-console__calendar-event--has-notifications"
         : "",
     ].filter(Boolean),
   }));

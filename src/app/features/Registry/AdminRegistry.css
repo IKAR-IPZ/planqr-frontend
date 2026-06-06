@@ -2835,14 +2835,11 @@ body.admin-console-scroll-root #root {
 .admin-table__meta-code {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   width: fit-content;
   max-width: 100%;
-  padding: 0.2rem 0.4rem;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius);
-  background: var(--admin-surface-muted);
   color: var(--admin-text-muted);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }

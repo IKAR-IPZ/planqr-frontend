@@ -339,9 +339,11 @@ const TabletPreviewView = ({
     [deviceQuery, sortedDevices],
   );
 
+  const deviceLabel = device ? getDevicePickerLabel(device) : "";
+
   useEffect(() => {
-    setDeviceQuery(device ? getDevicePickerLabel(device) : "");
-  }, [device]);
+    setDeviceQuery(deviceLabel);
+  }, [deviceLabel]);
 
   useEffect(() => {
     pauseNotificationsRefreshRef.current =
