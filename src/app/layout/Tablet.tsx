@@ -83,6 +83,7 @@ interface TabletPriorityMessageConfig {
   template: PriorityMessageTemplate | null;
   updatedAt?: string | null;
   updatedBy?: string | null;
+  priority?: number | null;
 }
 
 interface DisplaySettingsResponse {
@@ -108,9 +109,17 @@ interface DeviceStatusResponse {
 }
 
 interface TabletCommandPayload {
-  type: 'connected' | 'config-updated' | 'reload' | 'registry-reset' | 'report-display-profile';
+  type:
+    | 'connected'
+    | 'config-updated'
+    | 'reload'
+    | 'registry-reset'
+    | 'report-display-profile'
+    | 'messages-updated';
   hardReload?: boolean;
   path?: string;
+  room?: string | null;
+  lessonId?: number | null;
   config?: DeviceStatusResponse['config'];
 }
 
@@ -135,6 +144,7 @@ const DEFAULT_TABLET_NIGHT_MODE_CONFIG: TabletNightModeConfig = {
 const DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG: TabletPriorityMessageConfig = {
   enabled: false,
   template: null,
+  priority: null,
 };
 
 /**
@@ -223,6 +233,7 @@ const normalizePriorityMessageConfig = (
       createdAt: template.createdAt ?? null,
       updatedAt: template.updatedAt ?? null,
     },
+    priority: typeof priorityMessage.priority === 'number' ? priorityMessage.priority : null,
     updatedAt: priorityMessage.updatedAt ?? null,
     updatedBy: priorityMessage.updatedBy ?? null,
   };
@@ -233,6 +244,7 @@ const getPriorityMessageSignature = (priorityMessage: TabletPriorityMessageConfi
     priorityMessage.enabled ? 'enabled' : 'disabled',
     priorityMessage.template?.id ?? 'none',
     priorityMessage.template?.imageUrl ?? 'none',
+    priorityMessage.priority ?? 'none',
     priorityMessage.updatedAt ?? 'none',
   ].join(':');
 
@@ -429,6 +441,80 @@ export default function Tablet() {
 
     setDeviceId(storedDeviceId);
   }, [isPreviewMode]);
+
+  const fetchSchedule = useCallback(async () => {
+    if (!roomInfo.building || !roomInfo.room) return;
+    try {
+      const targetDate = new Date();
+      // Request an extra day before and after to handle ZUT API date offset quirk
+      const dayBefore = new Date(targetDate);
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      const dayBeforeFormatted = dayBefore.toISOString().split('T')[0];
+      const twoDaysAfter = new Date(targetDate);
+      twoDaysAfter.setDate(twoDaysAfter.getDate() + 2);
+      const twoDaysAfterFormatted = twoDaysAfter.toISOString().split('T')[0];
+
+      const fullId = roomInfo.room.startsWith(roomInfo.building)
+        ? roomInfo.room
+        : `${roomInfo.building} ${roomInfo.room}`;
+
+      const url = `/api/schedule?kind=room&id=${encodeURIComponent(fullId)}&start=${dayBeforeFormatted}&end=${twoDaysAfterFormatted}`;
+      console.log('[Tablet] Fetching schedule:', url);
+      const response = await fetch(url, {
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        throw new Error('Nie udało się pobrać planu');
+      }
+
+      const data = (await response.json()) as ScheduleApiEvent[];
+      console.log('[Tablet] Raw API response:', data.length, 'events');
+
+      // Filter out invalid events (ZUT API returns empty first element) and match today's date
+      // Use local YYYY-MM-DD comparison to avoid timezone issues
+      const todayLocal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+      const targetEvents = data.filter((event) => {
+        if (!event.start || !event.title) return false;
+        const eventDate = event.start.split('T')[0];
+        return eventDate === todayLocal;
+      });
+      console.log('[Tablet] Today:', todayLocal, '| Matching events:', targetEvents.length);
+
+      const formattedEvents = await Promise.all(
+        targetEvents.map(async (event) => {
+          let messages: TabletMessageNotification[] = [];
+          try {
+            if (event.id) {
+              messages = (await fetchMessages(event.id)) as TabletMessageNotification[];
+            }
+          } catch {
+            messages = [];
+          }
+
+          return {
+            id: event.id,
+            startTime: new Date(event.start ?? '').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+            endTime: new Date(event.end ?? event.start ?? '').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+            description: event.subject || event.title,
+            instructor: event.worker_title || 'Brak',
+            room: event.room || '',
+            group_name: event.group_name || '',
+            login: event.login || '',
+            notifications: messages,
+            color: event.color || '#039be5',
+            form: event.lesson_form_short || '',
+          } as ScheduleEvent;
+        })
+      );
+
+      setScheduleItems(formattedEvents);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('[Tablet] fetchSchedule API ERROR:', error);
+      setScheduleItems([]);
+      setIsLoading(false);
+    }
+  }, [roomInfo.building, roomInfo.room]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-tablet-theme', displayTheme);
@@ -641,6 +727,12 @@ export default function Tablet() {
           void reportTabletDisplayProfile(deviceId).catch((error) => {
             console.error('[Tablet] Failed to report display profile on demand:', error);
           });
+          return;
+        }
+
+        if (payload.type === 'messages-updated') {
+          void fetchSchedule();
+          return;
         }
       } catch (error) {
         console.error('[Tablet] Failed to handle stream payload:', error);
@@ -656,7 +748,7 @@ export default function Tablet() {
       eventSource.removeEventListener('tablet-command', handleTabletCommand as EventListener);
       eventSource.close();
     };
-  }, [applyDeviceDisplayConfig, applyNightModeConfig, applyPriorityMessageConfig, currentRouteRoom, currentRouteSecret, deviceId, isPreviewMode]);
+  }, [applyDeviceDisplayConfig, applyNightModeConfig, applyPriorityMessageConfig, currentRouteRoom, currentRouteSecret, deviceId, fetchSchedule, isPreviewMode]);
 
   useEffect(() => {
     if (!deviceId) return;
@@ -765,7 +857,8 @@ export default function Tablet() {
     return currentMinutes >= lastLessonEndMinutes;
   }, [currentDateTime.time, nightModeConfig.blackScreenAfterScheduleEnd, scheduleItems]);
 
-  const scheduledBlackScreen = isNightModeActive || isBlackScreenAfterScheduleEndActive;
+  const isPriority10Active = priorityMessageConfig.enabled && priorityMessageConfig.priority === 10;
+  const scheduledBlackScreen = (isNightModeActive || isBlackScreenAfterScheduleEndActive) && !isPriority10Active;
   const effectiveBlackScreen =
     blackScreenMode === 'on'
       ? true
@@ -775,80 +868,6 @@ export default function Tablet() {
 
   // 3. Fetch Schedule & Messages
   useEffect(() => {
-    const fetchSchedule = async () => {
-      if (!roomInfo.building || !roomInfo.room) return;
-      try {
-        const targetDate = new Date();
-        // Request an extra day before and after to handle ZUT API date offset quirk
-        const dayBefore = new Date(targetDate);
-        dayBefore.setDate(dayBefore.getDate() - 1);
-        const dayBeforeFormatted = dayBefore.toISOString().split('T')[0];
-        const twoDaysAfter = new Date(targetDate);
-        twoDaysAfter.setDate(twoDaysAfter.getDate() + 2);
-        const twoDaysAfterFormatted = twoDaysAfter.toISOString().split('T')[0];
-
-        const fullId = roomInfo.room.startsWith(roomInfo.building)
-          ? roomInfo.room
-          : `${roomInfo.building} ${roomInfo.room}`;
-
-        const url = `/api/schedule?kind=room&id=${encodeURIComponent(fullId)}&start=${dayBeforeFormatted}&end=${twoDaysAfterFormatted}`;
-        console.log('[Tablet] Fetching schedule:', url);
-        const response = await fetch(url, {
-          cache: 'no-store',
-        });
-        if (!response.ok) {
-          throw new Error('Nie udało się pobrać planu');
-        }
-
-        const data = (await response.json()) as ScheduleApiEvent[];
-        console.log('[Tablet] Raw API response:', data.length, 'events');
-
-        // Filter out invalid events (ZUT API returns empty first element) and match today's date
-        // Use local YYYY-MM-DD comparison to avoid timezone issues
-        const todayLocal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
-        const targetEvents = data.filter((event) => {
-          if (!event.start || !event.title) return false;
-          const eventDate = event.start.split('T')[0];
-          return eventDate === todayLocal;
-        });
-        console.log('[Tablet] Today:', todayLocal, '| Matching events:', targetEvents.length);
-
-        const formattedEvents = await Promise.all(
-          targetEvents.map(async (event) => {
-            let messages: TabletMessageNotification[] = [];
-            try {
-              if (event.id) {
-                messages = (await fetchMessages(event.id)) as TabletMessageNotification[];
-              }
-            } catch {
-              messages = [];
-            }
-
-            return {
-              id: event.id,
-              startTime: new Date(event.start ?? '').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
-              endTime: new Date(event.end ?? event.start ?? '').toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
-              description: event.subject || event.title,
-              instructor: event.worker_title || 'Brak',
-              room: event.room || '',
-              group_name: event.group_name || '',
-              login: event.login || '',
-              notifications: messages,
-              color: event.color || '#039be5',
-              form: event.lesson_form_short || '',
-            } as ScheduleEvent;
-          })
-        );
-
-        setScheduleItems(formattedEvents);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('[Tablet] fetchSchedule API ERROR:', error);
-        setScheduleItems([]);
-        setIsLoading(false);
-      }
-    };
-
     if (roomInfo.room && blackScreenMode !== 'on') {
       fetchSchedule();
       const refreshIntervalMs = isPreviewMode
@@ -857,7 +876,7 @@ export default function Tablet() {
       const intervalId = setInterval(fetchSchedule, refreshIntervalMs);
       return () => clearInterval(intervalId);
     }
-  }, [blackScreenMode, isPreviewMode, roomInfo]);
+  }, [blackScreenMode, fetchSchedule, isPreviewMode, roomInfo.room]);
 
   // View Helpers
   const parseTime = (timeStr: string) => {
@@ -939,7 +958,7 @@ export default function Tablet() {
   const timelineOffset = Math.min(Math.max(rawTimelineOffset, 0), maxTimelineOffset);
   const currentTimeLineTop = timelineMarkerOffset + currentTimeOffset - timelineOffset;
   const showCurrentTimeLine = nowVal >= calendarStartHour && nowVal <= calendarStartHour + timeSlotsCount;
-  if (priorityMessageConfig.enabled && priorityMessageConfig.template) {
+  if (priorityMessageConfig.enabled && priorityMessageConfig.template && !effectiveBlackScreen) {
     return (
       <div className="tablet-priority-message-screen" role="alert" aria-live="assertive">
         <img

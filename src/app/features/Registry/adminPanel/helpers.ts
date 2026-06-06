@@ -117,6 +117,11 @@ export const adminViewMeta: Record<
     title: "Podgląd tabletu",
     icon: "fas fa-tablet-alt",
   },
+  "priority-gallery": {
+    label: "Priorytetowe komunikaty",
+    title: "Priorytetowe komunikaty",
+    icon: "fas fa-bullhorn",
+  },
   admins: {
     label: "Administratorzy",
     title: "Administratorzy",

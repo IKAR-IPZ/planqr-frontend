@@ -95,13 +95,13 @@
   gap: 0.45rem;
   min-height: 34px;
   padding: 0.4rem 0.7rem;
-  border: 1px solid color-mix(in srgb, var(--admin-accent) 22%, var(--admin-border));
+  border: 1px solid var(--admin-accent-border);
   border-radius: calc(var(--admin-radius) + 4px);
   background: var(--admin-accent-soft);
 }
 
 .lesson-attendance__status strong {
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
 }
 
 .lesson-attendance__composer {

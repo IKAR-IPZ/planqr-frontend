@@ -8,6 +8,7 @@ import {
   type SessionInfo,
 } from "../../services/authService";
 import "./AdminRegistry.css";
+import { useTheme } from "../../../context/ThemeContext";
 import AdminPairingScanner from "./adminPanel/AdminPairingScanner";
 import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
 import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
@@ -15,6 +16,7 @@ import AdminsView from "./adminPanel/AdminsView";
 import DeviceDrawer from "./adminPanel/DeviceDrawer";
 import DevicesView from "./adminPanel/DevicesView";
 import PendingTabletsView from "./adminPanel/PendingTabletsView";
+import PriorityMessagesView from "./adminPanel/PriorityMessagesView";
 import ScheduleView from "./adminPanel/ScheduleView";
 import TabletPreviewView from "./adminPanel/TabletPreviewView";
 import {
@@ -42,6 +44,11 @@ import type {
     Device,
     DeviceSortState,
     NightModeSettings,
+    PriorityMessagePreset,
+    PriorityMessagePresetPayload,
+    PriorityMessageSchedule,
+    PriorityMessageScheduleCollision,
+    PriorityMessageSchedulePayload,
     PriorityMessageTemplate,
     Tone,
   } from "./adminPanel/types";
@@ -83,6 +90,7 @@ const ADMIN_NAVIGATION_ORDER: AdminNavigationKey[] = [
   "pairing",
   "lecturer-preview",
   "tablet-preview",
+  "priority-gallery",
 ];
 
 const PAIRING_MESSAGE = {
@@ -103,6 +111,7 @@ const getActiveView = (value: string | null): AdminPanelView => {
     value === "admins" ||
     value === "schedule" ||
     value === "tablet-preview" ||
+    value === "priority-gallery" ||
     value === "pending-tablets"
   ) {
     return value;
@@ -116,14 +125,19 @@ const getPreviewDeviceId = (value: string | null) => {
   return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
 };
 
-const getStoredAdminTheme = (): AdminPanelTheme => {
-  if (typeof window === "undefined") {
-    return defaultAdminPanelTheme;
-  }
+const readFileAsBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
 
-  const storedTheme = window.localStorage.getItem(ADMIN_THEME_STORAGE_KEY);
-  return storedTheme === "dark" ? "dark" : defaultAdminPanelTheme;
-};
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      resolve(result.replace(/^data:[^;]+;base64,/, ""));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Nie udało się odczytać pliku."));
+    reader.readAsDataURL(file);
+  });
+
+
 
 const normalizeDeviceRecord = (device: Device): Device => ({
   ...device,
@@ -136,7 +150,7 @@ const AdminRegistry = () => {
   const currentView = getActiveView(searchParams.get("view"));
   const previewDeviceId = getPreviewDeviceId(searchParams.get("deviceId"));
 
-  const [adminTheme, setAdminTheme] = useState<AdminPanelTheme>(getStoredAdminTheme);
+  const { theme: adminTheme, setTheme: setAdminTheme } = useTheme();
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
@@ -179,8 +193,25 @@ const AdminRegistry = () => {
   const [batchPriorityMessageClearLoading, setBatchPriorityMessageClearLoading] =
     useState(false);
   const [priorityMessageCreating, setPriorityMessageCreating] = useState(false);
-  const [newPriorityMessageName, setNewPriorityMessageName] = useState("");
-  const [newPriorityMessageImageUrl, setNewPriorityMessageImageUrl] = useState("");
+  const [priorityMessageUploading, setPriorityMessageUploading] = useState(false);
+  const [priorityMessageMutatingTemplateId, setPriorityMessageMutatingTemplateId] =
+    useState<string | null>(null);
+  const [priorityMessageSchedules, setPriorityMessageSchedules] = useState<
+    PriorityMessageSchedule[]
+  >([]);
+  const [priorityMessageSchedulesLoading, setPriorityMessageSchedulesLoading] =
+    useState(false);
+  const [priorityMessageScheduleSaving, setPriorityMessageScheduleSaving] =
+    useState(false);
+  const [priorityMessageScheduleMutationId, setPriorityMessageScheduleMutationId] =
+    useState<string | null>(null);
+  const [priorityMessagePresets, setPriorityMessagePresets] = useState<
+    PriorityMessagePreset[]
+  >([]);
+  const [priorityMessagePresetsLoading, setPriorityMessagePresetsLoading] =
+    useState(false);
+  const [priorityMessagePresetMutationId, setPriorityMessagePresetMutationId] =
+    useState<string | null>(null);
   const [banIpDeviceId, setBanIpDeviceId] = useState<number | null>(null);
 
   const [drawerDeviceId, setDrawerDeviceId] = useState<number | null>(null);
@@ -284,9 +315,7 @@ const AdminRegistry = () => {
   ).length;
   const lecturerPanelHref = canOpenLecturerPlan(session) ? "/lecturerPlan" : null;
 
-  useEffect(() => {
-    window.localStorage.setItem(ADMIN_THEME_STORAGE_KEY, adminTheme);
-  }, [adminTheme]);
+
 
   useEffect(() => {
     if (activeDevices.length > 0) {
@@ -694,6 +723,24 @@ const AdminRegistry = () => {
     return null;
   };
 
+  const applyPriorityMessageTemplateList = (
+    templates: PriorityMessageTemplate[],
+    preferredTemplateId?: string,
+  ) => {
+    setPriorityMessageTemplates(templates);
+    setBatchPriorityMessageTemplateId((current) => {
+      if (preferredTemplateId && templates.some((template) => template.id === preferredTemplateId)) {
+        return preferredTemplateId;
+      }
+
+      if (current && templates.some((template) => template.id === current)) {
+        return current;
+      }
+
+      return templates[0]?.id ?? "";
+    });
+  };
+
   const fetchPriorityMessageTemplates = async () => {
     try {
       setPriorityMessagesLoading(true);
@@ -710,14 +757,7 @@ const AdminRegistry = () => {
         ? (data.templates as PriorityMessageTemplate[])
         : [];
 
-      setPriorityMessageTemplates(templates);
-      setBatchPriorityMessageTemplateId((current) => {
-        if (current && templates.some((template) => template.id === current)) {
-          return current;
-        }
-
-        return templates[0]?.id ?? "";
-      });
+      applyPriorityMessageTemplateList(templates);
     } catch (error) {
       console.error("Error fetching priority message templates:", error);
       pushToast(
@@ -728,6 +768,77 @@ const AdminRegistry = () => {
       );
     } finally {
       setPriorityMessagesLoading(false);
+    }
+  };
+
+  const fetchPriorityMessageSchedules = async (options?: { silent?: boolean }) => {
+    try {
+      if (!options?.silent) {
+        setPriorityMessageSchedulesLoading(true);
+      }
+
+      const response = await fetch("/api/devices/priority-messages/schedules", {
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się pobrać harmonogramu komunikatów.");
+      }
+
+      setPriorityMessageSchedules(
+        Array.isArray(data.schedules)
+          ? (data.schedules as PriorityMessageSchedule[])
+          : [],
+      );
+    } catch (error) {
+      console.error("Error fetching priority message schedules:", error);
+      if (!options?.silent) {
+        pushToast(
+          error instanceof Error
+            ? error.message
+            : "Nie udało się pobrać harmonogramu komunikatów.",
+          "danger",
+        );
+      }
+    } finally {
+      if (!options?.silent) {
+        setPriorityMessageSchedulesLoading(false);
+      }
+    }
+  };
+
+  const fetchPriorityMessagePresets = async (options?: { silent?: boolean }) => {
+    try {
+      if (!options?.silent) {
+        setPriorityMessagePresetsLoading(true);
+      }
+
+      const response = await fetch("/api/devices/priority-messages/presets", {
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się pobrać presetów komunikatów.");
+      }
+
+      setPriorityMessagePresets(
+        Array.isArray(data.presets) ? (data.presets as PriorityMessagePreset[]) : [],
+      );
+    } catch (error) {
+      console.error("Error fetching priority message presets:", error);
+      if (!options?.silent) {
+        pushToast(
+          error instanceof Error
+            ? error.message
+            : "Nie udało się pobrać presetów komunikatów.",
+          "danger",
+        );
+      }
+    } finally {
+      if (!options?.silent) {
+        setPriorityMessagePresetsLoading(false);
+      }
     }
   };
 
@@ -1114,17 +1225,67 @@ const AdminRegistry = () => {
     }
   };
 
-  const handlePriorityMessageTemplateCreate = async () => {
-    const name = newPriorityMessageName.trim();
-    const imageUrl = newPriorityMessageImageUrl.trim();
+  const getPriorityMessageFileMimeType = (file: File) => {
+    if (file.type) {
+      return file.type;
+    }
 
-    if (!name || !imageUrl) {
-      pushToast("Podaj nazwę i URL obrazka/GIF.", "danger");
-      return;
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith(".gif")) {
+      return "image/gif";
+    }
+    if (fileName.endsWith(".png")) {
+      return "image/png";
+    }
+    if (fileName.endsWith(".webp")) {
+      return "image/webp";
+    }
+
+    return "image/jpeg";
+  };
+
+  const handlePriorityMessageMediaUpload = async (file: File) => {
+    setPriorityMessageUploading(true);
+
+    try {
+      const contentBase64 = await readFileAsBase64(file);
+      const response = await fetch("/api/devices/priority-messages/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: getPriorityMessageFileMimeType(file),
+          contentBase64,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || typeof data.imageUrl !== "string") {
+        throw new Error(data.message || "Nie udało się wgrać pliku komunikatu.");
+      }
+
+      return data.imageUrl as string;
+    } finally {
+      setPriorityMessageUploading(false);
+    }
+  };
+
+  const handlePriorityMessageTemplateCreate = async (payload: {
+    name: string;
+    file: File | null;
+  }) => {
+    const name = payload.name.trim();
+
+    if (!name || !payload.file) {
+      pushToast("Podaj nazwę i wybierz plik komunikatu.", "danger");
+      return false;
     }
 
     try {
       setPriorityMessageCreating(true);
+      const imageUrl = await handlePriorityMessageMediaUpload(payload.file);
+
       const response = await fetch("/api/devices/priority-messages/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1142,18 +1303,337 @@ const AdminRegistry = () => {
         : [];
       const template = data.template as PriorityMessageTemplate | undefined;
 
-      setPriorityMessageTemplates(templates);
-      setBatchPriorityMessageTemplateId(template?.id ?? templates[0]?.id ?? "");
-      setNewPriorityMessageName("");
-      setNewPriorityMessageImageUrl("");
+      applyPriorityMessageTemplateList(templates, template?.id);
+      await Promise.all([
+        fetchPriorityMessageSchedules({ silent: true }),
+        fetchPriorityMessagePresets({ silent: true }),
+      ]);
       pushToast("Dodano definicję komunikatu priorytetowego.", "success");
+      return true;
     } catch (error) {
       pushToast(
         error instanceof Error ? error.message : "Nie udało się dodać definicji komunikatu.",
         "danger",
       );
+      return false;
     } finally {
       setPriorityMessageCreating(false);
+    }
+  };
+
+  const handlePriorityMessageTemplateUpdate = async (
+    template: PriorityMessageTemplate,
+    payload: { name: string },
+  ) => {
+    const name = payload.name.trim();
+
+    if (!name) {
+      pushToast("Podaj nazwę komunikatu.", "danger");
+      return false;
+    }
+
+    try {
+      setPriorityMessageMutatingTemplateId(template.id);
+      const response = await fetch(
+        `/api/devices/priority-messages/templates/${encodeURIComponent(template.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name, imageUrl: template.imageUrl }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się zapisać komunikatu.");
+      }
+
+      const templates = Array.isArray(data.templates)
+        ? (data.templates as PriorityMessageTemplate[])
+        : [];
+      applyPriorityMessageTemplateList(templates, template.id);
+      applyReturnedDevices(data.devices);
+      await Promise.all([
+        fetchPriorityMessageSchedules({ silent: true }),
+        fetchPriorityMessagePresets({ silent: true }),
+      ]);
+      pushToast("Zapisano komunikat priorytetowy.", "success");
+      return true;
+    } catch (error) {
+      pushToast(
+        error instanceof Error ? error.message : "Nie udało się zapisać komunikatu.",
+        "danger",
+      );
+      return false;
+    } finally {
+      setPriorityMessageMutatingTemplateId(null);
+    }
+  };
+
+  const handlePriorityMessageTemplateDelete = async (template: PriorityMessageTemplate) => {
+    const shouldDelete = window.confirm(`Usunąć komunikat "${template.name}" z galerii?`);
+    if (!shouldDelete) {
+      return false;
+    }
+
+    try {
+      setPriorityMessageMutatingTemplateId(template.id);
+      const response = await fetch(
+        `/api/devices/priority-messages/templates/${encodeURIComponent(template.id)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się usunąć komunikatu.");
+      }
+
+      const templates = Array.isArray(data.templates)
+        ? (data.templates as PriorityMessageTemplate[])
+        : [];
+      applyPriorityMessageTemplateList(templates);
+      applyReturnedDevices(data.devices);
+      await Promise.all([
+        fetchPriorityMessageSchedules({ silent: true }),
+        fetchPriorityMessagePresets({ silent: true }),
+      ]);
+      pushToast("Usunięto komunikat priorytetowy.", "success");
+      return true;
+    } catch (error) {
+      pushToast(
+        error instanceof Error ? error.message : "Nie udało się usunąć komunikatu.",
+        "danger",
+      );
+      return false;
+    } finally {
+      setPriorityMessageMutatingTemplateId(null);
+    }
+  };
+
+  const formatScheduleCollisionConfirmation = (
+    collisions: PriorityMessageScheduleCollision[],
+  ) => {
+    const collisionNames = Array.from(
+      new Set(collisions.map((collision) => collision.templateName)),
+    ).slice(0, 3);
+    const affectedDeviceCount = new Set(
+      collisions.flatMap((collision) => collision.deviceIds),
+    ).size;
+    const extraCount = Math.max(
+      0,
+      new Set(collisions.map((collision) => collision.templateName)).size -
+        collisionNames.length,
+    );
+
+    return [
+      `Wykryto kolizję dla ${affectedDeviceCount} ${
+        affectedDeviceCount === 1 ? "tabletu" : "tabletów"
+      }.`,
+      `Nakładające komunikaty: ${collisionNames.join(", ")}${
+        extraCount > 0 ? ` i ${extraCount} więcej` : ""
+      }.`,
+      "Wyższy priorytet wygrywa, a przy remisie nowsza edycja. Zapisać mimo kolizji?",
+    ].join("\n\n");
+  };
+
+  const handlePriorityMessageScheduleSave = async (
+    scheduleId: string | null,
+    payload: PriorityMessageSchedulePayload,
+  ) => {
+    const submit = async (confirmCollisions: boolean) => {
+      const response = await fetch(
+        scheduleId
+          ? `/api/devices/priority-messages/schedules/${encodeURIComponent(scheduleId)}`
+          : "/api/devices/priority-messages/schedules",
+        {
+          method: scheduleId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ ...payload, confirmCollisions }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      return { response, data };
+    };
+
+    try {
+      setPriorityMessageScheduleSaving(true);
+      setPriorityMessageScheduleMutationId(scheduleId ?? "new");
+      let result = await submit(false);
+
+      if (
+        result.response.status === 409 &&
+        result.data.requiresConfirmation &&
+        Array.isArray(result.data.collisions)
+      ) {
+        const collisions = result.data
+          .collisions as PriorityMessageScheduleCollision[];
+        const confirmed = window.confirm(
+          formatScheduleCollisionConfirmation(collisions),
+        );
+        if (!confirmed) {
+          return false;
+        }
+        result = await submit(true);
+      }
+
+      if (!result.response.ok) {
+        throw new Error(
+          result.data.message || "Nie udało się zapisać harmonogramu komunikatu.",
+        );
+      }
+
+      await Promise.all([
+        fetchPriorityMessageSchedules({ silent: true }),
+        fetchDevices({ silent: true }),
+      ]);
+      pushToast(
+        scheduleId
+          ? "Zapisano harmonogram komunikatu."
+          : "Zaplanowano komunikat priorytetowy.",
+        "success",
+      );
+      return true;
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zapisać harmonogramu komunikatu.",
+        "danger",
+      );
+      return false;
+    } finally {
+      setPriorityMessageScheduleSaving(false);
+      setPriorityMessageScheduleMutationId(null);
+    }
+  };
+
+  const handlePriorityMessageScheduleDelete = async (
+    schedule: PriorityMessageSchedule,
+  ) => {
+    const shouldDelete = window.confirm(
+      `Usunąć ${
+        schedule.status === "active" ? "aktywny" : "zaplanowany"
+      } komunikat "${schedule.template.name}"?`,
+    );
+    if (!shouldDelete) {
+      return false;
+    }
+
+    try {
+      setPriorityMessageScheduleMutationId(schedule.id);
+      const response = await fetch(
+        `/api/devices/priority-messages/schedules/${encodeURIComponent(schedule.id)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się usunąć harmonogramu.");
+      }
+
+      await Promise.all([
+        fetchPriorityMessageSchedules({ silent: true }),
+        fetchDevices({ silent: true }),
+      ]);
+      pushToast("Usunięto harmonogram komunikatu.", "success");
+      return true;
+    } catch (error) {
+      pushToast(
+        error instanceof Error ? error.message : "Nie udało się usunąć harmonogramu.",
+        "danger",
+      );
+      return false;
+    } finally {
+      setPriorityMessageScheduleMutationId(null);
+    }
+  };
+
+  const handlePriorityMessagePresetSave = async (
+    presetId: string | null,
+    payload: PriorityMessagePresetPayload,
+  ) => {
+    try {
+      setPriorityMessagePresetMutationId(presetId ?? "new");
+      const response = await fetch(
+        presetId
+          ? `/api/devices/priority-messages/presets/${encodeURIComponent(presetId)}`
+          : "/api/devices/priority-messages/presets",
+        {
+          method: presetId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się zapisać presetu komunikatu.");
+      }
+
+      setPriorityMessagePresets(
+        Array.isArray(data.presets) ? (data.presets as PriorityMessagePreset[]) : [],
+      );
+      pushToast(
+        presetId ? "Zapisano preset komunikatu." : "Dodano preset komunikatu.",
+        "success",
+      );
+      return true;
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się zapisać presetu komunikatu.",
+        "danger",
+      );
+      return false;
+    } finally {
+      setPriorityMessagePresetMutationId(null);
+    }
+  };
+
+  const handlePriorityMessagePresetDelete = async (
+    preset: PriorityMessagePreset,
+  ) => {
+    if (!window.confirm(`Usunąć preset "${preset.name}"?`)) {
+      return false;
+    }
+
+    try {
+      setPriorityMessagePresetMutationId(preset.id);
+      const response = await fetch(
+        `/api/devices/priority-messages/presets/${encodeURIComponent(preset.id)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Nie udało się usunąć presetu komunikatu.");
+      }
+
+      setPriorityMessagePresets(
+        Array.isArray(data.presets) ? (data.presets as PriorityMessagePreset[]) : [],
+      );
+      pushToast("Usunięto preset komunikatu.", "success");
+      return true;
+    } catch (error) {
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Nie udało się usunąć presetu komunikatu.",
+        "danger",
+      );
+      return false;
+    } finally {
+      setPriorityMessagePresetMutationId(null);
     }
   };
 
@@ -1266,6 +1746,8 @@ const AdminRegistry = () => {
     void fetchDevices();
     void fetchNightModeSettings();
     void fetchPriorityMessageTemplates();
+    void fetchPriorityMessageSchedules();
+    void fetchPriorityMessagePresets();
     void fetchAdmins();
     void fetchSession().then(setSession).catch((error) => {
       console.error("Error fetching session:", error);
@@ -1281,6 +1763,20 @@ const AdminRegistry = () => {
     if (currentView === "schedule") {
       void fetchNightModeSettings();
     }
+  }, [currentView]);
+
+  useEffect(() => {
+    if (currentView !== "priority-gallery") {
+      return;
+    }
+
+    void fetchPriorityMessageSchedules({ silent: true });
+    void fetchPriorityMessagePresets({ silent: true });
+    const interval = window.setInterval(() => {
+      void fetchPriorityMessageSchedules({ silent: true });
+    }, 10000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView]);
 
   useEffect(() => {
@@ -2154,6 +2650,7 @@ const AdminRegistry = () => {
         >
           {currentView === "devices" ? (
             <DevicesView
+              adminTheme={adminTheme}
               activeDevices={activeDevices}
               pendingDevices={allPendingDevices}
               counts={{
@@ -2171,15 +2668,12 @@ const AdminRegistry = () => {
               batchPriorityMessageUpdating={batchPriorityMessageLoading}
               batchPriorityMessageClearing={batchPriorityMessageClearLoading}
               priorityMessagesLoading={priorityMessagesLoading}
-              priorityMessageCreating={priorityMessageCreating}
               themeMutationDeviceId={themeMutationDeviceId}
               blackScreenMutationDeviceId={blackScreenMutationDeviceId}
               batchThemeValue={batchThemeValue}
               batchBlackScreenValue={batchBlackScreenValue}
               batchPriorityMessageTemplateId={batchPriorityMessageTemplateId}
               priorityMessageTemplates={priorityMessageTemplates}
-              newPriorityMessageName={newPriorityMessageName}
-              newPriorityMessageImageUrl={newPriorityMessageImageUrl}
               selectedDeviceIds={selectedDeviceIds}
               visibleDeviceIds={visibleDeviceIds}
               searchTerm={searchTerm}
@@ -2204,15 +2698,10 @@ const AdminRegistry = () => {
               onBatchThemeValueChange={setBatchThemeValue}
               onBatchBlackScreenValueChange={setBatchBlackScreenValue}
               onBatchPriorityMessageTemplateChange={setBatchPriorityMessageTemplateId}
-              onNewPriorityMessageNameChange={setNewPriorityMessageName}
-              onNewPriorityMessageImageUrlChange={setNewPriorityMessageImageUrl}
               onApplyBatchTheme={() => void handleBatchThemeUpdate()}
               onApplyBatchBlackScreen={() => void handleBatchBlackScreenUpdate()}
               onApplyBatchPriorityMessage={() => void handleBatchPriorityMessageActivate()}
               onClearBatchPriorityMessage={() => void handleBatchPriorityMessageClear()}
-              onCreatePriorityMessage={() => void handlePriorityMessageTemplateCreate()}
-              onRefreshPriorityMessages={() => void fetchPriorityMessageTemplates()}
-              onClearSelectedDevices={clearDeviceSelection}
               onToggleAllActiveDevices={handleToggleAllActiveDevices}
               onToggleDeviceSelection={handleToggleDeviceSelection}
               onRefresh={() => void fetchDevices({ manual: true })}
@@ -2325,6 +2814,35 @@ const AdminRegistry = () => {
                 setNightModeFeedback(null);
               }}
               onSave={handleNightModeSettingsSave}
+            />
+          ) : null}
+
+          {currentView === "priority-gallery" ? (
+            <PriorityMessagesView
+              adminTheme={adminTheme}
+              templates={priorityMessageTemplates}
+              devices={pairedDevices}
+              schedules={priorityMessageSchedules}
+              presets={priorityMessagePresets}
+              templatesLoading={priorityMessagesLoading}
+              schedulesLoading={priorityMessageSchedulesLoading}
+              presetsLoading={priorityMessagePresetsLoading}
+              scheduleMutationId={priorityMessageScheduleMutationId}
+              presetMutationId={priorityMessagePresetMutationId}
+              creatingSchedule={priorityMessageScheduleSaving}
+              creatingTemplate={priorityMessageCreating}
+              uploadingTemplate={priorityMessageUploading}
+              mutatingTemplateId={priorityMessageMutatingTemplateId}
+              onRefreshTemplates={() => void fetchPriorityMessageTemplates()}
+              onRefreshSchedules={() => void fetchPriorityMessageSchedules()}
+              onRefreshPresets={() => void fetchPriorityMessagePresets()}
+              onSaveSchedule={handlePriorityMessageScheduleSave}
+              onDeleteSchedule={handlePriorityMessageScheduleDelete}
+              onSavePreset={handlePriorityMessagePresetSave}
+              onDeletePreset={handlePriorityMessagePresetDelete}
+              onCreateTemplate={handlePriorityMessageTemplateCreate}
+              onUpdateTemplate={handlePriorityMessageTemplateUpdate}
+              onDeleteTemplate={handlePriorityMessageTemplateDelete}
             />
           ) : null}
         </main>

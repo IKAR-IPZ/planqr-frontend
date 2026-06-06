@@ -183,7 +183,7 @@ body.lecturer-console-scroll-root {
 
 .lecturer-console__view-button--active {
   background: var(--admin-accent-soft);
-  color: var(--admin-accent);
+  color: var(--admin-accent-text);
 }
 
 .lecturer-console__calendar-frame {
@@ -247,12 +247,12 @@ body.lecturer-console-scroll-root {
 
 .lecturer-console__calendar-frame .fc-theme-standard,
 .lecturer-console__calendar-frame .fc-theme-standard .fc-scrollgrid {
-  --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: transparent;
-  --fc-border-color: var(--admin-border);
-  --fc-now-indicator-color: #b42318;
-  --fc-today-bg-color: rgba(32, 64, 144, 0.08);
-  --fc-event-border-color: transparent;
+  --fc-page-bg-color: transparent !important;
+  --fc-neutral-bg-color: transparent !important;
+  --fc-border-color: var(--admin-border) !important;
+  --fc-now-indicator-color: #b42318 !important;
+  --fc-today-bg-color: var(--admin-accent-soft) !important;
+  --fc-event-border-color: transparent !important;
 }
 
 .lecturer-console__calendar-frame .fc .fc-scrollgrid,
@@ -262,40 +262,40 @@ body.lecturer-console-scroll-root {
 .lecturer-console__calendar-frame .fc .fc-timegrid-slot,
 .lecturer-console__calendar-frame .fc .fc-timegrid-axis,
 .lecturer-console__calendar-frame .fc .fc-col-header-cell {
-  background: transparent;
+  background: transparent !important;
 }
 
 .lecturer-console__calendar-frame .fc .fc-col-header-cell-cushion,
 .lecturer-console__calendar-frame .fc .fc-timegrid-axis-cushion {
   padding: 0.7rem 0.4rem;
-  color: var(--admin-text-muted);
+  color: var(--admin-text-muted) !important;
   font-size: 0.76rem;
   font-weight: 600;
 }
 
 .lecturer-console__calendar-frame .fc .fc-timegrid-slot-label-cushion {
   padding-inline: 0.5rem;
-  color: var(--admin-text-soft);
+  color: var(--admin-text-soft) !important;
   font-size: 0.76rem;
 }
 
 .lecturer-console__calendar-frame .fc .fc-daygrid-day.fc-day-today,
 .lecturer-console__calendar-frame .fc .fc-timegrid-col.fc-day-today {
-  background: rgba(32, 64, 144, 0.08);
+  background: var(--admin-accent-soft) !important;
 }
 
 .lecturer-console__calendar-frame .fc .fc-col-header-cell.fc-day-today {
-  background: rgba(32, 64, 144, 0.12);
+  background: var(--admin-accent-soft) !important;
 }
 
 .lecturer-console__calendar-frame .fc .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
-  color: var(--admin-accent);
+  color: var(--admin-accent-text) !important;
   font-weight: 700;
 }
 
 .lecturer-console__calendar-frame .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number,
 .lecturer-console__calendar-frame .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-top {
-  color: var(--admin-accent);
+  color: var(--admin-accent-text) !important;
 }
 
 .lecturer-console__calendar-frame .fc-event {
@@ -306,6 +306,10 @@ body.lecturer-console-scroll-root {
 .lecturer-console__calendar-frame .lecturer-console__calendar-event--selected {
   outline: 2px solid color-mix(in srgb, var(--admin-accent) 76%, white);
   outline-offset: 1px;
+}
+
+.lecturer-console__calendar-frame .lecturer-console__calendar-event--has-notifications {
+  border: 2px solid #f97316 !important;
 }
 
 .lecturer-console__event {
@@ -416,8 +420,8 @@ body.lecturer-console-scroll-root {
 
 .lecturer-console__panel-state--accent {
   background: var(--admin-accent-soft);
-  border-color: color-mix(in srgb, var(--admin-accent) 20%, var(--admin-border));
-  color: var(--admin-accent);
+  border-color: var(--admin-accent-border);
+  color: var(--admin-accent-text);
 }
 
 .lecturer-console__panel-state--warning {
@@ -575,8 +579,8 @@ body.lecturer-console-scroll-root {
   min-height: 1.3rem;
   padding: 0 0.45rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--admin-accent) 10%, transparent);
-  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent-text);
   font-size: 0.7rem;
   font-weight: 700;
 }
@@ -658,6 +662,15 @@ body.lecturer-console-scroll-root {
   right: 0.75rem;
   z-index: 80;
   width: min(340px, calc(100vw - 1.5rem));
+  pointer-events: none;
+}
+
+.lecturer-console__toast-stack .admin-toast {
+  pointer-events: none;
+}
+
+.lecturer-console__toast-stack .admin-toast__close {
+  pointer-events: auto;
 }
 
 .lecturer-console[data-workspace-mode="drawer"] .lecturer-console__shell,

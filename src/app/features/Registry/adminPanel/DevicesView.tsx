@@ -3,8 +3,8 @@ import AdminPanelSearchField from "./AdminPanelSearchField";
 import AdminDevicesTable from "./AdminDevicesTable";
 import AdminPanelSection from "./AdminPanelSection";
 import PendingDeviceAssignmentSection from "./PendingDeviceAssignmentSection";
-import { splitDeviceClassroom } from "./helpers";
 import type {
+  AdminPanelTheme,
   Device,
   DeviceSortColumn,
   DeviceSortState,
@@ -51,6 +51,7 @@ interface DeviceCounts {
 }
 
 interface DevicesViewProps {
+  adminTheme: AdminPanelTheme;
   activeDevices: Device[];
   pendingDevices: Device[];
   counts: DeviceCounts;
@@ -63,15 +64,12 @@ interface DevicesViewProps {
   batchPriorityMessageUpdating: boolean;
   batchPriorityMessageClearing: boolean;
   priorityMessagesLoading: boolean;
-  priorityMessageCreating: boolean;
   themeMutationDeviceId: number | null;
   blackScreenMutationDeviceId: number | null;
   batchThemeValue: Device["displayTheme"];
   batchBlackScreenValue: Device["blackScreenMode"];
   batchPriorityMessageTemplateId: string;
   priorityMessageTemplates: PriorityMessageTemplate[];
-  newPriorityMessageName: string;
-  newPriorityMessageImageUrl: string;
   selectedDeviceIds: number[];
   visibleDeviceIds: number[];
   searchTerm: string;
@@ -94,15 +92,10 @@ interface DevicesViewProps {
   onBatchThemeValueChange: (value: Device["displayTheme"]) => void;
   onBatchBlackScreenValueChange: (value: Device["blackScreenMode"]) => void;
   onBatchPriorityMessageTemplateChange: (value: string) => void;
-  onNewPriorityMessageNameChange: (value: string) => void;
-  onNewPriorityMessageImageUrlChange: (value: string) => void;
   onApplyBatchTheme: () => void;
   onApplyBatchBlackScreen: () => void;
   onApplyBatchPriorityMessage: () => void;
   onClearBatchPriorityMessage: () => void;
-  onCreatePriorityMessage: () => void;
-  onRefreshPriorityMessages: () => void;
-  onClearSelectedDevices: () => void;
   onToggleAllActiveDevices: (checked: boolean) => void;
   onToggleDeviceSelection: (deviceId: number) => void;
   onRefresh: () => void;
@@ -125,6 +118,7 @@ interface DevicesViewProps {
 }
 
 const DevicesView = ({
+  adminTheme,
   activeDevices,
   pendingDevices,
   counts,
@@ -137,15 +131,12 @@ const DevicesView = ({
   batchPriorityMessageUpdating,
   batchPriorityMessageClearing,
   priorityMessagesLoading,
-  priorityMessageCreating,
   themeMutationDeviceId,
   blackScreenMutationDeviceId,
   batchThemeValue,
   batchBlackScreenValue,
   batchPriorityMessageTemplateId,
   priorityMessageTemplates,
-  newPriorityMessageName,
-  newPriorityMessageImageUrl,
   selectedDeviceIds,
   visibleDeviceIds,
   searchTerm,
@@ -168,15 +159,10 @@ const DevicesView = ({
   onBatchThemeValueChange,
   onBatchBlackScreenValueChange,
   onBatchPriorityMessageTemplateChange,
-  onNewPriorityMessageNameChange,
-  onNewPriorityMessageImageUrlChange,
   onApplyBatchTheme,
   onApplyBatchBlackScreen,
   onApplyBatchPriorityMessage,
   onClearBatchPriorityMessage,
-  onCreatePriorityMessage,
-  onRefreshPriorityMessages,
-  onClearSelectedDevices,
   onToggleAllActiveDevices,
   onToggleDeviceSelection,
   onRefresh,
@@ -220,11 +206,6 @@ const DevicesView = ({
     const priorityMessageCount = activeDevices.filter(
       (device) => device.priorityMessage?.enabled,
     ).length;
-    const facultiesCount = new Set(
-      activeDevices
-        .map((device) => splitDeviceClassroom(device.deviceClassroom).facultyCode.trim())
-        .filter(Boolean),
-    ).size;
 
     return [
       { label: "Wszystkie", value: counts.all, tone: "neutral" },
@@ -235,7 +216,6 @@ const DevicesView = ({
       { label: "Ciemny", value: darkThemeCount, tone: "neutral" },
       { label: "Czarny ekran", value: blackScreenCount, tone: "warning" },
       { label: "Komunikat", value: priorityMessageCount, tone: "warning" },
-      { label: "Wydziały", value: facultiesCount, tone: "neutral" },
     ] as const;
   }, [activeDevices, counts.all, counts.offline, counts.online, counts.pending]);
 
@@ -264,6 +244,7 @@ const DevicesView = ({
     <>
       <div className="admin-table__batch-control">
         <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+          <span className="admin-form-field__label">Motyw tabletu</span>
           <select
             className="admin-form-field__input admin-table__theme-select"
             aria-label="Batchowa zmiana trybu tabletu"
@@ -288,6 +269,7 @@ const DevicesView = ({
       </div>
       <div className="admin-table__batch-control">
         <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+          <span className="admin-form-field__label">Czarny ekran</span>
           <select
             className="admin-form-field__input admin-table__mode-select"
             aria-label="Batchowa zmiana czarnego ekranu"
@@ -311,96 +293,48 @@ const DevicesView = ({
           {batchBlackScreenUpdating ? "Zapisywanie" : "Ustaw"}
         </button>
       </div>
-      <div className="admin-priority-batch">
-        <div className="admin-priority-batch__header">
-          <strong>Komunikat priorytetowy</strong>
-          <button
-            type="button"
-            className="admin-button admin-button--ghost admin-button--small"
-            onClick={onRefreshPriorityMessages}
-            disabled={priorityMessagesLoading}
-          >
-            <i
-              className={`fas fa-sync-alt ${priorityMessagesLoading ? "fa-spin" : ""}`}
-              aria-hidden="true"
-            />
-            Odśwież
-          </button>
-        </div>
-
-        <div className="admin-table__batch-control admin-table__batch-control--wide">
-          <label className="admin-form-field admin-form-field--compact admin-table__header-field">
-            <select
-              className="admin-form-field__input"
-              aria-label="Komunikat priorytetowy"
-              value={batchPriorityMessageTemplateId}
-              onChange={(event) => onBatchPriorityMessageTemplateChange(event.target.value)}
-              disabled={
-                priorityMessagesLoading ||
-                batchPriorityMessageUpdating ||
-                !hasPriorityTemplates
-              }
-            >
-              {!hasPriorityTemplates ? <option value="">Brak definicji</option> : null}
-              {priorityMessageTemplates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="admin-button admin-button--primary admin-button--small"
-            onClick={onApplyBatchPriorityMessage}
+      <div className="admin-table__batch-control admin-table__batch-control--wide admin-table__batch-control--priority">
+        <label className="admin-form-field admin-form-field--compact admin-table__header-field">
+          <span className="admin-form-field__label">Komunikat priorytetowy</span>
+          <select
+            className="admin-form-field__input"
+            aria-label="Komunikat priorytetowy"
+            value={batchPriorityMessageTemplateId}
+            onChange={(event) => onBatchPriorityMessageTemplateChange(event.target.value)}
             disabled={
+              priorityMessagesLoading ||
               batchPriorityMessageUpdating ||
-              selectedCount === 0 ||
-              !batchPriorityMessageTemplateId
+              !hasPriorityTemplates
             }
           >
-            {batchPriorityMessageUpdating ? "Włączanie" : "Włącz"}
-          </button>
-          <button
-            type="button"
-            className="admin-button admin-button--secondary admin-button--small"
-            onClick={onClearBatchPriorityMessage}
-            disabled={batchPriorityMessageClearing || selectedCount === 0}
-          >
-            {batchPriorityMessageClearing ? "Wyłączanie" : "Wyłącz"}
-          </button>
-        </div>
-
-        <div className="admin-priority-batch__form">
-          <label className="admin-form-field admin-form-field--compact">
-            <span className="admin-form-field__label">Nazwa</span>
-            <input
-              className="admin-form-field__input"
-              type="text"
-              value={newPriorityMessageName}
-              onChange={(event) => onNewPriorityMessageNameChange(event.target.value)}
-              disabled={priorityMessageCreating}
-            />
-          </label>
-          <label className="admin-form-field admin-form-field--compact">
-            <span className="admin-form-field__label">URL obrazka/GIF</span>
-            <input
-              className="admin-form-field__input"
-              type="text"
-              value={newPriorityMessageImageUrl}
-              onChange={(event) => onNewPriorityMessageImageUrlChange(event.target.value)}
-              disabled={priorityMessageCreating}
-            />
-          </label>
-          <button
-            type="button"
-            className="admin-button admin-button--secondary admin-button--small"
-            onClick={onCreatePriorityMessage}
-            disabled={priorityMessageCreating}
-          >
-            {priorityMessageCreating ? "Dodawanie" : "Dodaj"}
-          </button>
-        </div>
+            {!hasPriorityTemplates ? <option value="">Brak definicji</option> : null}
+            {priorityMessageTemplates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="admin-button admin-button--primary admin-button--small"
+          onClick={onApplyBatchPriorityMessage}
+          disabled={
+            batchPriorityMessageUpdating ||
+            selectedCount === 0 ||
+            !batchPriorityMessageTemplateId
+          }
+        >
+          Włącz
+        </button>
+        <button
+          type="button"
+          className="admin-button admin-button--secondary admin-button--small"
+          onClick={onClearBatchPriorityMessage}
+          disabled={batchPriorityMessageClearing || selectedCount === 0}
+        >
+          Wyłącz
+        </button>
       </div>
       <button
         type="button"
@@ -409,15 +343,7 @@ const DevicesView = ({
         disabled={batchUpdating || selectedCount === 0}
       >
         <i className="fas fa-trash-alt" aria-hidden="true" />
-        Usuń zaznaczone
-      </button>
-      <button
-        type="button"
-        className="admin-button admin-button--ghost admin-button--small"
-        onClick={onClearSelectedDevices}
-        disabled={selectedCount === 0}
-      >
-        Wyczyść
+        Usuń zaznaczone tablety
       </button>
     </>
   );
@@ -545,6 +471,7 @@ const DevicesView = ({
           </div>
         ) : (
           <AdminDevicesTable
+            adminTheme={adminTheme}
             caption="Lista aktywnych tabletów"
             devices={activeDevices}
             sortState={sortState}
