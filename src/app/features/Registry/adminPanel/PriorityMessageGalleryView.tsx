@@ -144,7 +144,12 @@ const PriorityMessageGalleryView = ({
                 const isMutating = mutatingTemplateId === template.id;
 
                 return (
-                  <article key={template.id} className="admin-priority-gallery__item">
+                  <article
+                    key={template.id}
+                    className={`admin-priority-gallery__item ${
+                      isEditing ? "admin-priority-gallery__item--editing" : ""
+                    }`}
+                  >
                     <div className="admin-priority-gallery__preview">
                       <img src={template.imageUrl} alt={template.name} loading="lazy" />
                     </div>

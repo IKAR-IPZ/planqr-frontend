@@ -1139,6 +1139,12 @@ body.admin-console-scroll-root #root {
 .admin-priority-presets-section.admin-surface {
   position: relative;
   overflow: visible;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-priority-composer-section--editing.admin-surface {
+  border-color: var(--admin-warning);
+  box-shadow: 0 0 0 2px var(--admin-warning-soft);
 }
 
 .admin-priority-presets-section.admin-surface {
@@ -1771,6 +1777,17 @@ body.admin-console-scroll-root #root {
   align-items: center;
 }
 
+.admin-priority-schedule-list__grid .ag-row.admin-priority-schedule-row--editing {
+  outline: 2px solid var(--admin-warning);
+  outline-offset: -2px;
+  z-index: 5;
+  transition: outline-color 0.2s ease;
+}
+
+.admin-priority-schedule-list__grid .ag-row.admin-priority-schedule-row--editing .ag-cell {
+  background-color: var(--admin-warning-soft) !important;
+}
+
 .admin-priority-schedule__status {
   display: inline-flex;
   align-items: center;
@@ -2007,6 +2024,12 @@ body.admin-console-scroll-root #root {
   display: grid;
   grid-template-rows: 11rem auto auto;
   overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-priority-gallery__item--editing {
+  border-color: var(--admin-warning) !important;
+  box-shadow: 0 0 0 2px var(--admin-warning-soft);
 }
 
 .admin-priority-gallery__preview {

@@ -817,7 +817,9 @@ const PriorityMessagesView = ({
       <div className="admin-priority-top-grid">
         <AdminPanelSection
           title={editingScheduleId ? "Edytuj komunikat" : "Utwórz komunikat"}
-          className="admin-priority-composer-section"
+          className={`admin-priority-composer-section ${
+            editingScheduleId ? "admin-priority-composer-section--editing" : ""
+          }`}
         >
           <div className="admin-priority-composer">
             <div className="admin-priority-composer__columns">
@@ -1279,6 +1281,10 @@ const PriorityMessagesView = ({
                 sortable: true,
                 resizable: true,
                 suppressMovable: true,
+              }}
+              rowClassRules={{
+                "admin-priority-schedule-row--editing": (params) =>
+                  params.data?.id === editingScheduleId,
               }}
               getRowId={({ data }) => data.id}
               headerHeight={42}
