@@ -2658,6 +2658,7 @@ const AdminRegistry = () => {
         >
           {currentView === "devices" ? (
             <DevicesView
+              adminTheme={adminTheme}
               activeDevices={activeDevices}
               pendingDevices={allPendingDevices}
               counts={{

@@ -4,6 +4,7 @@ import AdminDevicesTable from "./AdminDevicesTable";
 import AdminPanelSection from "./AdminPanelSection";
 import PendingDeviceAssignmentSection from "./PendingDeviceAssignmentSection";
 import type {
+  AdminPanelTheme,
   Device,
   DeviceSortColumn,
   DeviceSortState,
@@ -50,6 +51,7 @@ interface DeviceCounts {
 }
 
 interface DevicesViewProps {
+  adminTheme: AdminPanelTheme;
   activeDevices: Device[];
   pendingDevices: Device[];
   counts: DeviceCounts;
@@ -116,6 +118,7 @@ interface DevicesViewProps {
 }
 
 const DevicesView = ({
+  adminTheme,
   activeDevices,
   pendingDevices,
   counts,
@@ -468,6 +471,7 @@ const DevicesView = ({
           </div>
         ) : (
           <AdminDevicesTable
+            adminTheme={adminTheme}
             caption="Lista aktywnych tabletów"
             devices={activeDevices}
             sortState={sortState}

@@ -23,7 +23,7 @@ import {
   splitDeviceClassroom,
 } from "./helpers";
 import EnumOptionsFilter, { type EnumOptionsFilterOption } from "./EnumOptionsFilter";
-import type { Device, DeviceSortColumn, DeviceSortState } from "./types";
+import type { AdminPanelTheme, Device, DeviceSortColumn, DeviceSortState } from "./types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -40,6 +40,7 @@ const PRIORITY_MESSAGE_COLUMN_MIN_WIDTH = 160;
 const ACTIONS_COLUMN_MIN_WIDTH = 144;
 
 interface AdminDevicesTableProps {
+  adminTheme: AdminPanelTheme;
   caption: string;
   devices: Device[];
   sortState: DeviceSortState;
@@ -518,6 +519,7 @@ const enumFilterColumn = (
 });
 
 const AdminDevicesTable = ({
+  adminTheme,
   caption,
   devices,
   sortState,
@@ -952,8 +954,9 @@ const AdminDevicesTable = ({
   return (
     <div className="admin-devices-grid">
       <span className="admin-table__caption">{caption}</span>
-      <div className="ag-theme-quartz admin-devices-grid__theme">
+      <div className={`${adminTheme === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"} admin-devices-grid__theme`}>
         <AgGridReact<DeviceGridRow>
+          theme="legacy"
           rowData={rows}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}

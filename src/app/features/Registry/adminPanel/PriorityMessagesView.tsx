@@ -1272,6 +1272,7 @@ const PriorityMessagesView = ({
             }`}
           >
             <AgGridReact<PriorityMessageSchedule>
+              theme="legacy"
               rowData={schedules}
               columnDefs={columnDefs}
               defaultColDef={{
