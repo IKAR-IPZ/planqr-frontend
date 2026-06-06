@@ -8,6 +8,7 @@ import {
   type SessionInfo,
 } from "../../services/authService";
 import "./AdminRegistry.css";
+import { useTheme } from "../../../context/ThemeContext";
 import AdminPairingScanner from "./adminPanel/AdminPairingScanner";
 import AdminPanelSidebar from "./adminPanel/AdminPanelSidebar";
 import AdminPanelThemeToggle from "./adminPanel/AdminPanelThemeToggle";
@@ -136,14 +137,7 @@ const readFileAsBase64 = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-const getStoredAdminTheme = (): AdminPanelTheme => {
-  if (typeof window === "undefined") {
-    return defaultAdminPanelTheme;
-  }
 
-  const storedTheme = window.localStorage.getItem(ADMIN_THEME_STORAGE_KEY);
-  return storedTheme === "dark" ? "dark" : defaultAdminPanelTheme;
-};
 
 const normalizeDeviceRecord = (device: Device): Device => ({
   ...device,
@@ -156,7 +150,7 @@ const AdminRegistry = () => {
   const currentView = getActiveView(searchParams.get("view"));
   const previewDeviceId = getPreviewDeviceId(searchParams.get("deviceId"));
 
-  const [adminTheme, setAdminTheme] = useState<AdminPanelTheme>(getStoredAdminTheme);
+  const { theme: adminTheme, setTheme: setAdminTheme } = useTheme();
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
@@ -321,9 +315,7 @@ const AdminRegistry = () => {
   ).length;
   const lecturerPanelHref = canOpenLecturerPlan(session) ? "/lecturerPlan" : null;
 
-  useEffect(() => {
-    window.localStorage.setItem(ADMIN_THEME_STORAGE_KEY, adminTheme);
-  }, [adminTheme]);
+
 
   useEffect(() => {
     if (activeDevices.length > 0) {

@@ -309,7 +309,7 @@ body.lecturer-console-scroll-root {
 }
 
 .lecturer-console__calendar-frame .lecturer-console__calendar-event--has-notifications {
-  border: 2px solid var(--admin-warning) !important;
+  border: 2px solid #f97316 !important;
 }
 
 .lecturer-console__event {
