@@ -118,9 +118,9 @@ export const adminViewMeta: Record<
     icon: "fas fa-tablet-alt",
   },
   "priority-gallery": {
-    label: "Galeria komunikatów",
-    title: "Galeria komunikatów",
-    icon: "fas fa-images",
+    label: "Priorytetowe komunikaty",
+    title: "Priorytetowe komunikaty",
+    icon: "fas fa-bullhorn",
   },
   admins: {
     label: "Administratorzy",

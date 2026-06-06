@@ -47,6 +47,71 @@ export interface TabletPriorityMessage {
   updatedBy: string | null;
 }
 
+export type PriorityMessageScheduleTargetType = "devices" | "faculty";
+
+export interface PriorityMessageScheduleDevice {
+  id: number;
+  deviceId: string;
+  room: string | null;
+  facultyCode: string | null;
+}
+
+export interface PriorityMessageSchedule {
+  id: string;
+  template: PriorityMessageTemplate;
+  priority: number;
+  targetType: PriorityMessageScheduleTargetType;
+  facultyCode: string | null;
+  deviceIds: number[];
+  devices: PriorityMessageScheduleDevice[];
+  startsAt: string;
+  endsAt: string;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  status: "scheduled" | "active";
+}
+
+export interface PriorityMessageScheduleCollision {
+  scheduleId: string;
+  templateName: string;
+  priority: number;
+  startsAt: string;
+  endsAt: string;
+  deviceIds: number[];
+  winnerScheduleId: string;
+}
+
+export interface PriorityMessageSchedulePayload {
+  templateId: string;
+  priority: number;
+  targetType: PriorityMessageScheduleTargetType;
+  facultyCode: string | null;
+  deviceIds: number[];
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface PriorityMessagePreset {
+  id: string;
+  name: string;
+  template: PriorityMessageTemplate;
+  priority: number;
+  startOffsetDays: number;
+  durationDays: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PriorityMessagePresetPayload {
+  name: string;
+  templateId: string;
+  priority: number;
+  startOffsetDays: number;
+  durationDays: number;
+}
+
 export interface AdminRecord {
   id: string;
   username: string;
