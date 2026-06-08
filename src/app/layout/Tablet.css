@@ -103,13 +103,16 @@
   }
 
   /* Scaling for tablets 1280x800 (and 140% simulated scale on FHD monitors) */
-  @media (max-width: 1366px), (max-height: 850px) {
+  @media (max-width: 1366px),
+  (max-height: 850px) {
     .tablet-wrapper {
-        transform: scale(0.7);
-        transform-origin: top left;
-        width: 142.85vw; /* 100 / 0.7 */
-        height: 142.85vh;
-        border-radius: 28px; /* scale roughly back to 20px visual */
+      transform: scale(0.7);
+      transform-origin: top left;
+      width: 142.85vw;
+      /* 100 / 0.7 */
+      height: 142.85vh;
+      border-radius: 28px;
+      /* scale roughly back to 20px visual */
     }
   }
 
@@ -131,7 +134,8 @@
 
 
   .tablet-logo {
-    height: 40px; /* Zmniejszone logo */
+    height: 40px;
+    /* Zmniejszone logo */
     object-fit: contain;
     align-self: flex-start;
   }
@@ -169,7 +173,7 @@
     justify-content: center;
     box-shadow: 0 0 15px rgba(20, 184, 166, 0.2);
   }
-  
+
   .qr-label-below {
     font-size: 0.65rem;
     color: var(--tablet-text-muted);
@@ -229,15 +233,25 @@
     margin-top: auto;
     width: 100%;
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 1.5rem;
     padding-bottom: 0.5rem;
   }
 
   .tablet-logo-bottom {
-    height: 28px; /* Zmniejszone logo footer zeby wejsc nizej */
+    height: 28px;
+    /* Zmniejszone logo footer zeby wejsc nizej */
     width: auto;
     opacity: 0.8;
     filter: brightness(0) invert(1);
+  }
+
+  .tablet-logo-faculty {
+    height: 28px;
+    /* Taki sam rozmiar co logo ZUT */
+    width: auto;
+    object-fit: contain;
   }
 
   .current-class-info {
@@ -246,7 +260,7 @@
     align-items: flex-start;
     background: rgba(20, 184, 166, 0.15);
     border: 1px solid var(--tablet-border);
-    border-left: 4px solid; 
+    border-left: 4px solid;
     padding: 1.4rem 3.5rem;
     border-radius: 16px;
     width: 90%;
@@ -390,7 +404,8 @@
     mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
     -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
     display: flex;
-    align-items: center; /* keep it centered vertically in the big box */
+    align-items: center;
+    /* keep it centered vertically in the big box */
     container-type: inline-size;
   }
 
@@ -419,6 +434,7 @@
     0% {
       transform: translateX(0);
     }
+
     100% {
       /* Scroller przesuwa się max do lewej krawędzi (100% jego szerokości) - (szerokość okna viewportu 100cqw) */
       transform: translateX(calc(100cqw - 100%));

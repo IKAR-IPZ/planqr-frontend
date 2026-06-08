@@ -9,17 +9,17 @@ import { appConfig } from '../../config/appConfig';
 import logo from '../../assets/zut_fav.png';
 
 // Faculty logos – must be imported statically so Vite bundles them
-import logoWA     from '../../assets/logotypy_wydzialow/wydzial_architektury/WA sygnet outline.png';
+import logoWA from '../../assets/logotypy_wydzialow/wydzial_architektury/WA sygnet outline.png';
 import logoWBiNoZ from '../../assets/logotypy_wydzialow/wydzial_biotechnologii_i_nauk_o_zwierzetach/WBiNoZ 2026_skrót szarości.png';
-import logoWBiIS  from '../../assets/logotypy_wydzialow/wydzial_budownictwa_i_inzynierii_srodowiska/WBiIS sygnet outline bez tła.png';
-import logoWEkon  from '../../assets/logotypy_wydzialow/wydzial_ekonomiczny/WEkon_4.jpg';
-import logoWE     from '../../assets/logotypy_wydzialow/wydzial_elektryczny/WE_4.jpg';
-import logoWI     from '../../assets/logotypy_wydzialow/wydzial_informatyki/WI_4.jpg';
-import logoWIMiM  from '../../assets/logotypy_wydzialow/wydzial_inzynierii_mechanicznej_i_mechatroniki/WIMiM_4.jpg';
-import logoWKSIR  from '../../assets/logotypy_wydzialow/wydzial_ksztaltowania_srodowiska_i_rolnictwa/WKŚIR_4.jpg';
-import logoWNoZiR from '../../assets/logotypy_wydzialow/wydzial_nauk_o_zywnosci_i_rybactwa/WNoŻiR_4.jpg';
-import logoWTMiT  from '../../assets/logotypy_wydzialow/wydzial_techniki_morskiej_i_transportu/WTMiT_4.jpg';
-import logoWTiICh from '../../assets/logotypy_wydzialow/wydzial_technologii_i_inzynierii_chemicznej/WTiICh_4.jpg';
+import logoWBiIS from '../../assets/logotypy_wydzialow/wydzial_budownictwa_i_inzynierii_srodowiska/WBiIS sygnet outline bez tła.png';
+import logoWEkon from '../../assets/logotypy_wydzialow/wydzial_ekonomiczny/WEkon_4.png';
+import logoWE from '../../assets/logotypy_wydzialow/wydzial_elektryczny/WE_4.png';
+import logoWI from '../../assets/logotypy_wydzialow/wydzial_informatyki/WI_4.png';
+import logoWIMiM from '../../assets/logotypy_wydzialow/wydzial_inzynierii_mechanicznej_i_mechatroniki/WIMiM_4.png';
+import logoWKSIR from '../../assets/logotypy_wydzialow/wydzial_ksztaltowania_srodowiska_i_rolnictwa/WKŚIR_4.png';
+import logoWNoZiR from '../../assets/logotypy_wydzialow/wydzial_nauk_o_zywnosci_i_rybactwa/WNoŻiR_4.png';
+import logoWTMiT from '../../assets/logotypy_wydzialow/wydzial_techniki_morskiej_i_transportu/WTMiT_4.png';
+import logoWTiICh from '../../assets/logotypy_wydzialow/wydzial_technologii_i_inzynierii_chemicznej/WTiICh_4.png';
 
 interface ScheduleEvent {
   id: string;
@@ -110,12 +110,12 @@ interface DeviceStatusResponse {
 
 interface TabletCommandPayload {
   type:
-    | 'connected'
-    | 'config-updated'
-    | 'reload'
-    | 'registry-reset'
-    | 'report-display-profile'
-    | 'messages-updated';
+  | 'connected'
+  | 'config-updated'
+  | 'reload'
+  | 'registry-reset'
+  | 'report-display-profile'
+  | 'messages-updated';
   hardReload?: boolean;
   path?: string;
   room?: string | null;
@@ -155,16 +155,16 @@ const DEFAULT_TABLET_PRIORITY_MESSAGE_CONFIG: TabletPriorityMessageConfig = {
 const getFacultyLogo = (room: string): string | null => {
   const r = room.toLowerCase();
   if (r.startsWith('biotechnologia')) return logoWBiNoZ;
-  if (r.startsWith('wtiich'))         return logoWTiICh;
-  if (r.startsWith('wtmit'))          return logoWTMiT;
-  if (r.startsWith('wnozir'))         return logoWNoZiR;
-  if (r.startsWith('wksir'))          return logoWKSIR;
-  if (r.startsWith('wimim'))          return logoWIMiM;
-  if (r.startsWith('wbiis'))          return logoWBiIS;
-  if (r.startsWith('ekonomia'))       return logoWEkon;
-  if (r.startsWith('wa'))             return logoWA;
-  if (r.startsWith('we'))             return logoWE;
-  if (r.startsWith('wi'))             return logoWI;
+  if (r.startsWith('wtiich')) return logoWTiICh;
+  if (r.startsWith('wtmit')) return logoWTMiT;
+  if (r.startsWith('wnozir')) return logoWNoZiR;
+  if (r.startsWith('wksir')) return logoWKSIR;
+  if (r.startsWith('wimim')) return logoWIMiM;
+  if (r.startsWith('wbiis')) return logoWBiIS;
+  if (r.startsWith('ekonomia')) return logoWEkon;
+  if (r.startsWith('wa')) return logoWA;
+  if (r.startsWith('we')) return logoWE;
+  if (r.startsWith('wi')) return logoWI;
   return null;
 };
 
