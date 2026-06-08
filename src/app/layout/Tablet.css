@@ -235,7 +235,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2rem;
+    gap: 1.5rem;
     padding-bottom: 0.5rem;
   }
 
@@ -248,7 +248,8 @@
   }
 
   .tablet-logo-faculty {
-    height: 28px; /* Taki sam rozmiar co logo ZUT */
+    height: 28px;
+    /* Taki sam rozmiar co logo ZUT */
     width: auto;
     object-fit: contain;
   }
