@@ -16,7 +16,7 @@ import logoWEkon from '../../assets/logotypy_wydzialow/wydzial_ekonomiczny/WEkon
 import logoWE from '../../assets/logotypy_wydzialow/wydzial_elektryczny/WE_4.png';
 import logoWI from '../../assets/logotypy_wydzialow/wydzial_informatyki/WI_4.png';
 import logoWIMiM from '../../assets/logotypy_wydzialow/wydzial_inzynierii_mechanicznej_i_mechatroniki/WIMiM_4.png';
-import logoWKSIR from '../../assets/logotypy_wydzialow/wydzial_ksztaltowania_srodowiska_i_rolnictwa/WKŚIR_4.jpg';
+import logoWKSIR from '../../assets/logotypy_wydzialow/wydzial_ksztaltowania_srodowiska_i_rolnictwa/WKŚIR_4.png';
 import logoWNoZiR from '../../assets/logotypy_wydzialow/wydzial_nauk_o_zywnosci_i_rybactwa/WNoŻiR_4.png';
 import logoWTMiT from '../../assets/logotypy_wydzialow/wydzial_techniki_morskiej_i_transportu/WTMiT_4.png';
 import logoWTiICh from '../../assets/logotypy_wydzialow/wydzial_technologii_i_inzynierii_chemicznej/WTiICh_4.png';
