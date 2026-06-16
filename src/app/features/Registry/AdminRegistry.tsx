@@ -1937,8 +1937,8 @@ const AdminRegistry = () => {
   };
 
   const handleRemoveAdmin = async (admin: AdminRecord) => {
-    if (admin.adminSource !== "panel") {
-      setAdminFeedback("To konto można usunąć tylko poza panelem.");
+    if (!admin.canBeRemovedFromPanel) {
+      setAdminFeedback("Tego konta administratora nie można usunąć z panelu.");
       setAdminFeedbackTone("danger");
       return;
     }

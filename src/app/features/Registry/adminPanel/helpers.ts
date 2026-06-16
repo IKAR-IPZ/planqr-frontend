@@ -194,8 +194,13 @@ export const hasDeviceDisplayProfile = (device: Device) =>
       device.devicePixelRatio,
   );
 
-export const getAdminSourceLabel = (source: AdminRecord["adminSource"]) =>
-  source === "panel" ? "Panel administracyjny" : "Baza danych";
+export const getAdminSourceLabel = (source: AdminRecord["adminSource"]) => {
+  if (source === "env") {
+    return "Konto z .env";
+  }
+
+  return source === "panel" ? "Panel administracyjny" : "Baza danych";
+};
 
 export const getConnectionLabel = (device: Device) => {
   if (device.status !== "ACTIVE") {

@@ -115,7 +115,7 @@ export interface PriorityMessagePresetPayload {
 export interface AdminRecord {
   id: string;
   username: string;
-  adminSource: "database" | "panel";
+  adminSource: "database" | "panel" | "env";
   createdAt: string | null;
   updatedAt: string | null;
   isCurrentUser: boolean;

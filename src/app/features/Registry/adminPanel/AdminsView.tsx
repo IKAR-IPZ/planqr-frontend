@@ -115,29 +115,27 @@ const AdminsView = ({
               </span>
             </td>
             <td data-label="Akcje">
-              {admin.adminSource === "panel" ? (
-                <button
-                  type="button"
-                  className="admin-button admin-button--danger admin-button--small"
-                  onClick={() => onRemoveAdmin(admin)}
-                  disabled={
-                    adminMutationLoading ||
-                    !admin.canBeRemovedFromPanel ||
-                    admins.length <= 1
-                  }
-                  title={
-                    admin.isCurrentUser
+              <button
+                type="button"
+                className="admin-button admin-button--danger admin-button--small"
+                onClick={() => onRemoveAdmin(admin)}
+                disabled={
+                  adminMutationLoading ||
+                  !admin.canBeRemovedFromPanel ||
+                  admins.length <= 1
+                }
+                title={
+                  admin.adminSource === "env"
+                    ? "Konto administratora z .env nie może zostać usunięte z panelu."
+                    : admin.isCurrentUser
                       ? "Nie możesz usunąć samemu sobie uprawnień administratora."
                       : admins.length <= 1
                         ? "Nie można usunąć ostatniego administratora."
                         : "Usuń administratora"
-                  }
-                >
-                  Usuń
-                </button>
-              ) : (
-                <span className="admin-table__secondary">Poza panelem</span>
-              )}
+                }
+              >
+                Usuń
+              </button>
             </td>
           </tr>
         ))}

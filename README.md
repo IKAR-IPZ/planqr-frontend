@@ -245,6 +245,8 @@ ZUT_SCHEDULE_URL=https://plan.zut.edu.pl/schedule.php
 ZUT_PLAN_BASE_URL=https://plan.zut.edu.pl
 DATABASE_URL=postgresql://postgres:postgres@db-host:5432/planqr_db?schema=public
 JWT_SECRET=change-me
+ROOT_ADMIN_LOGIN=
+ROOT_ADMIN_PASSWORD=
 LDAP_URL=ldap://ldap.zut.edu.pl
 LDAP_DN=uid=%s,cn=users,cn=accounts,dc=zut,dc=edu,dc=pl
 LDAP_SYNC_ENABLED=false
