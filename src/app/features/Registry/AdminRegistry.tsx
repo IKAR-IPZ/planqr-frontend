@@ -59,6 +59,7 @@ const ADMIN_SCROLL_ROOT_CLASS = "admin-console-scroll-root";
 const MOBILE_BREAKPOINT_PX = 720;
 const SCROLL_TOP_VISIBILITY_THRESHOLD_PX = 160;
 const SCROLL_TOP_TOAST_GAP_PX = 12;
+const PRIORITY_MESSAGE_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
 
 type AdminNavigationKey = AdminPanelView | "pairing" | "lecturer-preview";
 
@@ -1279,6 +1280,11 @@ const AdminRegistry = () => {
 
     if (!name || !payload.file) {
       pushToast("Podaj nazwę i wybierz plik komunikatu.", "danger");
+      return false;
+    }
+
+    if (payload.file.size > PRIORITY_MESSAGE_UPLOAD_MAX_BYTES) {
+      pushToast("Plik komunikatu nie może przekraczać 50 MB.", "danger");
       return false;
     }
 

@@ -104,7 +104,7 @@ const PriorityMessageGalleryView = ({
             </label>
 
             <label className="admin-form-field">
-              <span className="admin-form-field__label">Plik</span>
+              <span className="admin-form-field__label">Plik (maks. 50 MB)</span>
               <input
                 key={createFormVersion}
                 className="admin-form-field__input"
